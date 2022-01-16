@@ -1,0 +1,79 @@
+{
+	"common": {
+		"name": "victron-mk2",
+		"version": "0.0.1",
+		"news": {
+			"0.0.1": {
+				"en": "initial release",
+				"de": "Erstveröffentlichung",
+				"ru": "Начальная версия",
+				"pt": "lançamento inicial",
+				"nl": "Eerste uitgave",
+				"fr": "Première version",
+				"it": "Versione iniziale",
+				"es": "Versión inicial",
+				"pl": "Pierwsze wydanie",
+				"zh-cn": "首次出版"
+			}
+		},
+		"title": "victron-mk2",
+		"titleLang": {
+			"en": "victron-mk2",
+			"de": "Victron-mk2",
+			"ru": "victron-mk2",
+			"pt": "vitron-mk2",
+			"nl": "victron-mk2",
+			"fr": "victron-mk2",
+			"it": "victron-mk2",
+			"es": "victron-mk2",
+			"pl": "victron-mk2",
+			"zh-cn": "victron-mk2"
+		},
+		"desc": {
+			"en": "Victron Multiplus",
+			"de": "Victron MultiPlus",
+			"ru": "Виктрон Мультиплюс",
+			"pt": "Victron Multiplus",
+			"nl": "Victron Multiplus",
+			"fr": "Victron Multiplus",
+			"it": "Victron Multiplus",
+			"es": "Multiplus de Victron",
+			"pl": "Victron Multiplus",
+			"zh-cn": "Victron Multiplus"
+		},
+		"authors": [
+			"joerg <joerg.spoerl@gmx.de>"
+		],
+		"keywords": [
+			"ioBroker",
+			"template",
+			"Smart Home",
+			"home automation"
+		],
+		"license": "MIT",
+		"platform": "Javascript/Node.js",
+		"main": "build/main.js",
+		"icon": "victron-mk2.png",
+		"enabled": true,
+		"extIcon": "https://raw.githubusercontent.com/joergspoerl/ioBroker.victron-mk2/main/admin/victron-mk2.png",
+		"readme": "https://github.com/joergspoerl/ioBroker.victron-mk2/blob/main/README.md",
+		"loglevel": "info",
+		"mode": "daemon",
+		"type": "energy",
+		"compact": true,
+		"connectionType": "local",
+		"dataSource": "poll",
+		"materialize": true,
+		"dependencies": [
+			{
+				"js-controller": ">=2.0.0"
+			}
+		]
+	},
+	"native": {
+		"option1": true,
+		"option2": "42"
+	},
+	"objects": [],
+	"instanceObjects": []
+}
