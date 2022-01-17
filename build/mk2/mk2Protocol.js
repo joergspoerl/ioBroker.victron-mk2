@@ -4,9 +4,14 @@ exports.Mk2Protocol = void 0;
 const mk2Connection_1 = require("./mk2Connection");
 const mk2Model_1 = require("./mk2Model");
 class Mk2Protocol {
-    constructor() {
-        this.conn = new mk2Connection_1.Mk2Connection();
+    constructor(portPath) {
         this.mk2Model = new mk2Model_1.Mk2Model();
+        this.portPath = portPath;
+        this.conn = new mk2Connection_1.Mk2Connection(portPath);
+    }
+    async poll() {
+        await this.address();
+        await this.led_status();
     }
     checksum(buffer) {
         let sum = 0;
@@ -19,8 +24,7 @@ class Mk2Protocol {
     }
     create_frame(command, data) {
         const len = command.length + data.length + 1;
-        let buf = Buffer.from(len.toString());
-        buf = Buffer.concat([buf, Buffer.from((0xFF).toString())]);
+        let buf = Buffer.from([len, [0xFF]]);
         buf = Buffer.concat([buf, Buffer.from(command)]);
         buf = Buffer.concat([buf, Buffer.from(data)]);
         let sum = 0;
@@ -39,26 +43,33 @@ class Mk2Protocol {
             // decode response frame
         });
     }
+    async led_status() {
+        return this.conn.communicate(this.create_frame("L", ""), async (response) => {
+            const led_status = response[3];
+            const led_blink = response[4];
+            this.mk2Model["led.mains"].value = ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.absorption"].value = ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.bulk"].value = ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.float"].value = ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.inverter"].value = ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.overload"].value = ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.low_bat"].value = ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? "blink" : "on") : "off");
+            this.mk2Model["led.temp"].value = ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? "blink" : "on") : "off");
+            const result = {
+                "mains": ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? "blink" : "on") : "off"),
+                "absorption": ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? "blink" : "on") : "off"),
+                "bulk": ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? "blink" : "on") : "off"),
+                "float": ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? "blink" : "on") : "off"),
+                "inverter": ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? "blink" : "on") : "off"),
+                "overload": ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? "blink" : "on") : "off"),
+                "low_bat": ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? "blink" : "on") : "off"),
+                "temp": ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? "blink" : "on") : "off"),
+            };
+            console.log("led_status", result);
+        });
+    }
 }
 exports.Mk2Protocol = Mk2Protocol;
-// this.led_status = async function () {
-// 	return communicate (create_frame("L", ""), (frame) => {
-// 		const led_status = frame[3];
-// 		const led_blink  = frame[4];
-// 		return {
-// 			led_status: {
-// 				"mains": ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? "blink" : "on") : "off"),
-// 				"absorption": ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? "blink" : "on") : "off"),
-// 				"bulk": ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? "blink" : "on") : "off"),
-// 				"float": ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? "blink" : "on") : "off"),
-// 				"inverter": ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? "blink" : "on") : "off"),
-// 				"overload": ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? "blink" : "on") : "off"),
-// 				"low bat": ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? "blink" : "on") : "off"),
-// 				"temp": ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? "blink" : "on") : "off"),
-// 			}
-// 		}
-// 	});
-// }
 // this.umains_calc_load = async function() {
 // 	return communicate (create_frame("W", "\x36\x00\x00"), (frame) => {
 // 		const data = bp.unpack("<h B h", frame, 4)

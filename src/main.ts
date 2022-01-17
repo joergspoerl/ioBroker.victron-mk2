@@ -11,9 +11,16 @@ import { Mk2Protocol } from "./mk2/mk2Protocol";
 // Load your modules here, e.g.:
 // import * as fs from "fs";
 
+// helper function
+function sleep(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 class VictronMk2 extends utils.Adapter {
 
-	mk2: Mk2Protocol = new Mk2Protocol()
+	mk2: Mk2Protocol | undefined
+	interval = 2000;
+	mainLoopRunning = true
 
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({
@@ -37,6 +44,12 @@ class VictronMk2 extends utils.Adapter {
 		// this.config:
 		this.log.info("config option1: " + this.config.option1);
 		this.log.info("config option2: " + this.config.option2);
+		this.log.info("config interval: " + this.config.interval);
+		this.log.info("config portPath: " + this.config.portPath);
+
+		this.config.interval = 2000
+
+		this.mk2 = new Mk2Protocol(this.config.portPath)
 
 		/*
 		For every state in the system there has to be also an object of type state
@@ -56,6 +69,8 @@ class VictronMk2 extends utils.Adapter {
 		});
 
 		await this.initObjects();
+
+		this.mainLoop();
 
 		// In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
 		this.subscribeStates("testVariable");
@@ -96,7 +111,7 @@ class VictronMk2 extends utils.Adapter {
 			// clearTimeout(timeout2);
 			// ...
 			// clearInterval(interval1);
-
+			this.mainLoopRunning = false;
 			callback();
 		} catch (e) {
 			callback();
@@ -118,23 +133,39 @@ class VictronMk2 extends utils.Adapter {
 	// 	}
 	// }
 	private async initObjects(): Promise<void> {
-		for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
-			const v = value as Mk2DataEntry
-			await this.setObjectNotExistsAsync(key, {
-				type: "state",
-				common: {
-					name: v.descr,
-					type: v.type,
-					role: "state",
-					read: true,
-					write: false,
-					unit: v.unit,
-				},
-				native: {},
-			});
+		if (this.mk2) {
+			for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
+				const v = value as Mk2DataEntry
+				await this.setObjectNotExistsAsync(key, {
+					type: "state",
+					common: {
+						name: v.descr,
+						type: v.type,
+						role: "state",
+						read: true,
+						write: false,
+						unit: v.unit,
+					},
+					native: {},
+				});
+			}
+
 		}
 	}
 
+	private async mainLoop(): Promise<void> {
+		while(this.mainLoopRunning) {
+			await this.updateStates();
+			console.log("sleep", this.config.interval * 1000)
+			await sleep(this.config.interval * 1000)
+		}
+	}
+
+	private async updateStates() : Promise<void> {
+		if (this.mk2) {
+			await this.mk2.poll()
+		}
+	}
 	/**
 	 * Is called if a subscribed state changes
 	 */

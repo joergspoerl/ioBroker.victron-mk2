@@ -1,4 +1,4 @@
-﻿  var SerialPort = require('serialport');
+﻿var SerialPort = require('serialport');
 var bp = require('bufferpack');
 
 const EventEmitter = require('events');

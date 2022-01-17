@@ -152,5 +152,61 @@ export class Mk2Model {
 		value: 0,
 	};
 
+	"led.mains":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.absorption":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.bulk":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.float":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.inverter":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.overload":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.low_bat":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
+	"led.temp":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "value",
+		type: "string",
+		value: "",
+	};
 
 }

@@ -21,6 +21,7 @@
   "dependencies": {
     "@iobroker/adapter-core": "^2.5.1",
     "@types/serialport": "^8.0.2",
+    "bufferpack": "0.0.6",
     "serialport": "^9.2.8"
   },
   "devDependencies": {
