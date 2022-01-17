@@ -7,27 +7,36 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 class Mk2Connection {
-    constructor() {
-        this.port = new serialWrapper_1.Mk2Serial();
+    constructor(portPath) {
         this.debug = true;
+        this.portPath = portPath;
+        this.port = new serialWrapper_1.Mk2Serial(portPath);
     }
     async communicate(request, decode) {
-        await this.sync(); // for syncing recive version frame
-        await this.port.write(request);
-        let i = 0;
-        while (true) {
-            i++;
-            const frame = await this.receiveFrame();
-            if (frame[1] != 255 || frame[2] != 86) {
-                decode(frame);
-                break;
-            }
-            else {
-                console.log("VERSION FRAME", frame);
-                if (i > 5) {
-                    throw ("Out of sync !");
+        try {
+            await this.port.open();
+            await this.sync(); // for syncing recive version frame
+            this.frame_debug("SEND ->", request);
+            await this.port.write(request);
+            let i = 0;
+            while (true) {
+                i++;
+                const frame = await this.receiveFrame();
+                if (frame[1] != 255 || frame[2] != 86) {
+                    decode(frame);
+                    break;
+                }
+                else {
+                    console.log("VERSION FRAME", frame);
+                    if (i > 5) {
+                        throw ("Out of sync !");
+                    }
                 }
             }
+            await this.port.close();
+        }
+        catch (Exception) {
+            console.log("communicate: ", Exception);
         }
     }
     async receiveFrame() {
@@ -57,15 +66,16 @@ class Mk2Connection {
         return frame;
     }
     async sync() {
+        console.log("start sync: ");
         let f;
         await this.port.flush();
         while (true) {
             f = this.port.read(1);
-            //console.log(a)
+            // console.log(f)
             if (f && f[0] == 0xFF) {
                 await sleep(100);
                 f = this.port.read(7);
-                //console.log(a)
+                // console.log(f)
                 break;
             }
             await sleep(10);

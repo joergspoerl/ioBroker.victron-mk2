@@ -6,15 +6,43 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mk2Serial = void 0;
 const serialport_1 = __importDefault(require("serialport"));
 class Mk2Serial {
+    constructor(portPath) {
+        this.portPath = portPath;
+    }
     open() {
         return new Promise((resolve, reject) => {
-            this.port = new serialport_1.default("");
-            this.port.open((err) => {
-                if (err) {
-                    reject(err);
+            console.log("open:", this.portPath);
+            this.port = new serialport_1.default(this.portPath, {
+                baudRate: 2400,
+            }, (err1) => {
+                if (err1) {
+                    reject(err1);
                 }
-                resolve();
+                if (this.port) {
+                    console.log("mk2-dtr: on");
+                    // activate interface
+                    this.port.set({
+                        "dtr": true,
+                        "rts": false,
+                        "cts": false,
+                        //						"dts": false,
+                        "brk": false,
+                    });
+                    resolve();
+                }
             });
+        });
+    }
+    close() {
+        return new Promise((resolve, reject) => {
+            if (this.port) {
+                this.port.close((err) => {
+                    if (err) {
+                        reject(err);
+                    }
+                    resolve();
+                });
+            }
         });
     }
     flush() {

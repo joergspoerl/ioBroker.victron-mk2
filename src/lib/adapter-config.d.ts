@@ -6,6 +6,8 @@ declare global {
 		interface AdapterConfig {
 			option1: boolean;
 			option2: string;
+			interval: number;
+			portPath: string
 		}
 	}
 }

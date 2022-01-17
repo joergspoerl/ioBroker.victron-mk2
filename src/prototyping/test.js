@@ -1,7 +1,7 @@
 ﻿console.log("Use 'core' module")
 
 
-var victron_mk2 = require("./io/victron_mk2");
+var victron_mk2 = require("./victron_mk2");
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -38,7 +38,7 @@ function sleep(ms) {
 
 
         try {
-            a = await mk2.set_assist(0)
+            a = await mk2.set_assist(4)
             console.log("===========================", a)
         } catch (Exception) {
             console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXX EXCEPTION", Exception)

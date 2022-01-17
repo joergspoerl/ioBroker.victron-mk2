@@ -122,6 +122,62 @@ class Mk2Model {
             type: "number",
             value: 0,
         };
+        this["led.mains"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.absorption"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.bulk"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.float"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.inverter"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.overload"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.low_bat"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
+        this["led.temp"] = {
+            descr: "",
+            unit: "",
+            role: "value",
+            type: "string",
+            value: "",
+        };
     }
 }
 exports.Mk2Model = Mk2Model;
