@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TristarModel = void 0;
-class TristarModel {
+exports.Mk2Model = void 0;
+class Mk2Model {
     constructor() {
         this["dc_info.ubat"] = {
             descr: "Battery voltage",
@@ -124,5 +124,5 @@ class TristarModel {
         };
     }
 }
-exports.TristarModel = TristarModel;
+exports.Mk2Model = Mk2Model;
 //# sourceMappingURL=mk2Model.js.map

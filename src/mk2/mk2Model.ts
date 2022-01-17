@@ -13,7 +13,7 @@ export type Mk2PropertyType = number | string | boolean | null; // entspricht io
 export type ioBrokerRole = "state" | "value.current" | "value.voltage" | "value" | "value.temperature"
 
 
-export class TristarModel {
+export class Mk2Model {
 	[key: string]: Mk2DataEntry
 
  	"dc_info.ubat":    Mk2DataEntry = {
