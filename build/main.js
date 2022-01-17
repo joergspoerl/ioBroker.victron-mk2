@@ -25,6 +25,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // The adapter-core module gives you access to the core ioBroker functions
 // you need to create an adapter
 const utils = __importStar(require("@iobroker/adapter-core"));
+const mk2Protocol_1 = require("./mk2/mk2Protocol");
 // Load your modules here, e.g.:
 // import * as fs from "fs";
 class VictronMk2 extends utils.Adapter {
@@ -33,6 +34,7 @@ class VictronMk2 extends utils.Adapter {
             ...options,
             name: "victron-mk2",
         });
+        this.mk2 = new mk2Protocol_1.Mk2Protocol();
         this.on("ready", this.onReady.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
         // this.on("objectChange", this.onObjectChange.bind(this));
@@ -64,6 +66,7 @@ class VictronMk2 extends utils.Adapter {
             },
             native: {},
         });
+        await this.initObjects();
         // In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
         this.subscribeStates("testVariable");
         // You can also add a subscription for multiple states. The following line watches all states starting with "lights."
@@ -117,6 +120,23 @@ class VictronMk2 extends utils.Adapter {
     // 		this.log.info(`object ${id} deleted`);
     // 	}
     // }
+    async initObjects() {
+        for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
+            const v = value;
+            await this.setObjectNotExistsAsync(key, {
+                type: "state",
+                common: {
+                    name: v.descr,
+                    type: v.type,
+                    role: "state",
+                    read: true,
+                    write: false,
+                    unit: v.unit,
+                },
+                native: {},
+            });
+        }
+    }
     /**
      * Is called if a subscribed state changes
      */
