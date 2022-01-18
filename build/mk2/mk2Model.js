@@ -178,6 +178,14 @@ class Mk2Model {
             type: "string",
             value: "",
         };
+        this["control.set_assist"] = {
+            descr: "Set input current limit",
+            unit: "A",
+            role: "value.current",
+            type: "number",
+            value: 0,
+            setFunc: (mk2, value) => mk2.set_assist(value)
+        };
     }
 }
 exports.Mk2Model = Mk2Model;

@@ -22,6 +22,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.splitIdFromAdapter = void 0;
 // The adapter-core module gives you access to the core ioBroker functions
 // you need to create an adapter
 const utils = __importStar(require("@iobroker/adapter-core"));
@@ -32,6 +33,13 @@ const mk2Protocol_1 = require("./mk2/mk2Protocol");
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+function splitIdFromAdapter(str) {
+    const delimiter = ".";
+    const start = 2;
+    const tokens = str.split(delimiter).slice(start);
+    return tokens.join(delimiter);
+}
+exports.splitIdFromAdapter = splitIdFromAdapter;
 class VictronMk2 extends utils.Adapter {
     constructor(options = {}) {
         super({
@@ -78,7 +86,7 @@ class VictronMk2 extends utils.Adapter {
         await this.initObjects();
         this.mainLoop();
         // In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
-        this.subscribeStates("testVariable");
+        this.subscribeStates("control.*");
         // You can also add a subscription for multiple states. The following line watches all states starting with "lights."
         // this.subscribeStates("lights.*");
         // Or, if you really must, you can also watch all states. Don't do this if you don't need to. Otherwise this will cause a lot of unnecessary load on the system:
@@ -142,7 +150,7 @@ class VictronMk2 extends utils.Adapter {
                         type: v.type,
                         role: "state",
                         read: true,
-                        write: false,
+                        write: v.setFunc ? true : false,
                         unit: v.unit,
                     },
                     native: {},
@@ -158,8 +166,25 @@ class VictronMk2 extends utils.Adapter {
         }
     }
     async updateStates() {
-        if (this.mk2) {
-            await this.mk2.poll();
+        try {
+            if (this.mk2) {
+                await this.mk2.poll();
+                for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
+                    const v = value;
+                    if (v.value !== v.valueOld) {
+                        this.log.debug("key     : " + key);
+                        this.log.debug("value   : " + v.value);
+                        this.log.debug("valueOld: " + v.valueOld);
+                        await this.setStateAsync(key, {
+                            val: v.value,
+                            ack: true
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception) {
+            this.log.error("ERROR updateStates in  tristar.readHoldingRegister: " + JSON.stringify(Exception));
         }
     }
     /**
@@ -169,6 +194,16 @@ class VictronMk2 extends utils.Adapter {
         if (state) {
             // The state was changed
             this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+            const idShort = splitIdFromAdapter(id);
+            if (idShort == "control.set_assist" && this.mk2) {
+                this.mk2.mk2Model[idShort].value = state.val;
+                const setFunc = this.mk2.mk2Model[idShort].setFunc;
+                if (this.mk2.mk2Model[idShort] && setFunc) {
+                    setFunc(this.mk2, state.val);
+                }
+            }
+            // if (this.mk2.mk2Model[idShort].setFunc == "function")
+            // this.mk2.mk2Model[idShort].setFunc()
         }
         else {
             // The state was deleted

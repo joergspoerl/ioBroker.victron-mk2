@@ -16,6 +16,14 @@ function sleep(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function splitIdFromAdapter(str: string): string  {
+	const delimiter = "."
+	const start = 2
+	const tokens = str.split(delimiter).slice(start)
+	return tokens.join(delimiter);
+}
+
+
 class VictronMk2 extends utils.Adapter {
 
 	mk2: Mk2Protocol | undefined
@@ -73,7 +81,7 @@ class VictronMk2 extends utils.Adapter {
 		this.mainLoop();
 
 		// In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
-		this.subscribeStates("testVariable");
+		this.subscribeStates("control.*");
 		// You can also add a subscription for multiple states. The following line watches all states starting with "lights."
 		// this.subscribeStates("lights.*");
 		// Or, if you really must, you can also watch all states. Don't do this if you don't need to. Otherwise this will cause a lot of unnecessary load on the system:
@@ -143,7 +151,7 @@ class VictronMk2 extends utils.Adapter {
 						type: v.type,
 						role: "state",
 						read: true,
-						write: false,
+						write: v.setFunc ? true : false,
 						unit: v.unit,
 					},
 					native: {},
@@ -161,18 +169,50 @@ class VictronMk2 extends utils.Adapter {
 		}
 	}
 
-	private async updateStates() : Promise<void> {
-		if (this.mk2) {
-			await this.mk2.poll()
+
+	private async updateStates(): Promise<void> {
+		try {
+			if (this.mk2) {
+				await this.mk2.poll()
+
+				for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
+					const v = value as Mk2DataEntry;
+					if (v.value !== v.valueOld) {
+						this.log.debug("key     : " + key)
+						this.log.debug("value   : " + v.value)
+						this.log.debug("valueOld: " + v.valueOld)
+						await this.setStateAsync(key, {
+							val: v.value,
+							ack: true
+						});
+					}
+				}
+			}
+		} catch (Exception) {
+			this.log.error("ERROR updateStates in  tristar.readHoldingRegister: " + JSON.stringify(Exception))
 		}
+
 	}
+
+
 	/**
 	 * Is called if a subscribed state changes
 	 */
-	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
+	private  onStateChange(id: string, state: ioBroker.State | null | undefined) : void {
 		if (state) {
 			// The state was changed
 			this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+
+			const idShort = splitIdFromAdapter(id)
+			if (idShort == "control.set_assist"  && this.mk2) {
+				this.mk2.mk2Model[idShort].value = state.val
+				const setFunc = this.mk2.mk2Model[idShort].setFunc
+				if (this.mk2.mk2Model[idShort] && setFunc) {
+					setFunc(this.mk2, state.val as number)
+				}
+			}
+			// if (this.mk2.mk2Model[idShort].setFunc == "function")
+			// this.mk2.mk2Model[idShort].setFunc()
 		} else {
 			// The state was deleted
 			this.log.info(`state ${id} deleted`);
