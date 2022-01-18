@@ -9,10 +9,20 @@ function sleep(ms) {
 class Mk2Connection {
     constructor(portPath) {
         this.debug = true;
+        this.busy = false;
         this.portPath = portPath;
         this.port = new serialWrapper_1.Mk2Serial(portPath);
     }
+    async waitForFreeLine() {
+        console.log("waitForFreeLine start");
+        while (this.busy) {
+            await sleep(100);
+        }
+        console.log("waitForFreeLine end");
+    }
     async communicate(request, decode) {
+        await this.waitForFreeLine();
+        this.busy = true;
         try {
             await this.port.open();
             await this.sync(); // for syncing recive version frame
@@ -22,22 +32,25 @@ class Mk2Connection {
             while (true) {
                 i++;
                 const frame = await this.receiveFrame();
+                this.busy = false;
                 if (frame[1] != 255 || frame[2] != 86) {
                     decode(frame);
                     break;
                 }
                 else {
                     console.log("VERSION FRAME", frame);
-                    if (i > 5) {
+                    if (i > 1) {
+                        await this.port.close();
                         throw ("Out of sync !");
                     }
                 }
             }
-            await this.port.close();
         }
         catch (Exception) {
             console.log("communicate: ", Exception);
         }
+        this.busy = false;
+        await this.port.close();
     }
     async receiveFrame() {
         let frame;

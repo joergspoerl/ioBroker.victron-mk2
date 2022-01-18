@@ -1,3 +1,4 @@
+import { Mk2Protocol } from "./mk2Protocol";
 
 export interface Mk2DataEntry {
 	descr: string,
@@ -6,6 +7,7 @@ export interface Mk2DataEntry {
 	type: ioBroker.CommonType //'number' | 'string' | 'boolean' | 'array' | 'object' | 'mixed' | 'file'
 	value: Mk2PropertyType;
 	valueOld?: Mk2PropertyType;
+	setFunc?:  (protocol: Mk2Protocol, value: number) => Promise<void>
 }
 
 export type Mk2PropertyType = number | string | boolean | null; // entspricht ioBroker.StateValue
@@ -112,6 +114,7 @@ export class Mk2Model {
 		value: 0,
 	};
 
+
 	"state.state":    Mk2DataEntry = {
 		descr: "state number",
 		unit:  "",
@@ -208,5 +211,16 @@ export class Mk2Model {
 		type: "string",
 		value: "",
 	};
+
+
+	"control.set_assist":    Mk2DataEntry = {
+		descr: "Set input current limit",
+		unit:  "A",
+		role:  "value.current",
+		type: "number",
+		value: 0,
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_assist(value)
+	};
+
 
 }

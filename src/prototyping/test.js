@@ -38,7 +38,7 @@ function sleep(ms) {
 
 
         try {
-            a = await mk2.set_assist(4)
+            a = await mk2.set_assist(0)
             console.log("===========================", a)
         } catch (Exception) {
             console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXX EXCEPTION", Exception)
