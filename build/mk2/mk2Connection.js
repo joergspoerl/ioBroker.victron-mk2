@@ -21,11 +21,14 @@ class Mk2Connection {
         console.log("waitForFreeLine end");
     }
     async communicate(request, decode) {
+        var _a;
         await this.waitForFreeLine();
         this.busy = true;
         try {
-            await this.port.open();
-            await this.sync(); // for syncing recive version frame
+            if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
+                await this.port.open();
+            }
+            // await this.sync() // for syncing recive version frame
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
             let i = 0;
@@ -34,13 +37,13 @@ class Mk2Connection {
                 const frame = await this.receiveFrame();
                 this.busy = false;
                 if (frame[1] != 255 || frame[2] != 86) {
-                    decode(frame);
+                    await decode(frame);
                     break;
                 }
                 else {
                     console.log("VERSION FRAME", frame);
                     if (i > 1) {
-                        await this.port.close();
+                        // await this.port.close()
                         throw ("Out of sync !");
                     }
                 }
@@ -50,7 +53,7 @@ class Mk2Connection {
             console.log("communicate: ", Exception);
         }
         this.busy = false;
-        await this.port.close();
+        // await this.port.close()
     }
     async receiveFrame() {
         let frame;

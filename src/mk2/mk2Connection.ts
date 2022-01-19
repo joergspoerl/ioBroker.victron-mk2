@@ -16,7 +16,7 @@ export class Mk2Connection {
 		this.port = new Mk2Serial(portPath)
 	}
 
-	async waitForFreeLine () {
+	async waitForFreeLine (): Promise<void> {
 		console.log("waitForFreeLine start")
 		while (this.busy) {
 			await sleep(100)
@@ -29,9 +29,11 @@ export class Mk2Connection {
 		this.busy = true
 
 		try {
-			await this.port.open()
+			if (!this.port.port?.isOpen) {
+				await this.port.open()
+			}
 
-			await this.sync() // for syncing recive version frame
+			// await this.sync() // for syncing recive version frame
 
 			this.frame_debug("SEND ->", request)
 			await this.port.write(request)
@@ -42,12 +44,12 @@ export class Mk2Connection {
 				const frame: Buffer = await this.receiveFrame()
 				this.busy = false
 				if (frame[1] != 255 || frame[2] != 86) {
-					decode(frame)
+					await decode(frame)
 					break
 				} else {
 					console.log("VERSION FRAME", frame)
 					if (i > 1) {
-						await this.port.close()
+						// await this.port.close()
 						throw("Out of sync !")
 					}
 				}
@@ -58,7 +60,7 @@ export class Mk2Connection {
 			console.log("communicate: ", Exception)
 		}
 		this.busy = false
-		await this.port.close()
+		// await this.port.close()
 
 	}
 
