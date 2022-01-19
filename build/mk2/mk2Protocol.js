@@ -8,7 +8,6 @@ const bp = require("bufferpack");
 class Mk2Protocol {
     constructor(portPath) {
         this.mk2Model = new mk2Model_1.Mk2Model();
-        this.pollISRunning = false;
         this.portPath = portPath;
         this.conn = new mk2Connection_1.Mk2Connection(portPath);
     }
@@ -48,13 +47,17 @@ class Mk2Protocol {
         return buf;
     }
     async address() {
+        console.log("******   adress");
         return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response) => {
             console.log("A", response);
+            this.mk2Model["frame.address"].value = JSON.stringify(response.toJSON());
             // decode response frame
         });
     }
     async led_status() {
+        console.log("******   led_status");
         return this.conn.communicate(this.create_frame("L", ""), async (response) => {
+            this.mk2Model["frame.led_status"].value = JSON.stringify(response.toJSON());
             const led_status = response[3];
             const led_blink = response[4];
             this.mk2Model["led.mains"].value = ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? "blink" : "on") : "off");
@@ -65,17 +68,6 @@ class Mk2Protocol {
             this.mk2Model["led.overload"].value = ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? "blink" : "on") : "off");
             this.mk2Model["led.low_bat"].value = ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? "blink" : "on") : "off");
             this.mk2Model["led.temp"].value = ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? "blink" : "on") : "off");
-            // const result = {
-            // 	"mains": ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? "blink" : "on") : "off"),
-            // 	"absorption": ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? "blink" : "on") : "off"),
-            // 	"bulk": ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? "blink" : "on") : "off"),
-            // 	"float": ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? "blink" : "on") : "off"),
-            // 	"inverter": ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? "blink" : "on") : "off"),
-            // 	"overload": ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? "blink" : "on") : "off"),
-            // 	"low_bat": ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? "blink" : "on") : "off"),
-            // 	"temp": ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? "blink" : "on") : "off"),
-            // }
-            // console.log("led_status", result)
         });
     }
     // this.umains_calc_load = async function() {
@@ -227,19 +219,23 @@ class Mk2Protocol {
     // 	});
     // }
     async master_multi_led_info() {
+        console.log("******   master_multi_led_info");
         return this.conn.communicate(this.create_frame("F", "\x05"), async (response) => {
-            if (response[0] != 0x0f || response[1] != 0x20) {
-                throw ({ error: "no master_multi_led_info frame" });
-            }
-            const data = bp.unpack("<H H H", response, 7);
-            this.mk2Model["assist.limit"].value = data[0] / 10.0;
-            this.mk2Model["assist.minlimit"].value = data[1] / 10.0;
-            this.mk2Model["assist.maxlimit"].value = data[2] / 10.0;
+            this.mk2Model["frame.master_multi_led_info"].value = JSON.stringify(response.toJSON());
+            // if (response[0] != 0x0f || response[1] != 0x20) {
+            // 	throw ({ error: "no master_multi_led_info frame"})
+            // }
+            // const data = bp.unpack("<H H H", response, 7)
+            // this.mk2Model["assist.limit"].value = data[0]/10.0
+            // this.mk2Model["assist.minlimit"].value = data[1]/10.0
+            // this.mk2Model["assist.maxlimit"].value = data[2]/10.0
         });
     }
     async get_state() {
-        return this.conn.communicate(this.create_frame("W", "\x0E\x00\x00"), async (frame) => {
-            const data = bp.unpack("<B B", frame, 4);
+        console.log("******   get_state");
+        return this.conn.communicate(this.create_frame("W", "\x0E\x00\x00"), async (response) => {
+            this.mk2Model["frame.get_state"].value = JSON.stringify(response.toJSON());
+            const data = bp.unpack("<B B", response, 4);
             const state = "" + data[0] + data[1];
             const states = {
                 "00": "down",
@@ -270,8 +266,10 @@ class Mk2Protocol {
         const lo = a & 0xFF;
         const hi = a >> 8;
         const data = Buffer.from([0x03, lo, hi, 0x01, 0x80]);
-        return this.conn.communicate(this.create_frame("S", data), async (frame) => {
-            console.log("set_assist", frame);
+        console.log("******   set_assist");
+        return this.conn.communicate(this.create_frame("S", data), async (response) => {
+            this.mk2Model["frame.set_assist"].value = JSON.stringify(response.toJSON());
+            console.log("set_assist", response);
         });
     }
 }

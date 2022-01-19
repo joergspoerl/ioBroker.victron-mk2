@@ -186,6 +186,41 @@ class Mk2Model {
             value: 0,
             setFunc: (mk2, value) => mk2.set_assist(value)
         };
+        this["frame.address"] = {
+            descr: "",
+            unit: "",
+            role: "state",
+            type: "string",
+            value: "",
+        };
+        this["frame.led_status"] = {
+            descr: "",
+            unit: "",
+            role: "state",
+            type: "string",
+            value: "",
+        };
+        this["frame.master_multi_led_info"] = {
+            descr: "",
+            unit: "",
+            role: "state",
+            type: "string",
+            value: "",
+        };
+        this["frame.get_state"] = {
+            descr: "",
+            unit: "",
+            role: "state",
+            type: "string",
+            value: "",
+        };
+        this["frame.set_assist"] = {
+            descr: "",
+            unit: "",
+            role: "state",
+            type: "string",
+            value: "",
+        };
     }
 }
 exports.Mk2Model = Mk2Model;

@@ -179,7 +179,7 @@ class VictronMk2 extends utils.Adapter {
                             ack: true
                         });
                     }
-                    sleep(10);
+                    // sleep(10)
                 }
             }
         }

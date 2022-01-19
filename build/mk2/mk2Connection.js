@@ -1,11 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Mk2Connection = void 0;
+exports.Mk2Connection = exports.mk2SpezialFrame = void 0;
 const serialWrapper_1 = require("./serialWrapper");
 // helper function
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+var mk2SpezialFrame;
+(function (mk2SpezialFrame) {
+    mk2SpezialFrame[mk2SpezialFrame["normal"] = 255] = "normal";
+    mk2SpezialFrame[mk2SpezialFrame["info"] = 33] = "info";
+    mk2SpezialFrame[mk2SpezialFrame["masterMultiLed"] = 65] = "masterMultiLed";
+})(mk2SpezialFrame = exports.mk2SpezialFrame || (exports.mk2SpezialFrame = {}));
 class Mk2Connection {
     constructor(portPath) {
         this.debug = true;
@@ -28,7 +34,7 @@ class Mk2Connection {
             if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
                 await this.port.open();
             }
-            // await this.sync() // for syncing recive version frame
+            await this.sync(); // for syncing recive version frame
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
             let i = 0;
@@ -36,15 +42,21 @@ class Mk2Connection {
                 i++;
                 const frame = await this.receiveFrame();
                 this.busy = false;
-                if (frame[1] != 255 || frame[2] != 86) {
-                    await decode(frame);
-                    break;
-                }
-                else {
+                const spezial = frame[1];
+                const frameType = frame[2];
+                if (spezial == mk2SpezialFrame.normal && frameType == 0x56) {
                     console.log("VERSION FRAME", frame);
                     if (i > 1) {
                         // await this.port.close()
                         throw ("Out of sync !");
+                    }
+                }
+                else {
+                    if ((spezial == mk2SpezialFrame.normal
+                        || spezial == mk2SpezialFrame.info
+                        || spezial == mk2SpezialFrame.masterMultiLed)) {
+                        await decode(frame);
+                        break;
                     }
                 }
             }
@@ -67,11 +79,8 @@ class Mk2Connection {
                 const frameData = this.port.read(lengthByte[0] + 1);
                 if (frameData) {
                     frame = Buffer.concat([lengthByte, frameData]);
-                    if (frame && frame.length >= 1 && (frame[1] == 0xFF || frame[1] == 0x20)) {
-                        this.frame_debug("RECV <-", frame);
-                        break;
-                    }
-                    console.log(frame);
+                    this.frame_debug("RECV <-", frame);
+                    break;
                 }
                 else {
                     throw ("Frame error");

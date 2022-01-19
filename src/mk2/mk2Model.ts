@@ -222,5 +222,45 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_assist(value)
 	};
 
+	"frame.address":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
+	"frame.led_status":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
+	"frame.master_multi_led_info":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
+	"frame.get_state":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
+	"frame.set_assist":    Mk2DataEntry = {
+		descr: "",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
 
 }
