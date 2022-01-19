@@ -3,21 +3,56 @@ import { Mk2Model } from "./mk2Model";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const bp = require("bufferpack");
 
+export interface IscaleEntry {
+	scale: number
+	offset: number
+}
+// export type Iumains_calc = IscaleEntry | undefined
+// export type Iimains_calc = IscaleEntry| undefined
+// export type Ipmains_calc = IscaleEntry| undefined
+
+export class Calc {
+	umains_calc: IscaleEntry | undefined
+	imains_calc: IscaleEntry | undefined
+	uinv_calc: IscaleEntry | undefined
+	iinv_calc: IscaleEntry | undefined
+	ubat_calc: IscaleEntry | undefined
+	ibat_calc: IscaleEntry | undefined
+	finv_calc: IscaleEntry | undefined
+	fmains_calc: IscaleEntry | undefined
+}
+
+function scale (factor: number): number {
+	const s = Math.abs(factor)
+	if (s >= 0x4000)
+		return 1.0/(0x8000 - s)
+	return s
+}
+function round(number: number, decimal: number): number {
+	const e = Math.pow(10, decimal)
+	return Math.round(number * e) / e
+}
+
+
 export class Mk2Protocol {
 	portPath: string
 	conn: Mk2Connection
 	mk2Model: Mk2Model = new Mk2Model()
+	calc: Calc;
 
 	constructor(portPath: string) {
 		this.portPath = portPath
 		this.conn = new Mk2Connection(portPath)
+		this.calc = new Calc()
 	}
 	async poll(): Promise<void> {
 		try {
+			await this.loadScalings()
 			await this.address()
-			await this.led_status()
-			await this.get_state()
-			await this.master_multi_led_info()
+			// await this.led_status()
+			// await this.get_state()
+			// await this.master_multi_led_info()
+			await this.dc_info()
 		} catch (Exception) {
 			console.log("Exception in poll", Exception)
 		}
@@ -50,7 +85,7 @@ export class Mk2Protocol {
 		buf = Buffer.concat([buf, Buffer.from([sum])]);
 
 		//    console.log("SEND -> ", buf, buf.toString(), 'checksum',sum);
-		this.conn.frame_debug("SEND ->", buf);
+		// this.conn.frame_debug("SEND ->", buf);
 
 		return buf;
 
@@ -92,143 +127,165 @@ export class Mk2Protocol {
 	}
 
 
-	// this.umains_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x00\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			umains_calc: {
-	// 				scale:  data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
+	async umains_calc_load(): Promise<void> {
+		console.log("******   umains_calc_load");
 
-	// this.imains_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x01\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			imains_calc: {
-	// 				scale:  data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
+		return this.conn.communicate (this.create_frame("W", "\x36\x00\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
 
-	// this.uinv_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x02\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			uinv_calc: {
-	// 				scale:  data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
+			this.calc.umains_calc =  {
+				scale:  data[0],
+				offset: data[2]
+			}
+		});
+	}
 
-	// this.iinv_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x03\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			iinv_calc: {
-	// 				scale:  data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
+	async imains_calc_load (): Promise<void> {
+		console.log("******   imains_calc_load");
 
-	// this.ubat_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x04\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			ubat_calc:
-	//             {
-	//             	scale:  data[0],
-	//             	offset: data[2]
-	//             }
-	// 		}
-	// 	});
-	// }
+		return this.conn.communicate (this.create_frame("W", "\x36\x01\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
 
-	// this.ibat_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x05\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			ibat_calc: {
-	// 				scale:  data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
+			this.calc.imains_calc = {
+				scale:  data[0],
+				offset: data[2]
 
-	// this.finv_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x07\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			finv_calc: {
-	// 				scale:  data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
-
-	// this.fmains_calc_load = async function() {
-	// 	return communicate (create_frame("W", "\x36\x08\x00"), (frame) => {
-	// 		const data = bp.unpack("<h B h", frame, 4)
-	// 		return {
-	// 			fmains_calc: {
-	// 				scale: data[0],
-	// 				offset: data[2]
-	// 			}
-	// 		}
-	// 	});
-	// }
+			}
+		});
+	}
 
 
-	// function scale (factor) {
-	// 	s = Math.abs(factor)
-	// 	if (s >= 0x4000)
-	// 		return 1.0/(0x8000 - s)
-	// 	return s
-	// }
+	async uinv_calc_load(): Promise<void> {
+		console.log("******   uinv_calc_load");
+
+		return this.conn.communicate (this.create_frame("W", "\x36\x02\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
+
+			this.calc.uinv_calc =  {
+				scale:  data[0],
+				offset: data[2]
+			}
+		});
+	}
+
+	async iinv_calc_load (): Promise<void> {
+		console.log("******   iinv_calc_load");
+
+		return this.conn.communicate (this.create_frame("W", "\x36\x03\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
+
+			this.calc.iinv_calc = {
+				scale:  data[0],
+				offset: data[2]
+
+			}
+		});
+	}
 
 
-	// this.dc_info = async function() {
-	// 	if (!self.calc.ubat_calc) Object.assign(self.calc, await self.ubat_calc_load());
-	// 	if (!self.calc.ibat_calc) Object.assign(self.calc, await self.ibat_calc_load());
-	// 	if (!self.calc.finv_calc) Object.assign(self.calc, await self.finv_calc_load());
 
-	// 	console.log("self.calc", self.calc)
+	async ubat_calc_load(): Promise<void> {
+		console.log("******   ubat_calc_load");
 
-	// 	return communicate (create_frame("F", "\x00"), async (frame) => {
+		return this.conn.communicate (this.create_frame("W", "\x36\x04\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
 
-	// 		if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0xb5 ) {
-	// 			return { error: "no dc_info frame"}
-	// 		}
+			this.calc.ubat_calc =  {
+				scale:  data[0],
+				offset: data[2]
+			}
+		});
+	}
 
-	// 		const ubat = bp.unpack("<H", frame, 7);
-	// 		//if (frame[11] < 0x80) { frame  }
-	// 		ibat_buf = Buffer.concat([frame.slice(9,12),  Buffer.from("\x00"), Buffer.from(frame[11]>0x80 ? "\x00" : "\xFF")])
-	// 		cbat_buf = Buffer.concat([frame.slice(12,15), Buffer.from("\x00"), Buffer.from(frame[14]>0x80 ? "\x00" : "\xFF")])
-	// 		const ibat = bp.unpack("<i", ibat_buf);
-	// 		const cbat = bp.unpack("<i", cbat_buf);
-	// 		const finv = bp.unpack("<B", frame, 15);
+	async ibat_calc_load (): Promise<void> {
+		console.log("******   ibat_calc_load");
 
-	// 		return {
-	// 			dc_info: {
-	// 				ubat: round (((ubat+self.calc.ubat_calc.offset) * scale(self.calc.ubat_calc.scale) / 10),   2),
-	// 				ibat: round (((ibat+self.calc.ibat_calc.offset) * scale(self.calc.ibat_calc.scale) / 10),   2),
-	// 				cbat: round (((cbat+self.calc.ibat_calc.offset) * scale(self.calc.ibat_calc.scale) / 10),   2),
-	// 				finv: round ((10 / ((finv+self.calc.finv_calc.offset) * scale(self.calc.finv_calc.scale))), 2),
-	// 			}
-	// 		}
-	// 	});
-	// }
+		return this.conn.communicate (this.create_frame("W", "\x36\x05\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
+
+			this.calc.ibat_calc = {
+				scale:  data[0],
+				offset: data[2]
+
+			}
+		});
+	}
+
+
+	async finv_calc_load(): Promise<void> {
+		console.log("******   finv_calc_load");
+
+		return this.conn.communicate (this.create_frame("W", "\x36\x07\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
+
+			this.calc.finv_calc =  {
+				scale:  data[0],
+				offset: data[2]
+			}
+		});
+	}
+
+	async fmains_calc_load (): Promise<void> {
+		console.log("******   fmains_calc_load");
+
+		return this.conn.communicate (this.create_frame("W", "\x36\x08\x00"), async (frame: Buffer) => {
+			const data = bp.unpack("<h B h", frame, 4)
+
+			this.calc.fmains_calc = {
+				scale:  data[0],
+				offset: data[2]
+
+			}
+		});
+	}
+
+
+	async  loadScalings() :Promise<void> {
+		console.log("******   loadScalings");
+
+		await this.umains_calc_load()
+		await this.imains_calc_load()
+		await this.uinv_calc_load()
+		await this.iinv_calc_load()
+		await this.ubat_calc_load()
+		await this.ibat_calc_load()
+	}
+
+
+	async dc_info(): Promise<void> {
+		console.log("******   dc_info");
+
+		// if (!this.calc) 
+		// await this.loadScalings()
+		// if (!self.calc.ubat_calc) Object.assign(self.calc, await self.ubat_calc_load());
+		// if (!self.calc.ibat_calc) Object.assign(self.calc, await self.ibat_calc_load());
+		// if (!self.calc.finv_calc) Object.assign(self.calc, await self.finv_calc_load());
+
+		// console.log("self.calc", self.calc)
+
+		return this.conn.communicate (this.create_frame("F", "\x00"), async (frame: Buffer): Promise<void> => {
+
+			if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0xb5 ) {
+				throw ({ error: "no dc_info frame"})
+			}
+
+			const ubat = bp.unpack("<H", frame, 7);
+			//if (frame[11] < 0x80) { frame  }
+			const ibat_buf = Buffer.concat([frame.slice(9,12),  Buffer.from("\x00"), Buffer.from(frame[11]>0x80 ? "\x00" : "\xFF")])
+			const cbat_buf = Buffer.concat([frame.slice(12,15), Buffer.from("\x00"), Buffer.from(frame[14]>0x80 ? "\x00" : "\xFF")])
+			const ibat = bp.unpack("<i", ibat_buf);
+			const cbat = bp.unpack("<i", cbat_buf);
+			//const finv = bp.unpack("<B", frame, 15);
+
+			if (this.calc.ubat_calc && this.calc.ibat_calc) {
+				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale) / 10),   2)
+				this.mk2Model["dc_info.ibat"].value = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
+				this.mk2Model["dc_info.icharge"].value = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
+				//			this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(self.this.finv_calc.scale))), 2)
+
+			}
+		});
+	}
 
 	// this.ac_info = async function() {
 	// 	if (!self.calc.umains_calc) Object.assign(self.calc, await self.umains_calc_load());
@@ -272,11 +329,15 @@ export class Mk2Protocol {
 			// 	throw ({ error: "no master_multi_led_info frame"})
 			// }
 
-			// const data = bp.unpack("<H H H", response, 7)
+			if (response[0] != 0x0c || response[1] != 0x41) {
+				throw ({ error: "no master_multi_led_info frame"})
+			}
 
-			// this.mk2Model["assist.limit"].value = data[0]/10.0
-			// this.mk2Model["assist.minlimit"].value = data[1]/10.0
-			// this.mk2Model["assist.maxlimit"].value = data[2]/10.0
+			const data = bp.unpack("<H H H", response, 7)
+
+			this.mk2Model["assist.limit"].value = data[0]/10.0
+			this.mk2Model["assist.minlimit"].value = data[1]/10.0
+			this.mk2Model["assist.maxlimit"].value = data[2]/10.0
 		});
 	}
 

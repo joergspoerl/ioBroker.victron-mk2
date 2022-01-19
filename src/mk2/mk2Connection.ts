@@ -7,7 +7,8 @@ function sleep(ms: number): Promise<void> {
 
 export enum mk2SpezialFrame {
 	normal = 0xFF,
-	info = 0x21,
+	infox20 = 0x20,
+	infox21 = 0x21,
 	masterMultiLed = 0x41
 }
 
@@ -38,8 +39,8 @@ export class Mk2Connection {
 			if (!this.port.port?.isOpen) {
 				await this.port.open()
 			}
-
-			await this.sync() // for syncing recive version frame
+			await this.port.flush()
+			// await this.sync() // for syncing recive version frame
 
 			this.frame_debug("SEND ->", request)
 			await this.port.write(request)
@@ -59,7 +60,8 @@ export class Mk2Connection {
 					}
 				} else {
 					if ((  spezial == mk2SpezialFrame.normal
-						|| spezial == mk2SpezialFrame.info
+						|| spezial == mk2SpezialFrame.infox20
+						|| spezial == mk2SpezialFrame.infox21
 						|| spezial == mk2SpezialFrame.masterMultiLed)) {
 						await decode(frame)
 						break
