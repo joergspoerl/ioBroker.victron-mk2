@@ -65,7 +65,6 @@ class VictronMk2 extends utils.Adapter {
         this.log.info("config option2: " + this.config.option2);
         this.log.info("config interval: " + this.config.interval);
         this.log.info("config portPath: " + this.config.portPath);
-        this.config.interval = 2000;
         this.mk2 = new mk2Protocol_1.Mk2Protocol(this.config.portPath);
         /*
         For every state in the system there has to be also an object of type state
@@ -171,7 +170,7 @@ class VictronMk2 extends utils.Adapter {
                 await this.mk2.poll();
                 for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
                     const v = value;
-                    if (v.value !== v.valueOld) {
+                    if (v.value !== v.valueOld && !v.setFunc) {
                         this.log.debug("key     : " + key);
                         this.log.debug("value   : " + v.value);
                         this.log.debug("valueOld: " + v.valueOld);
@@ -180,11 +179,13 @@ class VictronMk2 extends utils.Adapter {
                             ack: true
                         });
                     }
+                    sleep(10);
                 }
             }
         }
         catch (Exception) {
-            this.log.error("ERROR updateStates in  tristar.readHoldingRegister: " + JSON.stringify(Exception));
+            this.log.error("ERROR updateStates : " + JSON.stringify(Exception));
+            console.trace();
         }
     }
     /**
