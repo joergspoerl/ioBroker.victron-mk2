@@ -9,7 +9,8 @@ function sleep(ms) {
 var mk2SpezialFrame;
 (function (mk2SpezialFrame) {
     mk2SpezialFrame[mk2SpezialFrame["normal"] = 255] = "normal";
-    mk2SpezialFrame[mk2SpezialFrame["info"] = 33] = "info";
+    mk2SpezialFrame[mk2SpezialFrame["infox20"] = 32] = "infox20";
+    mk2SpezialFrame[mk2SpezialFrame["infox21"] = 33] = "infox21";
     mk2SpezialFrame[mk2SpezialFrame["masterMultiLed"] = 65] = "masterMultiLed";
 })(mk2SpezialFrame = exports.mk2SpezialFrame || (exports.mk2SpezialFrame = {}));
 class Mk2Connection {
@@ -34,7 +35,8 @@ class Mk2Connection {
             if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
                 await this.port.open();
             }
-            await this.sync(); // for syncing recive version frame
+            await this.port.flush();
+            // await this.sync() // for syncing recive version frame
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
             let i = 0;
@@ -53,7 +55,8 @@ class Mk2Connection {
                 }
                 else {
                     if ((spezial == mk2SpezialFrame.normal
-                        || spezial == mk2SpezialFrame.info
+                        || spezial == mk2SpezialFrame.infox20
+                        || spezial == mk2SpezialFrame.infox21
                         || spezial == mk2SpezialFrame.masterMultiLed)) {
                         await decode(frame);
                         break;
