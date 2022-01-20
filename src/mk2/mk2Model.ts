@@ -42,6 +42,14 @@ export class Mk2Model {
 		value: 0,
 	};
 
+	"dc_info.finv":    Mk2DataEntry = {
+		descr: "Inverter period",
+		unit:  "Hz",
+		role:  "state",
+		type: "number",
+		value: 0,
+	};
+
 	"ac_info.umains":    Mk2DataEntry = {
 		descr: "Main voltage - shore connection",
 		unit:  "V",
@@ -74,9 +82,10 @@ export class Mk2Model {
 		value: 0,
 	};
 
+
 	"ac_info.iinv":    Mk2DataEntry = {
 		descr: "Inverter current",
-		unit:  "V",
+		unit:  "A",
 		role:  "value.current",
 		type: "number",
 		value: 0,

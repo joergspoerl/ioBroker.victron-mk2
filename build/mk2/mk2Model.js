@@ -24,6 +24,13 @@ class Mk2Model {
             type: "number",
             value: 0,
         };
+        this["dc_info.finv"] = {
+            descr: "Inverter period",
+            unit: "Hz",
+            role: "state",
+            type: "number",
+            value: 0,
+        };
         this["ac_info.umains"] = {
             descr: "Main voltage - shore connection",
             unit: "V",
@@ -54,7 +61,7 @@ class Mk2Model {
         };
         this["ac_info.iinv"] = {
             descr: "Inverter current",
-            unit: "V",
+            unit: "A",
             role: "value.current",
             type: "number",
             value: 0,

@@ -158,11 +158,13 @@ class VictronMk2 extends utils.Adapter {
         }
     }
     async mainLoop() {
-        while (this.mainLoopRunning) {
-            await this.updateStates();
-            console.log("sleep", this.config.interval * 1000);
-            await sleep(this.config.interval * 1000);
-        }
+        this.setTimeout(async () => {
+            while (this.mainLoopRunning) {
+                await this.updateStates();
+                console.log("sleep", this.config.interval * 1000);
+                await sleep(this.config.interval * 1000);
+            }
+        }, 10 * 1000);
     }
     async updateStates() {
         try {
@@ -171,15 +173,15 @@ class VictronMk2 extends utils.Adapter {
                 for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
                     const v = value;
                     if (v.value !== v.valueOld && !v.setFunc) {
-                        this.log.debug("key     : " + key);
-                        this.log.debug("value   : " + v.value);
-                        this.log.debug("valueOld: " + v.valueOld);
+                        // this.log.debug("key     : " + key)
+                        // this.log.debug("value   : " + v.value)
+                        // this.log.debug("valueOld: " + v.valueOld)
                         await this.setStateAsync(key, {
                             val: v.value,
                             ack: true
                         });
                     }
-                    // sleep(10)
+                    // await sleep(10)
                 }
             }
         }

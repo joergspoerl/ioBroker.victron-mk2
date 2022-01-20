@@ -35,8 +35,9 @@ class Mk2Connection {
             if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
                 await this.port.open();
             }
-            await this.port.flush();
-            // await this.sync() // for syncing recive version frame
+            // await this.port.flush()
+            await this.sync(); // for syncing recive version frame
+            // await sleep(200)
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
             let i = 0;
