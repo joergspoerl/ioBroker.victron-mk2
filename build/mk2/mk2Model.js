@@ -100,27 +100,26 @@ class Mk2Model {
             role: "value",
             type: "number",
             value: 0,
-        };
-        this["state.stateText"] = {
-            descr: "state text",
-            unit: "",
-            role: "value",
-            type: "string",
-            value: 0,
-        };
-        this["state.substate"] = {
-            descr: "substate number",
-            unit: "",
-            role: "value",
-            type: "number",
-            value: 0,
-        };
-        this["state.substateText"] = {
-            descr: "substate text",
-            unit: "",
-            role: "value",
-            type: "string",
-            value: 0,
+            states: {
+                "00": "down",
+                "10": "startup",
+                "20": "off",
+                "30": "slave",
+                "40": "invert full",
+                "50": "invert half",
+                "60": "invert aes",
+                "70": "assist",
+                "80": "bypass",
+                "90": "charge init",
+                "91": "charge bulk",
+                "92": "charge absorption",
+                "93": "charge float",
+                "94": "charge storage",
+                "95": "charge repeated absorption",
+                "96": "charge forced absorption",
+                "97": "charge equalise",
+                "98": "charge bulk stopped",
+            }
         };
         this["state.forcestate"] = {
             descr: "force a spezific state",
@@ -192,41 +191,6 @@ class Mk2Model {
             type: "number",
             value: 0,
             setFunc: (mk2, value) => mk2.set_assist(value)
-        };
-        this["frame.address"] = {
-            descr: "",
-            unit: "",
-            role: "state",
-            type: "string",
-            value: "",
-        };
-        this["frame.led_status"] = {
-            descr: "",
-            unit: "",
-            role: "state",
-            type: "string",
-            value: "",
-        };
-        this["frame.master_multi_led_info"] = {
-            descr: "",
-            unit: "",
-            role: "state",
-            type: "string",
-            value: "",
-        };
-        this["frame.get_state"] = {
-            descr: "",
-            unit: "",
-            role: "state",
-            type: "string",
-            value: "",
-        };
-        this["frame.set_assist"] = {
-            descr: "",
-            unit: "",
-            role: "state",
-            type: "string",
-            value: "",
         };
     }
 }

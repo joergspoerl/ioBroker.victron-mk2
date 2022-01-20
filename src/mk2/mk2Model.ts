@@ -6,6 +6,7 @@ export interface Mk2DataEntry {
 	role: ioBrokerRole;
 	type: ioBroker.CommonType //'number' | 'string' | 'boolean' | 'array' | 'object' | 'mixed' | 'file'
 	value: Mk2PropertyType;
+	states?: { [key: string]: string }
 	valueOld?: Mk2PropertyType;
 	setFunc?:  (protocol: Mk2Protocol, value: number) => Promise<void>
 }
@@ -123,37 +124,32 @@ export class Mk2Model {
 		value: 0,
 	};
 
-
 	"state.state":    Mk2DataEntry = {
 		descr: "state number",
 		unit:  "",
 		role:  "value",
 		type: "number",
 		value: 0,
-	};
-
-	"state.stateText":    Mk2DataEntry = {
-		descr: "state text",
-		unit:  "",
-		role:  "value",
-		type: "string",
-		value: 0,
-	};
-
-	"state.substate":    Mk2DataEntry = {
-		descr: "substate number",
-		unit:  "",
-		role:  "value",
-		type: "number",
-		value: 0,
-	};
-
-	"state.substateText":    Mk2DataEntry = {
-		descr: "substate text",
-		unit:  "",
-		role:  "value",
-		type: "string",
-		value: 0,
+		states:  {
+			"00": "down",
+			"10": "startup",
+			"20": "off",
+			"30": "slave",
+			"40": "invert full",
+			"50": "invert half",
+			"60": "invert aes",
+			"70": "assist",
+			"80": "bypass",
+			"90": "charge init",
+			"91": "charge bulk",
+			"92": "charge absorption",
+			"93": "charge float",
+			"94": "charge storage",
+			"95": "charge repeated absorption",
+			"96": "charge forced absorption",
+			"97": "charge equalise",
+			"98": "charge bulk stopped",
+		}
 	};
 
 	"state.forcestate":    Mk2DataEntry = {
@@ -231,45 +227,6 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_assist(value)
 	};
 
-	"frame.address":    Mk2DataEntry = {
-		descr: "",
-		unit:  "",
-		role:  "state",
-		type: "string",
-		value: "",
-	};
-
-	"frame.led_status":    Mk2DataEntry = {
-		descr: "",
-		unit:  "",
-		role:  "state",
-		type: "string",
-		value: "",
-	};
-
-	"frame.master_multi_led_info":    Mk2DataEntry = {
-		descr: "",
-		unit:  "",
-		role:  "state",
-		type: "string",
-		value: "",
-	};
-
-	"frame.get_state":    Mk2DataEntry = {
-		descr: "",
-		unit:  "",
-		role:  "state",
-		type: "string",
-		value: "",
-	};
-
-	"frame.set_assist":    Mk2DataEntry = {
-		descr: "",
-		unit:  "",
-		role:  "state",
-		type: "string",
-		value: "",
-	};
 
 
 }
