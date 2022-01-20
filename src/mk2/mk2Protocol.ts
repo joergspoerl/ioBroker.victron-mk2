@@ -7,9 +7,6 @@ export interface IscaleEntry {
 	scale: number
 	offset: number
 }
-// export type Iumains_calc = IscaleEntry | undefined
-// export type Iimains_calc = IscaleEntry| undefined
-// export type Ipmains_calc = IscaleEntry| undefined
 
 export class Calc {
 	umains_calc: IscaleEntry | undefined
@@ -113,14 +110,14 @@ export class Mk2Protocol {
 			const led_status = response[3];
 			const led_blink = response[4];
 
-			this.mk2Model["led.mains"].value =      ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.absorption"].value = ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.bulk"].value =       ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.float"].value =      ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.inverter"].value =   ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.overload"].value =   ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.low_bat"].value =    ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? "blink" : "on") : "off")
-			this.mk2Model["led.temp"].value =       ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? "blink" : "on") : "off")
+			this.mk2Model["led.mains"].value =      ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.absorption"].value = ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.bulk"].value =       ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.float"].value =      ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.inverter"].value =   ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.overload"].value =   ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.low_bat"].value =    ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? 2 : 1) : 0)
+			this.mk2Model["led.temp"].value =       ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? 2 : 1) : 0)
 
 		}
 		);
@@ -351,26 +348,6 @@ export class Mk2Protocol {
 			const data = bp.unpack("<B B", response, 4)
 			const state : number = parseInt ("" + data[0] + data[1]);
 
-			// const states : { [index: string]: string}= {
-			// 	"00": "down",
-			// 	"10": "startup",
-			// 	"20": "off",
-			// 	"30": "slave",
-			// 	"40": "invert full",
-			// 	"50": "invert half",
-			// 	"60": "invert aes",
-			// 	"70": "assist",
-			// 	"80": "bypass",
-			// 	"90": "charge init",
-			// 	"91": "charge bulk",
-			// 	"92": "charge absorption",
-			// 	"93": "charge float",
-			// 	"94": "charge storage",
-			// 	"95": "charge repeated absorption",
-			// 	"96": "charge forced absorption",
-			// 	"97": "charge equalise",
-			// 	"98": "charge bulk stopped",
-			// }
 
 			this.mk2Model["state.state"].value = state
 		})
@@ -390,4 +367,26 @@ export class Mk2Protocol {
 			console.log("set_assist", response)
 		})
 	}
+
+	async force_state (state:number) : Promise<void> {
+
+		console.log("force_state", state)
+
+		// assert s in (1, 2, 3), 'state must be between 1 and 3'
+		// self.communicate('W', '\x0E' + chr(s) + '\x00')
+
+
+		// const a  = ampere * 10
+		// const lo = a&0xFF
+		// const hi = a>>8
+		// const data = Buffer.from([0x03,lo, hi, 0x01, 0x80])
+
+		// console.log("******   set_assist");
+
+		// return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
+
+		// 	console.log("set_assist", response)
+		// })
+	}
+
 }

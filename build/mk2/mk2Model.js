@@ -121,68 +121,101 @@ class Mk2Model {
                 "98": "charge bulk stopped",
             }
         };
-        this["state.forcestate"] = {
-            descr: "force a spezific state",
-            unit: "",
-            role: "value",
-            type: "number",
-            value: 0,
-        };
         this["led.mains"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.absorption"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.bulk"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.float"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.inverter"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.overload"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.low_bat"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["led.temp"] = {
             descr: "",
             unit: "",
-            role: "value",
-            type: "string",
-            value: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+                "2": "BLINK",
+            }
         };
         this["control.set_assist"] = {
             descr: "Set input current limit",
@@ -191,6 +224,19 @@ class Mk2Model {
             type: "number",
             value: 0,
             setFunc: (mk2, value) => mk2.set_assist(value)
+        };
+        this["control.forcestate"] = {
+            descr: "force a spezific state",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "1": "forced equalise",
+                "2": "forced absorption",
+                "3": "forced float"
+            },
+            setFunc: (mk2, value) => mk2.force_state(value)
         };
     }
 }

@@ -152,69 +152,102 @@ export class Mk2Model {
 		}
 	};
 
-	"state.forcestate":    Mk2DataEntry = {
-		descr: "force a spezific state",
-		unit:  "",
-		role:  "value",
-		type: "number",
-		value: 0,
-	};
 
 	"led.mains":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.absorption":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.bulk":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.float":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.inverter":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.overload":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.low_bat":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 	"led.temp":    Mk2DataEntry = {
 		descr: "",
 		unit:  "",
-		role:  "value",
-		type: "string",
-		value: "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+			"2": "BLINK",
+		}
 	};
 
 
@@ -225,6 +258,20 @@ export class Mk2Model {
 		type: "number",
 		value: 0,
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_assist(value)
+	};
+
+	"control.forcestate":    Mk2DataEntry = {
+		descr: "force a spezific state",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"1": "forced equalise",
+			"2": "forced absorption",
+			"3": "forced float"
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.force_state(value)
 	};
 
 
