@@ -376,7 +376,7 @@ export class Mk2Protocol {
 		// self.communicate('W', '\x0E' + chr(s) + '\x00')
 
 		if (state == 1 || state == 2 || state == 3) {
-			const data = Buffer.from([0x0E, 48 + state, 0x00])
+			const data = Buffer.from([0x0E, state, 0x00])
 			return this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
 				console.log("force_state", response)
 			})
