@@ -36,8 +36,8 @@ class Mk2Connection {
                 await this.port.open();
             }
             // await this.port.flush()
-            await this.sync(); // for syncing recive version frame
-            // await sleep(200)
+            // await this.sync() // for syncing recive version frame
+            // await sleep(300)
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
             let i = 0;
@@ -95,7 +95,11 @@ class Mk2Connection {
         return frame;
     }
     async sync() {
+        var _a;
         console.log("start sync: ");
+        if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
+            await this.port.open();
+        }
         let f;
         await this.port.flush();
         while (true) {

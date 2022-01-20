@@ -40,8 +40,8 @@ export class Mk2Connection {
 				await this.port.open()
 			}
 			// await this.port.flush()
-			await this.sync() // for syncing recive version frame
-			// await sleep(200)
+			// await this.sync() // for syncing recive version frame
+			// await sleep(300)
 
 			this.frame_debug("SEND ->", request)
 			await this.port.write(request)
@@ -106,6 +106,11 @@ export class Mk2Connection {
 
 	async sync (): Promise<void> {
 		console.log("start sync: ")
+
+		if (!this.port.port?.isOpen) {
+			await this.port.open()
+		}
+
 		let f
 		await this.port.flush()
 		while (true) {
