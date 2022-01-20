@@ -142,6 +142,21 @@ class VictronMk2 extends utils.Adapter {
 		if (this.mk2) {
 			for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
 				const v = value as Mk2DataEntry
+				if (v.states) {
+					await this.setObjectNotExistsAsync(key, {
+						type: "state",
+						common: {
+							name: v.descr,
+							type: v.type,
+							role: "state",
+							read: true,
+							write: v.setFunc ? true : false,
+							unit: v.unit,
+							states: v.states
+						},
+						native: {},
+					});
+				}
 				await this.setObjectNotExistsAsync(key, {
 					type: "state",
 					common: {

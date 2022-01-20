@@ -99,7 +99,6 @@ export class Mk2Protocol {
 		return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response: Buffer): Promise<void> => {
 			console.log("A", response);
 
-			this.mk2Model["frame.address"].value = JSON.stringify(response.toJSON())
 			// decode response frame
 
 		})
@@ -110,7 +109,6 @@ export class Mk2Protocol {
 		console.log("******   led_status");
 
 		return this.conn.communicate(this.create_frame("L", ""), async (response: Buffer) => {
-			this.mk2Model["frame.led_status"].value = JSON.stringify(response.toJSON())
 
 			const led_status = response[3];
 			const led_blink = response[4];
@@ -268,19 +266,19 @@ export class Mk2Protocol {
 	async dc_info(): Promise<void> {
 		console.log("******   dc_info");
 
-		return this.conn.communicate (this.create_frame("F", "\x00"), async (frame: Buffer): Promise<void> => {
+		return this.conn.communicate (this.create_frame("F", "\x00"), async (response: Buffer): Promise<void> => {
 
-			if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0xb5 ) {
+			if (response[0] != 0x0f || response[1] != 0x20 || response[2] != 0xb5 ) {
 				throw ({ error: "no dc_info frame"})
 			}
 
-			const ubat = bp.unpack("<H", frame, 7);
+			const ubat = bp.unpack("<H", response, 7);
 			//if (frame[11] < 0x80) { frame  }
-			const ibat_buf = Buffer.concat([frame.slice(9,12),  Buffer.from("\x00"), Buffer.from(frame[11]>0x80 ? "\x00" : "\xFF")])
-			const cbat_buf = Buffer.concat([frame.slice(12,15), Buffer.from("\x00"), Buffer.from(frame[14]>0x80 ? "\x00" : "\xFF")])
+			const ibat_buf = Buffer.concat([response.slice(9,12),  Buffer.from("\x00"), Buffer.from(response[11]>0x80 ? "\x00" : "\xFF")])
+			const cbat_buf = Buffer.concat([response.slice(12,15), Buffer.from("\x00"), Buffer.from(response[14]>0x80 ? "\x00" : "\xFF")])
 			const ibat = bp.unpack("<i", ibat_buf);
 			const cbat = bp.unpack("<i", cbat_buf);
-			const finv = bp.unpack("<B", frame, 15);
+			const finv = bp.unpack("<B", response, 15);
 
 			if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
 				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale) / 10),   2)
@@ -331,11 +329,6 @@ export class Mk2Protocol {
 	async master_multi_led_info () : Promise<void> {
 		console.log("******   master_multi_led_info");
 		return this.conn.communicate (this.create_frame("F", "\x05"), async (response: Buffer) => {
-			this.mk2Model["frame.master_multi_led_info"].value = JSON.stringify(response.toJSON())
-
-			// if (response[0] != 0x0f || response[1] != 0x20) {
-			// 	throw ({ error: "no master_multi_led_info frame"})
-			// }
 
 			if (response[0] != 0x0c || response[1] != 0x41) {
 				throw ({ error: "no master_multi_led_info frame"})
@@ -354,33 +347,32 @@ export class Mk2Protocol {
 		console.log("******   get_state");
 
 		return this.conn.communicate (this.create_frame("W", "\x0E\x00\x00"), async (response: Buffer) => {
-			this.mk2Model["frame.get_state"].value = JSON.stringify(response.toJSON())
 
 			const data = bp.unpack("<B B", response, 4)
-			const state = "" + data[0] + data[1];
+			const state : number = parseInt ("" + data[0] + data[1]);
 
-			const states : { [index: string]: string}= {
-				"00": "down",
-				"10": "startup",
-				"20": "off",
-				"30": "slave",
-				"40": "invert full",
-				"50": "invert half",
-				"60": "invert aes",
-				"70": "assist",
-				"80": "bypass",
-				"90": "charge init",
-				"91": "charge bulk",
-				"92": "charge absorption",
-				"93": "charge float",
-				"94": "charge storage",
-				"95": "charge repeated absorption",
-				"96": "charge forced absorption",
-				"97": "charge equalise",
-				"98": "charge bulk stopped",
-			}
+			// const states : { [index: string]: string}= {
+			// 	"00": "down",
+			// 	"10": "startup",
+			// 	"20": "off",
+			// 	"30": "slave",
+			// 	"40": "invert full",
+			// 	"50": "invert half",
+			// 	"60": "invert aes",
+			// 	"70": "assist",
+			// 	"80": "bypass",
+			// 	"90": "charge init",
+			// 	"91": "charge bulk",
+			// 	"92": "charge absorption",
+			// 	"93": "charge float",
+			// 	"94": "charge storage",
+			// 	"95": "charge repeated absorption",
+			// 	"96": "charge forced absorption",
+			// 	"97": "charge equalise",
+			// 	"98": "charge bulk stopped",
+			// }
 
-			this.mk2Model["state.state"].value = states[state]
+			this.mk2Model["state.state"].value = state
 		})
 	}
 
@@ -394,7 +386,6 @@ export class Mk2Protocol {
 		console.log("******   set_assist");
 
 		return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
-			this.mk2Model["frame.set_assist"].value = JSON.stringify(response.toJSON())
 
 			console.log("set_assist", response)
 		})
