@@ -47,12 +47,14 @@ export class Mk2Protocol {
 	}
 	async poll(): Promise<void> {
 		try {
-			await this.loadScalings()
+			// await this.conn.sync()
+			await this.loadScalingsIfNeeded()
 			await this.address()
-			// await this.led_status()
-			// await this.get_state()
-			// await this.master_multi_led_info()
+			await this.led_status()
+			await this.get_state()
+			await this.master_multi_led_info()
 			await this.dc_info()
+			await this.ac_info()
 		} catch (Exception) {
 			console.log("Exception in poll", Exception)
 		}
@@ -211,7 +213,6 @@ export class Mk2Protocol {
 		});
 	}
 
-
 	async finv_calc_load(): Promise<void> {
 		console.log("******   finv_calc_load");
 
@@ -240,28 +241,32 @@ export class Mk2Protocol {
 	}
 
 
-	async  loadScalings() :Promise<void> {
-		console.log("******   loadScalings");
 
-		await this.umains_calc_load()
-		await this.imains_calc_load()
-		await this.uinv_calc_load()
-		await this.iinv_calc_load()
-		await this.ubat_calc_load()
-		await this.ibat_calc_load()
+	async  loadScalingsIfNeeded() :Promise<void> {
+		console.log("******   loadScalingsIfNeeded");
+
+		if (   this.calc.ibat_calc
+			&& this.calc.iinv_calc
+			&& this.calc.imains_calc
+			&& this.calc.ubat_calc &&
+			this.calc.uinv_calc
+			&& this.calc.umains_calc) {
+			return
+		} else {
+			await this.umains_calc_load()
+			await this.imains_calc_load()
+			await this.uinv_calc_load()
+			await this.iinv_calc_load()
+			await this.ubat_calc_load()
+			await this.ibat_calc_load()
+			await this.finv_calc_load()
+			await this.fmains_calc_load()
+		}
 	}
 
 
 	async dc_info(): Promise<void> {
 		console.log("******   dc_info");
-
-		// if (!this.calc) 
-		// await this.loadScalings()
-		// if (!self.calc.ubat_calc) Object.assign(self.calc, await self.ubat_calc_load());
-		// if (!self.calc.ibat_calc) Object.assign(self.calc, await self.ibat_calc_load());
-		// if (!self.calc.finv_calc) Object.assign(self.calc, await self.finv_calc_load());
-
-		// console.log("self.calc", self.calc)
 
 		return this.conn.communicate (this.create_frame("F", "\x00"), async (frame: Buffer): Promise<void> => {
 
@@ -275,53 +280,56 @@ export class Mk2Protocol {
 			const cbat_buf = Buffer.concat([frame.slice(12,15), Buffer.from("\x00"), Buffer.from(frame[14]>0x80 ? "\x00" : "\xFF")])
 			const ibat = bp.unpack("<i", ibat_buf);
 			const cbat = bp.unpack("<i", cbat_buf);
-			//const finv = bp.unpack("<B", frame, 15);
+			const finv = bp.unpack("<B", frame, 15);
 
-			if (this.calc.ubat_calc && this.calc.ibat_calc) {
+			if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
 				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale) / 10),   2)
 				this.mk2Model["dc_info.ibat"].value = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
 				this.mk2Model["dc_info.icharge"].value = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
-				//			this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(self.this.finv_calc.scale))), 2)
-
+				// this.mk2Model["dc_info.finv"].value = round ((10 / finv), 1)
+				this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
 			}
 		});
 	}
 
-	// this.ac_info = async function() {
-	// 	if (!self.calc.umains_calc) Object.assign(self.calc, await self.umains_calc_load());
-	// 	if (!self.calc.imains_calc) Object.assign(self.calc, await self.imains_calc_load());
-	// 	if (!self.calc.uinv_calc)   Object.assign(self.calc, await self.uinv_calc_load());
-	// 	if (!self.calc.iinv_calc)   Object.assign(self.calc, await self.iinv_calc_load());
-	// 	if (!self.calc.fmains_calc) Object.assign(self.calc, await self.fmains_calc_load());
+	async ac_info (): Promise<void> {
+		console.log("******   ac_info");
 
-	// 	return communicate (create_frame("F", "\x01"), (frame) => {
+		return this.conn.communicate (this.create_frame("F", "\x01"), async (frame: Buffer):Promise<void> => {
 
-	// 		if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0x01 ) {
-	// 			return { error: "no ac_info frame"}
-	// 		}
+			if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0x01 ) {
+				throw ( { error: "no ac_info frame"} )
+			}
 
-	// 		const data   = bp.unpack ("<H h H h B", frame, 7)
-	// 		const umains = data[0];
-	// 		const imains = data[1];
-	// 		const uinv   = data[2];
-	// 		const iinv   = data[3];
-	// 		const fmains = data[4]
+			const data   = bp.unpack ("<H h H h B", frame, 7)
+			const umains = data[0];
+			const imains = data[1];
+			const uinv   = data[2];
+			const iinv   = data[3];
+			const fmains = data[4]
 
-	// 		return {
-	// 			ac_info: {
-	// 				umains: round (((umains+self.calc.umains_calc.offset) * scale(self.calc.umains_calc.scale)), 1),
-	// 				imains: round (((imains+self.calc.imains_calc.offset) * scale(self.calc.imains_calc.scale)), 1),
-	// 				uinv:   round (((uinv+self.calc.uinv_calc.offset) * scale(self.calc.uinv_calc.scale)), 1),
-	// 				iinv:   round (((iinv+self.calc.iinv_calc.offset) * scale(self.calc.iinv_calc.scale)), 1),
-	// 				fmains: round ((10 / ((fmains + self.calc.fmains_calc.offset) * scale(self.calc.fmains_calc.scale))), 1)
-	// 			}
-	// 		}
-	// 	});
-	// }
+			if (this.calc.umains_calc
+				&& this.calc.imains_calc
+				&& this.calc.uinv_calc
+				&& this.calc.iinv_calc
+				&& this.calc.fmains_calc)
+			{
+				this.mk2Model["ac_info.umains"].value = round (((umains+this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)),   2)
+				this.mk2Model["ac_info.imains"].value = round (((imains+this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale)),   2)
+				this.mk2Model["ac_info.uinv"].value = round (((uinv+this.calc.uinv_calc.offset) * scale(this.calc.uinv_calc.scale)),   2)
+				this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale)),   2)
+				// this.mk2Model["ac_info.fmains"].value = round ((10 / fmains), 1)
+				this.mk2Model["ac_info.fmains"].value = round ((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 1)
+			} else {
+				console.log("ac_info scaling not ready")
+			}
+
+
+		});
+	}
 
 	async master_multi_led_info () : Promise<void> {
 		console.log("******   master_multi_led_info");
-
 		return this.conn.communicate (this.create_frame("F", "\x05"), async (response: Buffer) => {
 			this.mk2Model["frame.master_multi_led_info"].value = JSON.stringify(response.toJSON())
 
