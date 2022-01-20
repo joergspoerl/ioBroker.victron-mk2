@@ -225,7 +225,7 @@ class Mk2Model {
             value: 0,
             setFunc: (mk2, value) => mk2.set_assist(value)
         };
-        this["control.forcestate"] = {
+        this["control.force_state"] = {
             descr: "force a spezific state",
             unit: "",
             role: "state",

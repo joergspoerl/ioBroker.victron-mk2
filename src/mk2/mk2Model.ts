@@ -260,7 +260,7 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_assist(value)
 	};
 
-	"control.forcestate":    Mk2DataEntry = {
+	"control.force_state":    Mk2DataEntry = {
 		descr: "force a spezific state",
 		unit:  "",
 		role:  "state",
@@ -273,6 +273,8 @@ export class Mk2Model {
 		},
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.force_state(value)
 	};
+
+
 
 
 
