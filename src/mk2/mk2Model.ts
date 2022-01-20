@@ -6,7 +6,7 @@ export interface Mk2DataEntry {
 	role: ioBrokerRole;
 	type: ioBroker.CommonType //'number' | 'string' | 'boolean' | 'array' | 'object' | 'mixed' | 'file'
 	value: Mk2PropertyType;
-	states?: { [key: string]: string }
+	states?: { [key: string]: string };
 	valueOld?: Mk2PropertyType;
 	setFunc?:  (protocol: Mk2Protocol, value: number) => Promise<void>
 }
