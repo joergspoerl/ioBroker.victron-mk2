@@ -245,9 +245,9 @@ class Mk2Protocol {
                 throw ({ error: "no master_multi_led_info frame" });
             }
             const data = bp.unpack("<H H H", response, 7);
-            this.mk2Model["assist.limit"].value = data[0] / 10.0;
-            this.mk2Model["assist.minlimit"].value = data[1] / 10.0;
-            this.mk2Model["assist.maxlimit"].value = data[2] / 10.0;
+            this.mk2Model["assist.minlimit"].value = data[0] / 10.0;
+            this.mk2Model["assist.maxlimit"].value = data[1] / 10.0;
+            this.mk2Model["assist.limit"].value = data[2] / 10.0;
         });
     }
     async get_state() {
