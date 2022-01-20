@@ -165,7 +165,7 @@ class VictronMk2 extends utils.Adapter {
 				await this.updateStates();
 				console.log("sleep", this.config.interval * 1000)
 				await sleep(this.config.interval * 1000)
-			}	
+			}
 		}, 10*1000)
 	}
 

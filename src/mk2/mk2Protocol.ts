@@ -248,8 +248,8 @@ export class Mk2Protocol {
 		if (   this.calc.ibat_calc
 			&& this.calc.iinv_calc
 			&& this.calc.imains_calc
-			&& this.calc.ubat_calc &&
-			this.calc.uinv_calc
+			&& this.calc.ubat_calc
+			&& this.calc.uinv_calc
 			&& this.calc.umains_calc) {
 			return
 		} else {
