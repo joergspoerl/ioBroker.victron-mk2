@@ -213,15 +213,15 @@ class VictronMk2 extends utils.Adapter {
             // The state was changed
             this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
             const idShort = splitIdFromAdapter(id);
-            if (idShort == "control.set_assist" && this.mk2) {
+            if ((idShort == "control.set_assist"
+                || idShort == "control.force_state")
+                && this.mk2) {
                 this.mk2.mk2Model[idShort].value = state.val;
                 const setFunc = this.mk2.mk2Model[idShort].setFunc;
                 if (this.mk2.mk2Model[idShort] && setFunc) {
                     setFunc(this.mk2, state.val);
                 }
             }
-            // if (this.mk2.mk2Model[idShort].setFunc == "function")
-            // this.mk2.mk2Model[idShort].setFunc()
         }
         else {
             // The state was deleted

@@ -375,18 +375,12 @@ export class Mk2Protocol {
 		// assert s in (1, 2, 3), 'state must be between 1 and 3'
 		// self.communicate('W', '\x0E' + chr(s) + '\x00')
 
-
-		// const a  = ampere * 10
-		// const lo = a&0xFF
-		// const hi = a>>8
-		// const data = Buffer.from([0x03,lo, hi, 0x01, 0x80])
-
-		// console.log("******   set_assist");
-
-		// return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
-
-		// 	console.log("set_assist", response)
-		// })
+		if (state == 1 || state == 2 || state == 3) {
+			const data = Buffer.from([0x0E, 48 + state, 0x00])
+			return this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
+				console.log("force_state", response)
+			})
+		}
 	}
 
 }
