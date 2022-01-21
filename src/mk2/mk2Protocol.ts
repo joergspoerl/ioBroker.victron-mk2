@@ -296,12 +296,17 @@ export class Mk2Protocol {
 				throw ( { error: "no ac_info frame"} )
 			}
 
-			const data   = bp.unpack ("<H h H h B", frame, 7)
-			const umains = data[0];
-			const imains = data[1];
-			const uinv   = data[2];
-			const iinv   = data[3];
-			const fmains = data[4]
+			const data   = bp.unpack ("<B B B B B H h H h B", frame, 2)
+			const bf_factor  = data[0];
+			const inv_factor = data[1];
+			// const reserved   = data[2];
+			const state      = data[3];
+			const phase_info = data[4];
+			const umains     = data[5];
+			const imains     = data[6];
+			const uinv       = data[7];
+			const iinv       = data[8];
+			const fmains     = data[9]
 
 			if (this.calc.umains_calc
 				&& this.calc.imains_calc
@@ -309,11 +314,12 @@ export class Mk2Protocol {
 				&& this.calc.iinv_calc
 				&& this.calc.fmains_calc)
 			{
-				this.mk2Model["ac_info.umains"].value = round (((umains+this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)),   2)
-				this.mk2Model["ac_info.imains"].value = round (((imains+this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale)),   2)
-				this.mk2Model["ac_info.uinv"].value = round (((uinv+this.calc.uinv_calc.offset) * scale(this.calc.uinv_calc.scale)),   2)
-				this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale)),   2)
-				// this.mk2Model["ac_info.fmains"].value = round ((10 / fmains), 1)
+				this.mk2Model["ac_info.state"].value = state
+				this.mk2Model["ac_info.phase_info"].value = phase_info
+				this.mk2Model["ac_info.umains"].value = round (((umains+this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)),   1)
+				this.mk2Model["ac_info.imains"].value = round (((imains+this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale) * bf_factor),   2)
+				this.mk2Model["ac_info.uinv"].value = round (((uinv+this.calc.uinv_calc.offset) * scale(this.calc.uinv_calc.scale)),   1)
+				this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
 				this.mk2Model["ac_info.fmains"].value = round ((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 1)
 			} else {
 				console.log("ac_info scaling not ready")
@@ -331,11 +337,21 @@ export class Mk2Protocol {
 				throw ({ error: "no master_multi_led_info frame"})
 			}
 
-			const data = bp.unpack("<H H H", response, 7)
+			const data = bp.unpack("<H H H B", response, 7)
 
 			this.mk2Model["assist.minlimit"].value = data[0]/10.0
 			this.mk2Model["assist.maxlimit"].value = data[1]/10.0
 			this.mk2Model["assist.limit"].value = data[2]/10.0
+
+			const switch_register = data[3]
+			this.mk2Model["switch.DirectRemoteSwitchCharge"].value  = (switch_register & 0b00000001) > 0 ? 1 :0
+			this.mk2Model["switch.DirectRemoteSwitchInvert"].value  = (switch_register & 0b00000010) > 0 ? 1 :0
+			this.mk2Model["switch.FrontSwitchUp"].value             = (switch_register & 0b00000100) > 0 ? 1 :0
+			this.mk2Model["switch.FrontSwitchDown"].value           = (switch_register & 0b00001000) > 0 ? 1 :0
+			this.mk2Model["switch.SwitchCharge"].value              = (switch_register & 0b00010000) > 0 ? 1 :0
+			this.mk2Model["switch.SwitchInvert"].value              = (switch_register & 0b00100000) > 0 ? 1 :0
+			this.mk2Model["switch.OnboardRemoteInvertSwitch"].value = (switch_register & 0b01000000) > 0 ? 1 :0
+			this.mk2Model["switch.RemoteGeneratorSelected"].value   = (switch_register & 0b10000000) > 0 ? 1 :0
 		});
 	}
 

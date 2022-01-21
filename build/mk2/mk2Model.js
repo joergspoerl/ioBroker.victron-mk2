@@ -66,12 +66,41 @@ class Mk2Model {
             type: "number",
             value: 0,
         };
-        this["ac_info.finv"] = {
-            descr: "Inverter frequncy",
-            unit: "Hz",
-            role: "value",
+        this["ac_info.phase_info"] = {
+            descr: "Indicates which phase the received frame describes",
+            unit: "",
+            role: "state",
             type: "number",
             value: 0,
+            states: {
+                "5": "This frame describes L4.",
+                "6": "This frame describes L3.",
+                "7": "This frame describes L2.",
+                "8": "This frame describes L1; there is 1 phase in this system.",
+                "9": "This frame describes L1; there are 2 phases in this system.",
+                "10": "This frame describes L1; there are 3 phases in this system.",
+                "11": "This frame describes L1; there are 4 phases in this system.",
+                "12": "This is a DC info frame.",
+            }
+        };
+        this["ac_info.state"] = {
+            descr: "Indicates the Multi main state",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "Down",
+                "1": "Startup",
+                "2": "Off",
+                "3": "Slave",
+                "4": "InvertFull",
+                "5": "InvertHalf",
+                "6": "InvertAES",
+                "7": "PowerAssist",
+                "8": "Bypass",
+                "9": "StateCharge",
+            }
         };
         this["assist.minlimit"] = {
             descr: "Minimum input current limit",
@@ -93,6 +122,94 @@ class Mk2Model {
             role: "value.current",
             type: "number",
             value: 0,
+        };
+        this["switch.DirectRemoteSwitchCharge"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.DirectRemoteSwitchInvert"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.FrontSwitchUp"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.FrontSwitchDown"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.SwitchCharge"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.SwitchInvert"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.OnboardRemoteInvertSwitch"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
+        };
+        this["switch.RemoteGeneratorSelected"] = {
+            descr: "Switch states",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: false,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            }
         };
         this["state.state"] = {
             descr: "state number",

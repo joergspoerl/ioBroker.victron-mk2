@@ -92,12 +92,42 @@ export class Mk2Model {
 		value: 0,
 	};
 
-	"ac_info.finv":    Mk2DataEntry = {
-		descr: "Inverter frequncy",
-		unit:  "Hz",
-		role:  "value",
+	"ac_info.phase_info":    Mk2DataEntry = {
+		descr: "Indicates which phase the received frame describes",
+		unit:  "",
+		role:  "state",
 		type: "number",
 		value: 0,
+		states: {
+			"5"  : "This frame describes L4.",
+			"6"  : "This frame describes L3.",
+			"7"  : "This frame describes L2.",
+			"8"  : "This frame describes L1; there is 1 phase in this system.",
+			"9"  : "This frame describes L1; there are 2 phases in this system.",
+			"10" : "This frame describes L1; there are 3 phases in this system.",
+			"11" : "This frame describes L1; there are 4 phases in this system.",
+			"12" : "This is a DC info frame.",
+		}
+	};
+
+	"ac_info.state":    Mk2DataEntry = {
+		descr: "Indicates the Multi main state",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "Down",
+			"1": "Startup",
+			"2": "Off",
+			"3": "Slave",
+			"4": "InvertFull",
+			"5": "InvertHalf",
+			"6": "InvertAES",
+			"7": "PowerAssist",
+			"8": "Bypass",
+			"9": "StateCharge",
+		}
 	};
 
 	"assist.minlimit":    Mk2DataEntry = {
@@ -122,6 +152,98 @@ export class Mk2Model {
 		role:  "value.current",
 		type: "number",
 		value: 0,
+	};
+
+	"switch.DirectRemoteSwitchCharge":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+
+	"switch.DirectRemoteSwitchInvert":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+	"switch.FrontSwitchUp":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+	"switch.FrontSwitchDown":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+	"switch.SwitchCharge":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+
+	"switch.SwitchInvert":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+	"switch.OnboardRemoteInvertSwitch":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
+	};
+
+	"switch.RemoteGeneratorSelected":    Mk2DataEntry = {
+		descr: "Switch states",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: false,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		}
 	};
 
 	"state.state":    Mk2DataEntry = {
