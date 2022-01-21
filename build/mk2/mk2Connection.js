@@ -102,18 +102,22 @@ class Mk2Connection {
         if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
             await this.port.open();
         }
-        let f;
+        let buffer;
+        let counter = 0;
         await this.port.flush();
         while (true) {
-            f = this.port.read(1);
+            counter++;
+            buffer = this.port.read(1);
             // console.log(f)
-            if (f && f[0] == 0xFF) {
+            if (buffer && buffer[0] == 0xFF) {
                 await sleep(100);
-                f = this.port.read(7);
+                buffer = this.port.read(7);
                 // console.log(f)
                 break;
             }
             await sleep(10);
+            if (counter > 5000)
+                throw ("Sync - receive no version frame - no mk2 connected ?");
         }
         console.log("sync: ");
     }
