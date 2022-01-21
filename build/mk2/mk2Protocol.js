@@ -27,9 +27,9 @@ class Mk2Protocol {
     }
     async poll() {
         try {
-            // await this.conn.sync()
-            await this.loadScalingsIfNeeded();
+            await this.conn.sync();
             await this.address();
+            await this.loadScalingsIfNeeded();
             await this.led_status();
             await this.get_state();
             await this.master_multi_led_info();
@@ -70,7 +70,7 @@ class Mk2Protocol {
     async address() {
         console.log("******   adress");
         return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response) => {
-            if (response[0] != 0x04 || response[1] != 0x41 || response[2] != 0x01 || response[3] != 0x00) {
+            if (response[0] != 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01) {
                 throw ({ error: "no address frame" });
             }
         });
