@@ -57,13 +57,13 @@ export class Mk2Model {
 		value: 0,
 	};
 
-	"dc_info.finv":    Mk2DataEntry = {
-		descr: "Inverter period",
-		unit:  "Hz",
-		role:  "state",
-		type: "number",
-		value: 0,
-	};
+	// "dc_info.finv":    Mk2DataEntry = {
+	// 	descr: "Inverter period",
+	// 	unit:  "Hz",
+	// 	role:  "state",
+	// 	type: "number",
+	// 	value: 0,
+	// };
 
 	"ac_info.umains":    Mk2DataEntry = {
 		descr: "Main voltage - shore connection",
@@ -82,7 +82,7 @@ export class Mk2Model {
 	};
 
 	"ac_info.fmains":    Mk2DataEntry = {
-		descr: "Main frequncy",
+		descr: "Main freqency",
 		unit:  "Hz",
 		role:  "value",
 		type: "number",
@@ -252,7 +252,7 @@ export class Mk2Model {
 		descr: "Switch states",
 		unit:  "",
 		role:  "state",
-		type: "boolean",
+		type: "number",
 		value: false,
 		states: {
 			"0": "OFF",
@@ -354,6 +354,30 @@ export class Mk2Model {
 		states: led_states
 	};
 
+
+	// "power.charger":    Mk2DataEntry = {
+	// 	descr: "Pharger power being transformed from AC to DC or vice versa",
+	// 	unit:  "W",
+	// 	role:  "value",
+	// 	type: "number",
+	// 	value: 0,
+	// };
+
+	// "power.inverter":    Mk2DataEntry = {
+	// 	descr: "Inverter power being transformed from AC to DC or vice versa",
+	// 	unit:  "W",
+	// 	role:  "value",
+	// 	type: "number",
+	// 	value: 0,
+	// };
+
+	// "power.output":    Mk2DataEntry = {
+	// 	descr: "Output power going into or out of the Multi/Quatrro on the AC output port to the loads.",
+	// 	unit:  "W",
+	// 	role:  "value",
+	// 	type: "number",
+	// 	value: 0,
+	// };
 
 	"control.set_assist":    Mk2DataEntry = {
 		descr: "Set input current limit",
