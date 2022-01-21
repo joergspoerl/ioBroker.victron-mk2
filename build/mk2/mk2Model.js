@@ -1,6 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Mk2Model = void 0;
+exports.Mk2Model = exports.led = void 0;
+var led;
+(function (led) {
+    led[led["OFF"] = 0] = "OFF";
+    led[led["ON"] = 1] = "ON";
+    led[led["BLINK_ANTI"] = 2] = "BLINK_ANTI";
+    led[led["BLINK"] = 3] = "BLINK";
+    led[led["UNKNOWN"] = 4] = "UNKNOWN";
+})(led = exports.led || (exports.led = {}));
+const led_states = {
+    "0": "OFF",
+    "1": "ON",
+    "2": "BLINK_ANTI",
+    "3": "BLINK",
+    "4": "UNKNOWN"
+};
 class Mk2Model {
     constructor() {
         this["dc_info.ubat"] = {
@@ -244,11 +259,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.absorption"] = {
             descr: "",
@@ -256,11 +267,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.bulk"] = {
             descr: "",
@@ -268,11 +275,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.float"] = {
             descr: "",
@@ -280,11 +283,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.inverter"] = {
             descr: "",
@@ -292,11 +291,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.overload"] = {
             descr: "",
@@ -304,11 +299,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.low_bat"] = {
             descr: "",
@@ -316,11 +307,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["led.temp"] = {
             descr: "",
@@ -328,11 +315,7 @@ class Mk2Model {
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "OFF",
-                "1": "ON",
-                "2": "BLINK",
-            }
+            states: led_states
         };
         this["control.set_assist"] = {
             descr: "Set input current limit",
