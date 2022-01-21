@@ -154,8 +154,13 @@ export class Mk2Protocol {
 	async umains_calc_load(): Promise<void> {
 		console.log("******   umains_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x00\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x00\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no umains_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.umains_calc =  {
 				scale:  data[0],
@@ -167,8 +172,13 @@ export class Mk2Protocol {
 	async imains_calc_load (): Promise<void> {
 		console.log("******   imains_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x01\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x01\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no imains_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.imains_calc = {
 				scale:  data[0],
@@ -182,8 +192,13 @@ export class Mk2Protocol {
 	async uinv_calc_load(): Promise<void> {
 		console.log("******   uinv_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x02\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x02\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no uinv_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.uinv_calc =  {
 				scale:  data[0],
@@ -195,8 +210,13 @@ export class Mk2Protocol {
 	async iinv_calc_load (): Promise<void> {
 		console.log("******   iinv_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x03\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x03\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no iinv_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.iinv_calc = {
 				scale:  data[0],
@@ -211,8 +231,13 @@ export class Mk2Protocol {
 	async ubat_calc_load(): Promise<void> {
 		console.log("******   ubat_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x04\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x04\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no ubat_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.ubat_calc =  {
 				scale:  data[0],
@@ -224,8 +249,13 @@ export class Mk2Protocol {
 	async ibat_calc_load (): Promise<void> {
 		console.log("******   ibat_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x05\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x05\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no ibat_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.ibat_calc = {
 				scale:  data[0],
@@ -238,8 +268,13 @@ export class Mk2Protocol {
 	async finv_calc_load(): Promise<void> {
 		console.log("******   finv_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x07\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x07\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no finv_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.finv_calc =  {
 				scale:  data[0],
@@ -251,8 +286,13 @@ export class Mk2Protocol {
 	async fmains_calc_load (): Promise<void> {
 		console.log("******   fmains_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x08\x00"), async (frame: Buffer) => {
-			const data = bp.unpack("<h B h", frame, 4)
+		return this.conn.communicate (this.create_frame("W", "\x36\x08\x00"), async (response: Buffer) => {
+
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+				throw ({ error: "no fmains_calc_load frame"})
+			}
+
+			const data = bp.unpack("<h B h", response, 4)
 
 			this.calc.fmains_calc = {
 				scale:  data[0],
@@ -388,9 +428,12 @@ export class Mk2Protocol {
 
 		return this.conn.communicate (this.create_frame("W", "\x0E\x00\x00"), async (response: Buffer) => {
 
+			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+				throw ({ error: "no get_state frame"})
+			}
+
 			const data = bp.unpack("<B B", response, 4)
 			const state : number = parseInt ("" + data[0] + data[1]);
-
 
 			this.mk2Model["state.state"].value = state
 		})
@@ -412,11 +455,7 @@ export class Mk2Protocol {
 	}
 
 	async force_state (state:number) : Promise<void> {
-
 		console.log("force_state", state)
-
-		// assert s in (1, 2, 3), 'state must be between 1 and 3'
-		// self.communicate('W', '\x0E' + chr(s) + '\x00')
 
 		if (state == 1 || state == 2 || state == 3) {
 			const data = Buffer.from([0x0E, state, 0x00])
