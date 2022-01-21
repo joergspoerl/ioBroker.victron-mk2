@@ -9,7 +9,8 @@ export enum mk2SpezialFrame {
 	normal = 0xFF,
 	infox20 = 0x20,
 	infox21 = 0x21,
-	masterMultiLed = 0x41
+	masterMultiLed = 0x41,
+	ramReadOk = 0x85
 }
 
 export class Mk2Connection {
@@ -63,7 +64,8 @@ export class Mk2Connection {
 					if ((  spezial == mk2SpezialFrame.normal
 						|| spezial == mk2SpezialFrame.infox20
 						|| spezial == mk2SpezialFrame.infox21
-						|| spezial == mk2SpezialFrame.masterMultiLed)) {
+						|| spezial == mk2SpezialFrame.masterMultiLed
+						|| spezial == mk2SpezialFrame.ramReadOk)) {
 						await decode(frame)
 						break
 					}

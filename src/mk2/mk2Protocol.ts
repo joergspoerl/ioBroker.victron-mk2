@@ -17,6 +17,8 @@ export class Calc {
 	ibat_calc: IscaleEntry | undefined
 	finv_calc: IscaleEntry | undefined
 	fmains_calc: IscaleEntry | undefined
+	// power_output_calc: IscaleEntry | undefined
+
 }
 
 function scale (factor: number): number {
@@ -52,6 +54,9 @@ export class Mk2Protocol {
 			await this.master_multi_led_info()
 			await this.dc_info()
 			await this.ac_info()
+			// await this.get_power_charger()
+			// await this.get_power_inverter()
+			// await this.get_power_output()
 		} catch (Exception) {
 			console.log("Exception in poll", Exception)
 		}
@@ -249,7 +254,7 @@ export class Mk2Protocol {
 	async ibat_calc_load (): Promise<void> {
 		console.log("******   ibat_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x05\x00"), async (response: Buffer) => {
+		return this.conn.communicate (this.create_frame("W", "\x36\x06\x00"), async (response: Buffer) => {
 
 			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
 				throw ({ error: "no ibat_calc_load frame"})
@@ -303,6 +308,25 @@ export class Mk2Protocol {
 	}
 
 
+	// async power_output_calc_load (): Promise<void> {
+	// 	console.log("******   power_output_calc_load");
+
+	// 	return this.conn.communicate (this.create_frame("W", "\x36\x11\x00"), async (response: Buffer) => {
+
+	// 		if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
+	// 			throw ({ error: "no power_output_calc_load frame"})
+	// 		}
+
+	// 		const data = bp.unpack("<h B h", response, 4)
+
+	// 		this.calc.power_output_calc = {
+	// 			scale:  data[0],
+	// 			offset: data[2]
+
+	// 		}
+	// 	});
+	// }
+
 
 	async  loadScalingsIfNeeded() :Promise<void> {
 		console.log("******   loadScalingsIfNeeded");
@@ -342,14 +366,13 @@ export class Mk2Protocol {
 			const cbat_buf = Buffer.concat([response.slice(12,15), Buffer.from("\x00"), Buffer.from(response[14]>0x80 ? "\x00" : "\xFF")])
 			const ibat = bp.unpack("<i", ibat_buf);
 			const cbat = bp.unpack("<i", cbat_buf);
-			const finv = bp.unpack("<B", response, 15);
+			// const finv = bp.unpack("<B", response, 15);
 
 			if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
 				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale) / 10),   2)
 				this.mk2Model["dc_info.ibat"].value = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
 				this.mk2Model["dc_info.icharge"].value = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
-				// this.mk2Model["dc_info.finv"].value = round ((10 / finv), 1)
-				this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
+				// this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
 			}
 		});
 	}
@@ -383,11 +406,11 @@ export class Mk2Protocol {
 			{
 				this.mk2Model["ac_info.state"].value = state
 				this.mk2Model["ac_info.phase_info"].value = phase_info
-				this.mk2Model["ac_info.umains"].value = round (((umains+this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)),   1)
+				this.mk2Model["ac_info.umains"].value = round (((umains+this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)),   0)
 				this.mk2Model["ac_info.imains"].value = round (((imains+this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale) * bf_factor),   2)
-				this.mk2Model["ac_info.uinv"].value = round (((uinv+this.calc.uinv_calc.offset) * scale(this.calc.uinv_calc.scale)),   1)
+				this.mk2Model["ac_info.uinv"].value = round (((uinv+this.calc.uinv_calc.offset) * scale(this.calc.uinv_calc.scale)),   0)
 				this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
-				this.mk2Model["ac_info.fmains"].value = round ((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 1)
+				this.mk2Model["ac_info.fmains"].value = round ((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 2)
 			} else {
 				console.log("ac_info scaling not ready")
 			}
@@ -438,6 +461,58 @@ export class Mk2Protocol {
 			this.mk2Model["state.state"].value = state
 		})
 	}
+
+
+	// its not supported with my firmware !!!!
+
+	// async get_power_charger () : Promise<void> {
+	// 	console.log("******   get_power_charger");
+
+	// 	return this.conn.communicate (this.create_frame("W", "\x30\x0F\x00"), async (response: Buffer) => {
+
+	// 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+	// 			throw ({ error: "no get_power_charger frame"})
+	// 		}
+
+	// 		const data = bp.unpack("<h", response, 4)
+	// 		console.log("******   get_power_charger unpack", data);
+
+	// 		this.mk2Model["power.charger"].value = data[0]
+	// 	})
+	// }
+
+	// async get_power_inverter () : Promise<void> {
+	// 	console.log("******   get_power_inverter");
+
+	// 	return this.conn.communicate (this.create_frame("W", "\x30\x10\x00"), async (response: Buffer) => {
+
+	// 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+	// 			throw ({ error: "no get_power_inverter frame"})
+	// 		}
+
+	// 		const data = bp.unpack("<h", response, 4)
+	// 		console.log("******   get_power_inverter unpack", data);
+
+	// 		this.mk2Model["power.inverter"].value = data[0]
+	// 	})
+	// }
+
+	// async get_power_output () : Promise<void> {
+	// 	console.log("******   get_power_output");
+
+	// 	return this.conn.communicate (this.create_frame("W", "\x30\x0d"), async (response: Buffer) => {
+
+	// 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+	// 			throw ({ error: "no get_power_output frame"})
+	// 		}
+
+	// 		const data = bp.unpack("<H", response, 4)
+	// 		console.log("******   get_power_output unpack", data);
+	// 		//			this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
+	// 		// this.mk2Model["power.output"].value = data[0]
+	// 	})
+	// }
+
 
 	// Set the ampere level for PowerAssist.
 	async set_assist (ampere:number) : Promise<void> {
