@@ -67,23 +67,49 @@ class Mk2Protocol {
     async address() {
         console.log("******   adress");
         return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response) => {
-            console.log("A", response);
-            // decode response frame
+            if (response[0] != 0x0f || response[1] != 0x41 || response[2] != 0x01 || response[3] != 0x00) {
+                throw ({ error: "no address frame" });
+            }
         });
     }
     async led_status() {
         console.log("******   led_status");
         return this.conn.communicate(this.create_frame("L", ""), async (response) => {
+            if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x4c) {
+                throw ({ error: "no led_status frame" });
+            }
             const led_status = response[3];
             const led_blink = response[4];
-            this.mk2Model["led.mains"].value = ((led_status & 1) > 0 ? ((led_blink & 1) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.absorption"].value = ((led_status & 2) > 0 ? ((led_blink & 2) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.bulk"].value = ((led_status & 4) > 0 ? ((led_blink & 4) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.float"].value = ((led_status & 8) > 0 ? ((led_blink & 8) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.inverter"].value = ((led_status & 16) > 0 ? ((led_blink & 16) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.overload"].value = ((led_status & 32) > 0 ? ((led_blink & 32) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.low_bat"].value = ((led_status & 64) > 0 ? ((led_blink & 64) > 0 ? 2 : 1) : 0);
-            this.mk2Model["led.temp"].value = ((led_status & 128) > 0 ? ((led_blink & 128) > 0 ? 2 : 1) : 0);
+            let mains = mk2Model_1.led.UNKNOWN;
+            let absorption = mk2Model_1.led.UNKNOWN;
+            let bulk = mk2Model_1.led.UNKNOWN;
+            let float = mk2Model_1.led.UNKNOWN;
+            let inverter = mk2Model_1.led.UNKNOWN;
+            let overload = mk2Model_1.led.UNKNOWN;
+            let low_bat = mk2Model_1.led.UNKNOWN;
+            let temp = mk2Model_1.led.UNKNOWN;
+            // if (!this.mk2Model["led.mains"].value) {
+            if (led_status == 0x1f && led_blink == 0x1f) {
+                // unable to determine the LED status
+            }
+            else {
+                mains = ((led_blink & 1) << 1) + (led_status & 1) >> 0;
+                absorption = ((led_blink & 2) << 1) + (led_status & 2) >> 1;
+                bulk = ((led_blink & 4) << 1) + (led_status & 4) >> 2;
+                float = ((led_blink & 8) << 1) + (led_status & 8) >> 3;
+                inverter = ((led_blink & 16) << 1) + (led_status & 16) >> 4;
+                overload = ((led_blink & 32) << 1) + (led_status & 32) >> 5;
+                low_bat = ((led_blink & 64) << 1) + (led_status & 64) >> 6;
+                temp = ((led_blink & 128) << 1) + (led_status & 128) >> 7;
+            }
+            this.mk2Model["led.mains"].value = mains;
+            this.mk2Model["led.absorption"].value = absorption;
+            this.mk2Model["led.bulk"].value = bulk;
+            this.mk2Model["led.float"].value = float;
+            this.mk2Model["led.inverter"].value = inverter;
+            this.mk2Model["led.overload"].value = overload;
+            this.mk2Model["led.low_bat"].value = low_bat;
+            this.mk2Model["led.temp"].value = temp;
         });
     }
     async umains_calc_load() {

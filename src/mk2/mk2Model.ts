@@ -15,7 +15,21 @@ export type Mk2PropertyType = number | string | boolean | null; // entspricht io
 
 export type ioBrokerRole = "state" | "value.current" | "value.voltage" | "value" | "value.temperature"
 
+export enum led {
+	"OFF" = 0,
+	"ON" = 1,
+	"BLINK_ANTI" = 2,
+	"BLINK" = 3,
+	"UNKNOWN" = 4,
+}
 
+const led_states = {
+	"0" : "OFF",
+	"1" : "ON",
+	"2" : "BLINK_ANTI",
+	"3" : "BLINK",
+	"4" : "UNKNOWN"
+}
 export class Mk2Model {
 	[key: string]: Mk2DataEntry
 
@@ -281,11 +295,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.absorption":    Mk2DataEntry = {
 		descr: "",
@@ -293,11 +303,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.bulk":    Mk2DataEntry = {
 		descr: "",
@@ -305,11 +311,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.float":    Mk2DataEntry = {
 		descr: "",
@@ -317,11 +319,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.inverter":    Mk2DataEntry = {
 		descr: "",
@@ -329,11 +327,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.overload":    Mk2DataEntry = {
 		descr: "",
@@ -341,11 +335,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.low_bat":    Mk2DataEntry = {
 		descr: "",
@@ -353,11 +343,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 	"led.temp":    Mk2DataEntry = {
 		descr: "",
@@ -365,11 +351,7 @@ export class Mk2Model {
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "OFF",
-			"1": "ON",
-			"2": "BLINK",
-		}
+		states: led_states
 	};
 
 
