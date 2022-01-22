@@ -65,7 +65,7 @@ class VictronMk2 extends utils.Adapter {
         this.log.info("config option2: " + this.config.option2);
         this.log.info("config interval: " + this.config.interval);
         this.log.info("config portPath: " + this.config.portPath);
-        this.mk2 = new mk2Protocol_1.Mk2Protocol(this.config.portPath);
+        this.mk2 = new mk2Protocol_1.Mk2Protocol(this.config.portPath, this.log);
         /*
         For every state in the system there has to be also an object of type state
         Here a simple template for a boolean variable named "testVariable"
@@ -176,7 +176,7 @@ class VictronMk2 extends utils.Adapter {
         this.setTimeout(async () => {
             while (this.mainLoopRunning) {
                 await this.updateStates();
-                console.log("sleep", this.config.interval * 1000);
+                this.log.debug("sleep -> interval = " + this.config.interval * 1000);
                 await sleep(this.config.interval * 1000);
             }
         }, 10 * 1000);
