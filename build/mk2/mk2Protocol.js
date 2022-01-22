@@ -19,11 +19,12 @@ function round(number, decimal) {
     return Math.round(number * e) / e;
 }
 class Mk2Protocol {
-    constructor(portPath) {
+    constructor(portPath, log) {
         this.mk2Model = new mk2Model_1.Mk2Model();
         this.portPath = portPath;
-        this.conn = new mk2Connection_1.Mk2Connection(portPath);
+        this.conn = new mk2Connection_1.Mk2Connection(portPath, log);
         this.calc = new Calc();
+        this.log = log;
     }
     async poll() {
         try {
@@ -40,7 +41,7 @@ class Mk2Protocol {
             // await this.get_power_output()
         }
         catch (Exception) {
-            console.log("Exception in poll", Exception);
+            this.log.error("Exception in poll " + Exception);
         }
     }
     checksum(buffer) {
@@ -49,7 +50,7 @@ class Mk2Protocol {
             sum = sum + buffer[i];
         }
         const check = sum % 256;
-        //console.log("checksum",check)
+        //this.log.debug("checksum",check)
         return check == 0 ? true : false;
     }
     create_frame(command, data) {
@@ -63,12 +64,12 @@ class Mk2Protocol {
         }
         sum = 256 - sum % 256;
         buf = Buffer.concat([buf, Buffer.from([sum])]);
-        //    console.log("SEND -> ", buf, buf.toString(), 'checksum',sum);
+        //    this.log.debug("SEND -> ", buf, buf.toString(), 'checksum',sum);
         // this.conn.frame_debug("SEND ->", buf);
         return buf;
     }
     async address() {
-        console.log("******   adress");
+        this.log.debug("******   adress");
         return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response) => {
             if (response[0] != 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01) {
                 throw ({ error: "no address frame" });
@@ -76,7 +77,7 @@ class Mk2Protocol {
         });
     }
     async led_status() {
-        console.log("******   led_status");
+        this.log.debug("******   led_status");
         return this.conn.communicate(this.create_frame("L", ""), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x4c) {
                 throw ({ error: "no led_status frame" });
@@ -116,7 +117,7 @@ class Mk2Protocol {
         });
     }
     async umains_calc_load() {
-        console.log("******   umains_calc_load");
+        this.log.debug("******   umains_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x00\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no umains_calc_load frame" });
@@ -129,7 +130,7 @@ class Mk2Protocol {
         });
     }
     async imains_calc_load() {
-        console.log("******   imains_calc_load");
+        this.log.debug("******   imains_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x01\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no imains_calc_load frame" });
@@ -142,7 +143,7 @@ class Mk2Protocol {
         });
     }
     async uinv_calc_load() {
-        console.log("******   uinv_calc_load");
+        this.log.debug("******   uinv_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x02\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no uinv_calc_load frame" });
@@ -155,7 +156,7 @@ class Mk2Protocol {
         });
     }
     async iinv_calc_load() {
-        console.log("******   iinv_calc_load");
+        this.log.debug("******   iinv_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x03\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no iinv_calc_load frame" });
@@ -168,7 +169,7 @@ class Mk2Protocol {
         });
     }
     async ubat_calc_load() {
-        console.log("******   ubat_calc_load");
+        this.log.debug("******   ubat_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x04\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no ubat_calc_load frame" });
@@ -181,7 +182,7 @@ class Mk2Protocol {
         });
     }
     async ibat_calc_load() {
-        console.log("******   ibat_calc_load");
+        this.log.debug("******   ibat_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x06\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no ibat_calc_load frame" });
@@ -194,7 +195,7 @@ class Mk2Protocol {
         });
     }
     async finv_calc_load() {
-        console.log("******   finv_calc_load");
+        this.log.debug("******   finv_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x07\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no finv_calc_load frame" });
@@ -207,7 +208,7 @@ class Mk2Protocol {
         });
     }
     async fmains_calc_load() {
-        console.log("******   fmains_calc_load");
+        this.log.debug("******   fmains_calc_load");
         return this.conn.communicate(this.create_frame("W", "\x36\x08\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no fmains_calc_load frame" });
@@ -220,7 +221,7 @@ class Mk2Protocol {
         });
     }
     // async power_output_calc_load (): Promise<void> {
-    // 	console.log("******   power_output_calc_load");
+    // 	this.log.debug("******   power_output_calc_load");
     // 	return this.conn.communicate (this.create_frame("W", "\x36\x11\x00"), async (response: Buffer) => {
     // 		if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
     // 			throw ({ error: "no power_output_calc_load frame"})
@@ -233,7 +234,7 @@ class Mk2Protocol {
     // 	});
     // }
     async loadScalingsIfNeeded() {
-        console.log("******   loadScalingsIfNeeded");
+        this.log.debug("******   loadScalingsIfNeeded");
         if (this.calc.ibat_calc
             && this.calc.iinv_calc
             && this.calc.imains_calc
@@ -254,7 +255,7 @@ class Mk2Protocol {
         }
     }
     async dc_info() {
-        console.log("******   dc_info");
+        this.log.debug("******   dc_info");
         return this.conn.communicate(this.create_frame("F", "\x00"), async (response) => {
             if (response[0] != 0x0f || response[1] != 0x20 || response[2] != 0xb5) {
                 throw ({ error: "no dc_info frame" });
@@ -275,7 +276,7 @@ class Mk2Protocol {
         });
     }
     async ac_info() {
-        console.log("******   ac_info");
+        this.log.debug("******   ac_info");
         return this.conn.communicate(this.create_frame("F", "\x01"), async (frame) => {
             if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0x01) {
                 throw ({ error: "no ac_info frame" });
@@ -305,12 +306,12 @@ class Mk2Protocol {
                 this.mk2Model["ac_info.fmains"].value = round((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 2);
             }
             else {
-                console.log("ac_info scaling not ready");
+                this.log.debug("ac_info scaling not ready");
             }
         });
     }
     async master_multi_led_info() {
-        console.log("******   master_multi_led_info");
+        this.log.debug("******   master_multi_led_info");
         return this.conn.communicate(this.create_frame("F", "\x05"), async (response) => {
             if (response[0] != 0x0c || response[1] != 0x41) {
                 throw ({ error: "no master_multi_led_info frame" });
@@ -331,7 +332,7 @@ class Mk2Protocol {
         });
     }
     async get_state() {
-        console.log("******   get_state");
+        this.log.debug("******   get_state");
         return this.conn.communicate(this.create_frame("W", "\x0E\x00\x00"), async (response) => {
             if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no get_state frame" });
@@ -343,35 +344,35 @@ class Mk2Protocol {
     }
     // its not supported with my firmware !!!!
     // async get_power_charger () : Promise<void> {
-    // 	console.log("******   get_power_charger");
+    // 	this.log.debug("******   get_power_charger");
     // 	return this.conn.communicate (this.create_frame("W", "\x30\x0F\x00"), async (response: Buffer) => {
     // 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
     // 			throw ({ error: "no get_power_charger frame"})
     // 		}
     // 		const data = bp.unpack("<h", response, 4)
-    // 		console.log("******   get_power_charger unpack", data);
+    // 		this.log.debug("******   get_power_charger unpack", data);
     // 		this.mk2Model["power.charger"].value = data[0]
     // 	})
     // }
     // async get_power_inverter () : Promise<void> {
-    // 	console.log("******   get_power_inverter");
+    // 	this.log.debug("******   get_power_inverter");
     // 	return this.conn.communicate (this.create_frame("W", "\x30\x10\x00"), async (response: Buffer) => {
     // 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
     // 			throw ({ error: "no get_power_inverter frame"})
     // 		}
     // 		const data = bp.unpack("<h", response, 4)
-    // 		console.log("******   get_power_inverter unpack", data);
+    // 		this.log.debug("******   get_power_inverter unpack", data);
     // 		this.mk2Model["power.inverter"].value = data[0]
     // 	})
     // }
     // async get_power_output () : Promise<void> {
-    // 	console.log("******   get_power_output");
+    // 	this.log.debug("******   get_power_output");
     // 	return this.conn.communicate (this.create_frame("W", "\x30\x0d"), async (response: Buffer) => {
     // 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
     // 			throw ({ error: "no get_power_output frame"})
     // 		}
     // 		const data = bp.unpack("<H", response, 4)
-    // 		console.log("******   get_power_output unpack", data);
+    // 		this.log.debug("******   get_power_output unpack", data);
     // 		//			this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
     // 		// this.mk2Model["power.output"].value = data[0]
     // 	})
@@ -382,17 +383,17 @@ class Mk2Protocol {
         const lo = a & 0xFF;
         const hi = a >> 8;
         const data = Buffer.from([0x03, lo, hi, 0x01, 0x80]);
-        console.log("******   set_assist");
+        this.log.debug("******   set_assist");
         return this.conn.communicate(this.create_frame("S", data), async (response) => {
-            console.log("set_assist", response);
+            this.log.debug("set_assist ->" + response);
         });
     }
     async force_state(state) {
-        console.log("force_state", state);
+        this.log.debug("force_state ->" + state);
         if (state == 1 || state == 2 || state == 3) {
             const data = Buffer.from([0x0E, state, 0x00]);
             return this.conn.communicate(this.create_frame("W", data), async (response) => {
-                console.log("force_state", response);
+                this.log.debug("force_state ->" + response);
             });
         }
     }

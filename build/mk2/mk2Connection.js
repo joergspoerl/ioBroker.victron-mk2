@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mk2Connection = exports.mk2SpezialFrame = void 0;
 const serialWrapper_1 = require("./serialWrapper");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const util = require('util');
 // helper function
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -15,18 +17,21 @@ var mk2SpezialFrame;
     mk2SpezialFrame[mk2SpezialFrame["ramReadOk"] = 133] = "ramReadOk";
 })(mk2SpezialFrame = exports.mk2SpezialFrame || (exports.mk2SpezialFrame = {}));
 class Mk2Connection {
-    constructor(portPath) {
-        this.debug = true;
+    constructor(portPath, log) {
+        this.debug = false;
         this.busy = false;
         this.portPath = portPath;
         this.port = new serialWrapper_1.Mk2Serial(portPath);
+        this.log = log;
     }
     async waitForFreeLine() {
-        console.log("waitForFreeLine start");
+        if (this.debug)
+            this.log.debug("waitForFreeLine start");
         while (this.busy) {
             await sleep(100);
         }
-        console.log("waitForFreeLine end");
+        if (this.debug)
+            this.log.debug("waitForFreeLine end");
     }
     async communicate(request, decode) {
         var _a;
@@ -36,9 +41,6 @@ class Mk2Connection {
             if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
                 await this.port.open();
             }
-            // await this.port.flush()
-            // await this.sync() // for syncing recive version frame
-            // await sleep(300)
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
             let i = 0;
@@ -49,7 +51,7 @@ class Mk2Connection {
                 const spezial = frame[1];
                 const frameType = frame[2];
                 if (spezial == mk2SpezialFrame.normal && frameType == 0x56) {
-                    console.log("VERSION FRAME", frame);
+                    this.log.debug("VERSION FRAME -> " + frame);
                     if (i > 1) {
                         // await this.port.close()
                         throw ("Out of sync !");
@@ -68,7 +70,7 @@ class Mk2Connection {
             }
         }
         catch (Exception) {
-            console.log("communicate: ", Exception);
+            this.log.error("communicate: " + Exception);
         }
         this.busy = false;
         // await this.port.close()
@@ -77,10 +79,9 @@ class Mk2Connection {
         let frame;
         while (true) {
             const lengthByte = this.port.read(1);
-            // console.log(a)
+            // this.log.debug(a)
             if (lengthByte != null) {
-                console.log();
-                console.log("length", lengthByte[0]);
+                // this.log.debug("length", lengthByte[0])
                 await sleep(100);
                 const frameData = this.port.read(lengthByte[0] + 1);
                 if (frameData) {
@@ -98,7 +99,7 @@ class Mk2Connection {
     }
     async sync() {
         var _a;
-        console.log("start sync: ");
+        this.log.debug("start sync: ");
         if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
             await this.port.open();
         }
@@ -108,31 +109,31 @@ class Mk2Connection {
         while (true) {
             counter++;
             buffer = this.port.read(1);
-            // console.log(f)
+            // this.log.debug(f)
             if (buffer && buffer[0] == 0xFF) {
                 await sleep(100);
                 buffer = this.port.read(7);
-                // console.log(f)
+                // this.log.debug(f)
                 break;
             }
             await sleep(10);
             if (counter > 5000)
                 throw ("Sync - receive no version frame - no mk2 connected ?");
         }
-        console.log("sync: ");
+        this.log.debug("sync: ");
     }
     frame_debug(txt, frame, data) {
         if (this.debug) {
-            console.log("-------------------------------------------------------------------------------------");
-            console.log(txt, frame);
+            this.log.debug("-------------------------------------------------------------------------------------");
+            this.log.debug(txt + util.inspect(frame));
             let legend = "       ";
             for (let i = 0; i < frame.length; i++) {
                 legend += i.toString().padStart(3, " ");
             }
-            console.log(txt, legend);
+            this.log.debug(txt + legend);
             if (data)
-                console.log(data);
-            console.log("-------------------------------------------------------------------------------------");
+                this.log.debug(data);
+            this.log.debug("-------------------------------------------------------------------------------------");
         }
     }
 }
