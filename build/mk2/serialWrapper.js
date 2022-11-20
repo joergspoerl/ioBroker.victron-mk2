@@ -5,6 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mk2Serial = void 0;
 const serialport_1 = __importDefault(require("serialport"));
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 class Mk2Serial {
     constructor(portPath) {
         this.portPath = portPath;
@@ -55,6 +58,17 @@ class Mk2Serial {
                 resolve();
             });
         });
+    }
+    async flush_Workaround() {
+        var _a;
+        let buf;
+        while (true) {
+            buf = (_a = this.port) === null || _a === void 0 ? void 0 : _a.read(1);
+            // console.log("post send", buf)
+            if (!buf)
+                break;
+            await sleep(10);
+        }
     }
     write(buffer) {
         return new Promise((resolve, reject) => {

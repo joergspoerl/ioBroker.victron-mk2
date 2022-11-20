@@ -41,8 +41,12 @@ class Mk2Connection {
             if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
                 await this.port.open();
             }
+            // await this.port.flush() // is not working ??
+            // clear recive buffer workaround
+            await this.port.flush_Workaround();
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
+            await sleep(30);
             let i = 0;
             while (true) {
                 i++;
@@ -69,8 +73,9 @@ class Mk2Connection {
                 }
             }
         }
-        catch (Exception) {
-            this.log.error("communicate: " + Exception);
+        catch (ex) {
+            this.log.error("communicate: exception");
+            this.log.error(ex.toString());
         }
         this.busy = false;
         // await this.port.close()
@@ -98,22 +103,23 @@ class Mk2Connection {
         return frame;
     }
     async sync() {
-        var _a;
+        var _a, _b;
         this.log.debug("start sync: ");
         if (!((_a = this.port.port) === null || _a === void 0 ? void 0 : _a.isOpen)) {
             await this.port.open();
         }
         let buffer;
         let counter = 0;
-        await this.port.flush();
+        await this.port.flush_Workaround();
         while (true) {
             counter++;
             buffer = this.port.read(1);
+            // console.log("sync 1", buffer)
             // this.log.debug(f)
             if (buffer && buffer[0] == 0xFF) {
-                await sleep(100);
-                buffer = this.port.read(7);
-                // this.log.debug(f)
+                await sleep(50);
+                buffer = (_b = this.port.port) === null || _b === void 0 ? void 0 : _b.read(6);
+                // console.log("sync 2", buffer)
                 break;
             }
             await sleep(10);
