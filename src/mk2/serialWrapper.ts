@@ -1,5 +1,9 @@
 import SerialPort from "serialport";
 
+function sleep(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export  class Mk2Serial {
 	port: SerialPort | undefined
 
@@ -60,6 +64,18 @@ export  class Mk2Serial {
 			})
 		})
 	}
+
+	async flush_Workaround() : Promise<void> {
+
+		let buf
+		while(true) {
+			buf = this.port?.read(1)
+			// console.log("post send", buf)
+			if (!buf) break
+			await sleep(10)
+		}
+	}
+
 	write(buffer: Buffer) : Promise<void> {
 		return new Promise((resolve, reject) => {
 			this.port?.write(buffer, (err)=>{

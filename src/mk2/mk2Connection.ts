@@ -45,8 +45,15 @@ export class Mk2Connection {
 				await this.port.open()
 			}
 
+			// await this.port.flush() // is not working ??
+
+			// clear recive buffer workaround
+			await this.port.flush_Workaround()
+
 			this.frame_debug("SEND ->", request)
 			await this.port.write(request)
+
+			await sleep(30)
 
 			let i = 0
 			while (true) {
@@ -74,8 +81,9 @@ export class Mk2Connection {
 			}
 
 
-		} catch (Exception) {
-			this.log.error("communicate: " + Exception)
+		} catch (ex:any) {
+			this.log.error("communicate: exception")
+			this.log.error(ex.toString())
 		}
 		this.busy = false
 		// await this.port.close()
@@ -115,16 +123,19 @@ export class Mk2Connection {
 
 		let buffer
 		let counter = 0
-		await this.port.flush()
+		await this.port.flush_Workaround()
+
 		while (true) {
 			counter++
 			buffer = this.port.read(1)
+			// console.log("sync 1", buffer)
 			// this.log.debug(f)
 
 			if (buffer && buffer[0] == 0xFF) {
-				await sleep(100)
-				buffer = this.port.read(7)
-				// this.log.debug(f)
+				await sleep(50)
+				buffer = this.port.port?.read(6)
+				// console.log("sync 2", buffer)
+
 				break
 			}
 			await sleep(10)
