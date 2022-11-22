@@ -220,7 +220,7 @@ class Mk2Model {
             unit: "",
             role: "state",
             type: "number",
-            value: false,
+            value: 0,
             states: {
                 "0": "OFF",
                 "1": "ON",
@@ -358,6 +358,123 @@ class Mk2Model {
                 "3": "forced float"
             },
             setFunc: (mk2, value) => mk2.force_state(value)
+        };
+        this["control.IBatBulk"] = {
+            descr: "IBatBulk",
+            unit: "A",
+            role: "state",
+            type: "number",
+            value: 0,
+            setFunc: (mk2, value) => mk2.set_setting_IBatBulk(value)
+        };
+        this["control.DisableCharge"] = {
+            descr: "DisableCharge",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: null,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            },
+            setFunc: (mk2, value) => mk2.set_flagDisableCharge(value)
+        };
+        this["control.WeakACInput"] = {
+            descr: "WeakACInput",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: null,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            },
+            setFunc: (mk2, value) => mk2.set_flagWeakACInput(value)
+        };
+        this["setting.flag.MultiPhaseSystem"] = {
+            descr: "MultiPhaseSystem",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.MultiPhaseLeader"] = {
+            descr: "MultiPhaseLeader",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.Freq60Hz"] = {
+            descr: "60Hz",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.DoNotStopAfter10HrBulk"] = {
+            descr: "DoNotStopAfter10HrBulk",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.AssistEnabled"] = {
+            descr: "AssistEnabled",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.DisableCharge"] = {
+            descr: "DisableCharge",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.DisableAES"] = {
+            descr: "DisableAES",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.EnableReducedFloat"] = {
+            descr: "EnableReducedFloat",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.DisableGroundRelay"] = {
+            descr: "Disable ground relay",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.WeakACInput"] = {
+            descr: "Weak AC input",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.flag.RemoteOverrulesAC2"] = {
+            descr: "Remote overrules AC2",
+            unit: "",
+            role: "state",
+            type: "boolean",
+            value: null,
+        };
+        this["setting.IBatBulk"] = {
+            descr: "IBatBulk",
+            unit: "A",
+            role: "state",
+            type: "number",
+            value: 0,
+            // setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)
         };
     }
 }

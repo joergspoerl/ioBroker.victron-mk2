@@ -253,7 +253,7 @@ export class Mk2Model {
 		unit:  "",
 		role:  "state",
 		type: "number",
-		value: false,
+		value: 0,
 		states: {
 			"0": "OFF",
 			"1": "ON",
@@ -402,8 +402,136 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.force_state(value)
 	};
 
+	"control.IBatBulk":    Mk2DataEntry = {
+		descr: "IBatBulk",
+		unit:  "A",
+		role:  "state",
+		type: "number",
+		value: 0,
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)
+	};
+	"control.DisableCharge":    Mk2DataEntry = {
+		descr: "DisableCharge",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: null,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagDisableCharge(value)
+	};
+	"control.WeakACInput":    Mk2DataEntry = {
+		descr: "WeakACInput",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: null,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagWeakACInput(value)
+	};
+
+	"setting.flag.MultiPhaseSystem":    Mk2DataEntry = {
+		descr: "MultiPhaseSystem",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.MultiPhaseLeader":    Mk2DataEntry = {
+		descr: "MultiPhaseLeader",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.Freq60Hz":    Mk2DataEntry = {
+		descr: "60Hz",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.DoNotStopAfter10HrBulk":    Mk2DataEntry = {
+		descr: "DoNotStopAfter10HrBulk",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
 
 
+	"setting.flag.AssistEnabled":    Mk2DataEntry = {
+		descr: "AssistEnabled",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
 
+
+	"setting.flag.DisableCharge":    Mk2DataEntry = {
+		descr: "DisableCharge",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.DisableAES":    Mk2DataEntry = {
+		descr: "DisableAES",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.EnableReducedFloat":    Mk2DataEntry = {
+		descr: "EnableReducedFloat",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.DisableGroundRelay":    Mk2DataEntry = {
+		descr: "Disable ground relay",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.WeakACInput":    Mk2DataEntry = {
+		descr: "Weak AC input",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.flag.RemoteOverrulesAC2":    Mk2DataEntry = {
+		descr: "Remote overrules AC2",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"setting.IBatBulk":    Mk2DataEntry = {
+		descr: "IBatBulk",
+		unit:  "A",
+		role:  "state",
+		type: "number",
+		value: 0,
+		// setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)
+	};
 
 }

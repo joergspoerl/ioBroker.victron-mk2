@@ -1,7 +1,7 @@
 import { Mk2Serial } from "./serialWrapper";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const util = require('util')
+const util = require("util")
 // helper function
 function sleep(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -26,6 +26,10 @@ export class Mk2Connection {
 		this.portPath = portPath
 		this.port = new Mk2Serial(portPath)
 		this.log = log
+
+		if (this.log && this.log.level == "debug") {
+			this.debug = true
+		}
 	}
 
 	async waitForFreeLine (): Promise<void> {
@@ -82,12 +86,9 @@ export class Mk2Connection {
 
 
 		} catch (ex:any) {
-			this.log.error("communicate: exception")
-			this.log.error(ex.toString())
+			this.log.error("communicate: " + JSON.stringify(ex))
 		}
 		this.busy = false
-		// await this.port.close()
-
 	}
 
 	async receiveFrame () : Promise<Buffer> {

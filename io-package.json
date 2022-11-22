@@ -84,10 +84,8 @@
         ]
     },
     "native": {
-        "option1": true,
-        "option2": "42",
         "interval": 2,
-        "portPath": "/dev/ttyUSB1"
+        "portPath": "/dev/ttyUSB-Serial-1"
     },
     "objects": [],
     "instanceObjects": []
