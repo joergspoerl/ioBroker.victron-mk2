@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.0.5",
+        "version": "0.0.6",
         "news": {
+            "0.0.6": {
+                "en": "state changes -> mk2 queueing",
+                "de": "zustandsänderungen -> mk2 warteschlangen",
+                "ru": "изменения состояния -> mk2 очередь",
+                "pt": "mudanças de estado -> fila de mk2",
+                "nl": "de staat verandert mk2",
+                "fr": "changements d'état - cancer mk2 filesing",
+                "it": "cambiamenti di stato -> code mk2",
+                "es": "cambios de estado - mk2 colas",
+                "pl": "zmiany stanowe –> kolejka mk2",
+                "uk": "зміни стану -> mk2 чергування",
+                "zh-cn": "a. 国家变化 - > mk2 询问"
+            },
             "0.0.5": {
                 "en": "timing bugfix",
                 "de": "fehlerbehebung",
