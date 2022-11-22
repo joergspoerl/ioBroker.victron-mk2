@@ -47,6 +47,7 @@ class VictronMk2 extends utils.Adapter {
             name: "victron-mk2",
         });
         this.mainLoopRunning = true;
+        this.toSendQueue = [];
         this.on("ready", this.onReady.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
         // this.on("objectChange", this.onObjectChange.bind(this));
@@ -160,6 +161,7 @@ class VictronMk2 extends utils.Adapter {
     async updateStates() {
         try {
             if (this.mk2) {
+                await this.processToSendQueue();
                 await this.mk2.poll();
                 for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
                     const v = value;
@@ -183,6 +185,28 @@ class VictronMk2 extends utils.Adapter {
             console.trace();
         }
     }
+    async processToSendQueue() {
+        // this.log.debug("processToSendQueue start")
+        // await sleep(10000)
+        while (this.toSendQueue.length > 0) {
+            const item = this.toSendQueue.shift();
+            if (item && this.mk2) {
+                this.mk2.mk2Model[item.name].value = item.value;
+                const setFunc = this.mk2.mk2Model[item.name].setFunc;
+                if (this.mk2.mk2Model[item.name] && setFunc) {
+                    this.log.debug("call mk2 function value: " + item.value);
+                    try {
+                        await setFunc(this.mk2, item.value);
+                    }
+                    catch (ex) {
+                        this.log.error("call mk2 function exception: " + ex);
+                    }
+                }
+            }
+        }
+        // this.log.debug("processToSendQueue end")
+        // await sleep(10000)
+    }
     /**
      * Is called if a subscribed state changes
      */
@@ -198,10 +222,8 @@ class VictronMk2 extends utils.Adapter {
                 || idShort == "control.WeakACInput"
                 || idShort == "control.IBatBulk")
                 && this.mk2) {
-                this.mk2.mk2Model[idShort].value = state.val;
-                const setFunc = this.mk2.mk2Model[idShort].setFunc;
-                if (this.mk2.mk2Model[idShort] && setFunc) {
-                    setFunc(this.mk2, state.val);
+                if (typeof state.val == "number") {
+                    this.toSendQueue.push({ name: idShort, value: state.val });
                 }
             }
         }

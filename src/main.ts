@@ -29,6 +29,8 @@ class VictronMk2 extends utils.Adapter {
 	mk2: Mk2Protocol | undefined
 	mainLoopRunning = true
 
+	toSendQueue: Array<{ name: string, value: number}> =[]
+
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({
 			...options,
@@ -160,6 +162,7 @@ class VictronMk2 extends utils.Adapter {
 	private async updateStates(): Promise<void> {
 		try {
 			if (this.mk2) {
+				await this.processToSendQueue();
 				await this.mk2.poll()
 
 				for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
@@ -185,6 +188,32 @@ class VictronMk2 extends utils.Adapter {
 
 	}
 
+	async processToSendQueue() : Promise<void> {
+
+		// this.log.debug("processToSendQueue start")
+		// await sleep(10000)
+		while (this.toSendQueue.length > 0) {
+			const item = this.toSendQueue.shift()
+
+			if (item && this.mk2) {
+				this.mk2.mk2Model[item.name].value = item.value
+				const setFunc = this.mk2.mk2Model[item.name].setFunc
+				if (this.mk2.mk2Model[item.name] && setFunc) {
+
+					this.log.debug("call mk2 function value: " + item.value)
+					try {
+						await setFunc(this.mk2, item.value as number)
+					} catch (ex) {
+						this.log.error("call mk2 function exception: " + ex)
+					}
+				}
+			}
+
+		}
+		// this.log.debug("processToSendQueue end")
+		// await sleep(10000)
+	}
+
 
 	/**
 	 * Is called if a subscribed state changes
@@ -204,10 +233,10 @@ class VictronMk2 extends utils.Adapter {
 			    )
 				&& this.mk2) {
 
-				this.mk2.mk2Model[idShort].value = state.val
-				const setFunc = this.mk2.mk2Model[idShort].setFunc
-				if (this.mk2.mk2Model[idShort] && setFunc) {
-					setFunc(this.mk2, state.val as number)
+				if ( typeof state.val == "number" ) {
+					this.toSendQueue.push(
+						{ name: idShort, value: state.val}
+					)
 				}
 			}
 		} else {
