@@ -103,6 +103,13 @@ Please refer to the [`dev-server` documentation](https://github.com/ioBroker/dev
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- control of IBatBulk
+- control of DisableCharge
+- control of WeakACInput
+- bug fixing portPath
+- extended debug depends on ioBroker log level
+
 ### 0.0.3 (2022-11-20)
 * connection stability
 

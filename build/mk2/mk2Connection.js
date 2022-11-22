@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mk2Connection = exports.mk2SpezialFrame = void 0;
 const serialWrapper_1 = require("./serialWrapper");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const util = require('util');
+const util = require("util");
 // helper function
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -23,6 +23,9 @@ class Mk2Connection {
         this.portPath = portPath;
         this.port = new serialWrapper_1.Mk2Serial(portPath);
         this.log = log;
+        if (this.log && this.log.level == "debug") {
+            this.debug = true;
+        }
     }
     async waitForFreeLine() {
         if (this.debug)
@@ -74,11 +77,9 @@ class Mk2Connection {
             }
         }
         catch (ex) {
-            this.log.error("communicate: exception");
-            this.log.error(ex.toString());
+            this.log.error("communicate: " + JSON.stringify(ex));
         }
         this.busy = false;
-        // await this.port.close()
     }
     async receiveFrame() {
         let frame;
