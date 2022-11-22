@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.0.3",
+        "version": "0.0.4",
         "news": {
+            "0.0.4": {
+                "en": "control of IBatBulk\ncontrol of DisableCharge\ncontrol of WeakACInput\nbug fixing portPath\nextended debug depends on ioBroker log level",
+                "de": "steuerung von IBatBulk\nsteuerung der Deaktivierung Gebühren\nsteuerung von WeakACInput\nfehlerbehebung Port Pfad\nerweiterte Debug hängt von ioBroker log level",
+                "ru": "контроль IBatBulk\nконтроль отключения Обязанность\nконтроль WeakACInput\nпорт исправления ошибок Путь\nрасширенная отладка зависит от уровня лога ioBroker",
+                "pt": "controle de IBatBulk\ncontrole de Deficiência Carga\ncontrole de WeakACInput\nporta de fixação de bugs Caminho\ndepuração estendida depende do nível de log do ioBroker",
+                "nl": "iBatBulk\ncontrole van defensie Aanvallen\ncontrole van WeakACInput\ninsecten maken haven Path\nverlengde debug hangt af van ioBroker log niveau",
+                "fr": "contrôle de IBatBulk\nle contrôle des handicapés Charge\ncontrôle de WeakACInput\nbug fixing port Sentier\ndebug étendu dépend du niveau de log ioBroker",
+                "it": "controllo di IBatBulk\ncontrollo della disabilitazione Carico\ncontrollo di WeakACInput\nbug fissaggio porta Sentiero\nil debug esteso dipende dal livello del registro ioBroker",
+                "es": "control de IBatBulk\ncontrol de la discapacidad Carga\ncontrol de WeakACInput\nbug fijación puerto Camino\ndepuración prolongada depende del nivel de registro de ioBroker",
+                "pl": "kontrola IBatBulk\nkontrola dyskretna Charge\nkontrola WeakACInput\nnaprawić port Path Path\nrozszerzenie debugu zależy od ioBrokera",
+                "uk": "контроль IBatBulk\nконтроль несправності Вартість\nконтроль за WeakACInput\nвиправлення помилок порту Патент\nрозширена дебug залежить від рівня логіки ioBroker",
+                "zh-cn": "iBatBulk的控制\na. 控制可支配性 临时代办\na. 控制WakACInput\nb 固定港口 Path\n扩大的排他度取决于io Broker逻辑水平"
+            },
             "0.0.3": {
                 "en": "connection stability",
                 "de": "verbindungsstabilität",
