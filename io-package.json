@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.0.4",
+        "version": "0.0.5",
         "news": {
+            "0.0.5": {
+                "en": "timing bugfix",
+                "de": "fehlerbehebung",
+                "ru": "сроки bugfix",
+                "pt": "correcção de tempo",
+                "nl": "time bugfix",
+                "fr": "timing bugfix",
+                "it": "tempistica bugfix",
+                "es": "tiempo bugfix",
+                "pl": "miotacz",
+                "uk": "засупу 10 ток",
+                "zh-cn": "时间"
+            },
             "0.0.4": {
                 "en": "control of IBatBulk\ncontrol of DisableCharge\ncontrol of WeakACInput\nbug fixing portPath\nextended debug depends on ioBroker log level",
                 "de": "steuerung von IBatBulk\nsteuerung der Deaktivierung Gebühren\nsteuerung von WeakACInput\nfehlerbehebung Port Pfad\nerweiterte Debug hängt von ioBroker log level",

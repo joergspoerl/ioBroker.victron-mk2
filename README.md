@@ -103,7 +103,7 @@ Please refer to the [`dev-server` documentation](https://github.com/ioBroker/dev
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.0.5 (2022-11-22)
 - timing bugfix
 
 ### 0.0.4 (2022-11-22)

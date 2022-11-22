@@ -1,6 +1,6 @@
 {
   "name": "iobroker.victron-mk2",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Victron Multiplus",
   "author": {
     "name": "joerg",
