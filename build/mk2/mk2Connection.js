@@ -31,7 +31,7 @@ class Mk2Connection {
         if (this.debug)
             this.log.debug("waitForFreeLine start");
         while (this.busy) {
-            await sleep(100);
+            await sleep(30);
         }
         if (this.debug)
             this.log.debug("waitForFreeLine end");
@@ -49,7 +49,7 @@ class Mk2Connection {
             await this.port.flush_Workaround();
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
-            await sleep(30);
+            await sleep(130);
             let i = 0;
             while (true) {
                 i++;
@@ -88,7 +88,7 @@ class Mk2Connection {
             // this.log.debug(a)
             if (lengthByte != null) {
                 // this.log.debug("length", lengthByte[0])
-                await sleep(100);
+                await sleep(130);
                 const frameData = this.port.read(lengthByte[0] + 1);
                 if (frameData) {
                     frame = Buffer.concat([lengthByte, frameData]);
