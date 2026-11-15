@@ -57,6 +57,7 @@ export class Mk2Protocol {
 	/** Cached CommandGetSettingInfo answers, keyed by setting id. */
 	settingInfoCache = new Map<number, SettingInfo>();
 	private extendedSettingsLoaded = false;
+	private failedExtendedSettings = new Set<number>();
 	private ramInfoCache = new Map<number, RamInfo>();
 	private unsupportedRam = new Set<number>();
 	private deviceInfoLoaded = false;
@@ -78,6 +79,7 @@ export class Mk2Protocol {
 		this.unsupportedRam.clear();
 		this.deviceInfoLoaded = false;
 		this.extendedSettingsLoaded = false;
+		this.failedExtendedSettings.clear();
 		this.log.debug("new MK2 sync generation, cached metadata reset");
 	}
 
@@ -692,13 +694,25 @@ export class Mk2Protocol {
 			return;
 		}
 		for (const def of READONLY_SETTINGS) {
-			const info = await this.getSettingInfo(def.id);
-			if (!info.supported) {
+			if (this.failedExtendedSettings.has(def.id) && !force) {
 				this.mk2Model[def.key].value = null;
 				continue;
 			}
-			const raw = await this.readSetting(def.id);
-			this.mk2Model[def.key].value = raw === null ? null : round(settingDisplayValue(info, raw), 3);
+			try {
+				const info = await this.getSettingInfo(def.id);
+				if (!info.supported) {
+					this.mk2Model[def.key].value = null;
+					continue;
+				}
+				const raw = await this.readSetting(def.id);
+				this.mk2Model[def.key].value = raw === null ? null : round(settingDisplayValue(info, raw), 3);
+			} catch (error) {
+				// One broken setting must neither block the others nor cause a full
+				// reload on every poll (review N9). Negative-cache it until resync.
+				this.log.warn(`setting ${def.key} could not be loaded: ${error instanceof Error ? error.message : error}`);
+				this.failedExtendedSettings.add(def.id);
+				this.mk2Model[def.key].value = null;
+			}
 		}
 		this.extendedSettingsLoaded = true;
 	}
