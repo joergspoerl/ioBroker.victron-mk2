@@ -269,4 +269,16 @@ describe("concurrency (issue #23)", () => {
 		]);
 		expect(order).to.deep.equal(["a-start", "a-end", "b-start", "b-end"]);
 	});
+
+	it("honours a responseTimeout above the former fixed deadline (issue #48)", async function () {
+		this.timeout(10000);
+		const response = mk2Frame(0x41, [0x01, 0x00]);
+		const fake = new FakeMk2Serial(() => response);
+		fake.responseDelayMs = 2100; // longer than the old fixed 2000 ms deadline
+		fake.push(versionFrame());
+		const conn = new Mk2Connection("fake", log as any, fake as any);
+		conn.responseTimeoutMs = 3000;
+		await conn.communicate(mk2Frame(0x41, [0x01, 0x00]), async () => undefined);
+		expect(conn.timeouts).to.equal(0);
+	});
 });

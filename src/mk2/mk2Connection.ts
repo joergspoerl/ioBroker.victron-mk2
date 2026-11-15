@@ -210,7 +210,7 @@ export class Mk2Connection {
 			this.frame_debug("SEND ->", request);
 			await this.port.write(request);
 
-			const deadline = Date.now() + 2000;
+			const deadline = Date.now() + Math.max(2000, 2 * this.responseTimeoutMs);
 			while (Date.now() < deadline) {
 				let frame: Buffer;
 				try {
