@@ -3,6 +3,48 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.2 (2026-11-15)
+
+Second audit round (independent model, DeepSeek V4.1 Flash): 18 findings, all
+fixed and tracked as issues #38–#55. Details: `docs/audit-round2-2026-11-15.md`.
+
+### Fixed
+
+- **Switch register**: never read it from a frame that does not carry it (the
+  previous code returned the checksum as the switch state). `switch.*` stay `null`
+  when the register is absent; `currentSwitchState` is left untouched.
+- **Off is recoverable**: the gate blocks only Down/Startup; while Off, only the
+  explicit power-on controls are forwarded, and queued control writes expire after
+  60 s instead of firing hours later.
+- **Transport errors** are `Mk2TransportError` on every path (not only sync), so
+  optional feature blocks can no longer hide a lost connection.
+- **Unsupported scalings** no longer publish 0 V / 0 A; the affected states are
+  `null`.
+- **Longer responses** are accepted via minimum lengths (§3.2), including LED
+  frames without the optional trailing 0x00.
+- **`grid_mode`** uses the configured AC1 limit instead of the device rating,
+  refuses zero grid when PowerAssist is disabled, and logs an explicit power-on.
+- **Readback failures** raise a non-retryable `Mk2ReadbackError` (no repeated
+  EEPROM writes); a missing readback is a failure too.
+- Switch-state cache is only updated after a confirmed write; the exchange
+  deadline honours `responseTimeout`; `set_assist` clamps up to the device minimum
+  explicitly; the state map key for Down is `0`.
+- Extended settings load is isolated per setting and negative-cached until resync.
+- `info.connection` uses `indicator.connected`; measurement states start as `null`;
+  `IBatBulk` is a current; switch descriptions name the actual bits.
+- Objects are created and `info.connection = false` published when `portPath` is
+  empty; the live test script is read-only unless a write mode is selected.
+
+### Validation
+
+- 165 TypeScript unit tests + 47 package/integration tests, `tsc`/`eslint`/`build`
+  green, CI on master with Node 22/24 successful.
+- New end-to-end tests run the protocol through the real `Mk2Connection` receiver
+  (length/checksum-conformant frames), which is what had hidden the
+  switch-register bug.
+- Live on the MultiPlus: stable Bypass polling, `diag.timeouts = 0` in steady
+  state, no errors after three consecutive adapter restarts.
+
 ## 0.3.1 (2026-11-15)
 
 ### Fixed
