@@ -534,7 +534,7 @@ export class Mk2Model {
 	};
 
 	"control.switch_state":    Mk2DataEntry = {
-		descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off)",
+		descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off). Attention: setting 1-3 switches the device on when it is Off (inverter runs from the battery).",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -563,7 +563,7 @@ export class Mk2Model {
 	};
 
 	"control.force_state":    Mk2DataEntry = {
-		descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode.",
+		descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode. On OPzV/gel batteries only use Equalise deliberately and with battery knowledge.",
 		unit:  "",
 		role:  "state",
 		type: "number",
