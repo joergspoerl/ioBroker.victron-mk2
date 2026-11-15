@@ -97,7 +97,7 @@ class Mk2Model {
             value: null,
         };
         this["battery.soc"] = {
-            descr: "State of charge from the MultiPlus internal battery monitor",
+            descr: "SOC of the MultiPlus internal battery monitor - NOT the BMV; reads 0 % when the internal monitor is not configured",
             unit: "%",
             role: "value",
             type: "number",
@@ -212,7 +212,7 @@ class Mk2Model {
             value: 0,
         };
         this["assist.limit"] = {
-            descr: "Actual input current limit",
+            descr: "Actual input current limit; after a 0 A write it shows the device minimum (e.g. 3.1 A) although Invert mode is active",
             unit: "A",
             role: "value.current",
             type: "number",
@@ -459,7 +459,7 @@ class Mk2Model {
             setFunc: (mk2, value) => mk2.set_grid_mode(value)
         };
         this["control.force_state"] = {
-            descr: "force a spezific state",
+            descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode.",
             unit: "",
             role: "state",
             type: "number",
