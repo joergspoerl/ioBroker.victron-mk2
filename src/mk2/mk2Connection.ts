@@ -108,6 +108,7 @@ export class Mk2Connection {
 	/** Find a complete, checksum-valid 'V' frame anywhere in the rx buffer. */
 	private extractVersionFrame(): boolean {
 		const buf = this.rxBuffer;
+		let incompleteAt: number | null = null;
 		for (let i = 0; i + 3 < buf.length; i++) {
 			if (buf[i + 1] !== 0xff || buf[i + 2] !== 0x56) {
 				continue;
@@ -118,9 +119,12 @@ export class Mk2Connection {
 			}
 			const total = len + 2;
 			if (i + total > buf.length) {
-				// Incomplete candidate: wait for more bytes instead of discarding it.
-				this.rxBuffer = buf.slice(i);
-				return false;
+				// Incomplete candidate: remember it, but keep scanning - a complete
+				// valid frame may already follow later in the buffer (review T10).
+				if (incompleteAt === null) {
+					incompleteAt = i;
+				}
+				continue;
 			}
 			const frame = buf.slice(i, i + total);
 			if (!this.checksum(frame)) {
@@ -132,8 +136,13 @@ export class Mk2Connection {
 			this.rxBuffer = buf.slice(i + total);
 			return true;
 		}
-		// Keep only a possible split frame marker, drop the rest of the noise.
-		this.rxBuffer = buf.slice(Math.max(0, buf.length - 2));
+		if (incompleteAt !== null) {
+			// Keep an incomplete candidate for the next read; drop the rest.
+			this.rxBuffer = buf.slice(incompleteAt);
+		} else {
+			// Keep only a possible split frame marker, drop the rest of the noise.
+			this.rxBuffer = buf.slice(Math.max(0, buf.length - 2));
+		}
 		return false;
 	}
 
