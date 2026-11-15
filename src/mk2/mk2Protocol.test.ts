@@ -192,6 +192,16 @@ describe("Mk2Protocol protocol validation", () => {
 		expect(p.mk2Model["led.mains"].value).to.equal(1);
 	});
 
+	it("led_status accepts a frame without the trailing 0x00 (issue #43)", async () => {
+		const fake = new FakeMk2Connection();
+		// MK2 >= 1130128 omits the trailing 0x00 (§4 note b): length 4 + checksum
+		fake.ledDataLength = 2;
+		const p = protocolWith(fake);
+		await p.led_status();
+		expect(p.mk2Model["led.mains"].value).to.equal(1);
+		expect(p.mk2Model["led.inverter"].value).to.equal(0);
+	});
+
 	it("address accepts a longer response frame", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
