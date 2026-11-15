@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { selectStatesToPublish } from "./publish";
+import { publishModel, selectStatesToPublish } from "./publish";
 import { Mk2Model } from "../mk2/mk2Model";
 
 describe("state publication selection (issue #14)", () => {
@@ -24,5 +24,33 @@ describe("state publication selection (issue #14)", () => {
 		expect(selectStatesToPublish(model)).to.not.include("dc_info.ubat");
 		model["dc_info.ubat"].value = 13.1;
 		expect(selectStatesToPublish(model)).to.include("dc_info.ubat");
+	});
+
+	it("publishes only changes and remembers them (issue #18)", async () => {
+		const model = new Mk2Model();
+		const writes: string[] = [];
+		const setState = async (key: string) => {
+			writes.push(key);
+		};
+		await publishModel(model, setState);
+		const afterFirst = writes.length;
+		expect(afterFirst).to.be.greaterThan(0);
+		await publishModel(model, setState);
+		expect(writes.length).to.equal(afterFirst);
+
+		model["dc_info.ubat"].value = 12.9;
+		await publishModel(model, setState);
+		expect(writes.length).to.equal(afterFirst + 1);
+		expect(writes[writes.length - 1]).to.equal("dc_info.ubat");
+	});
+
+	it("does not mark a state as published when the write fails", async () => {
+		const model = new Mk2Model();
+		const entry = model["dc_info.ubat"];
+		const setState = async () => {
+			throw new Error("db down");
+		};
+		await expect(publishModel(model, setState, ["dc_info.ubat"])).to.be.rejectedWith("db down");
+		expect(entry.valueOld).to.not.equal(entry.value);
 	});
 });

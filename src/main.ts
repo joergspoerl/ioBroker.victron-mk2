@@ -5,7 +5,7 @@ import { isStableState } from "./lib/state-gate";
 import { shouldHandleControlState } from "./lib/control-rules";
 import { processControlWrites, QueueItem } from "./lib/send-queue";
 import { buildStateObject } from "./lib/state-objects";
-import { selectStatesToPublish } from "./lib/publish";
+import { publishModel } from "./lib/publish";
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -120,13 +120,9 @@ class VictronMk2 extends utils.Adapter {
 
 	private async publishStates(only?: string[]): Promise<void> {
 		if (!this.mk2) return;
-		for (const key of selectStatesToPublish(this.mk2.mk2Model, only)) {
-			const entry = this.mk2.mk2Model[key];
-			await this.setStateAsync(key, {
-				val: entry.value,
-				ack: true,
-			});
-		}
+		await publishModel(this.mk2.mk2Model, async (key, value) => {
+			await this.setStateAsync(key, { val: value, ack: true });
+		}, only);
 	}
 
 	async processToSendQueue(): Promise<void> {
