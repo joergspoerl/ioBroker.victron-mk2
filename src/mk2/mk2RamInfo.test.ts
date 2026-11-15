@@ -84,6 +84,17 @@ describe("Mk2Protocol RAM telemetry (issue #6)", () => {
 		expect(p.mk2Model["power.output"].value).to.equal(-300);
 		expect(p.mk2Model["battery.soc"].value).to.equal(80);
 	});
+
+	it("detects bit fields through the real parser, not only in the helper (issue #24)", async () => {
+		const fake = new FakeMk2Connection();
+		// relay state: bit field, Sc = 6 -> bit 5, offset sentinel 0x8000
+		fake.ramInfoOverrides.set(12, { sc: 6, offset: 0x8000 });
+		fake.ramValues.set(12, 0b100000);
+		const p = protocolWith(fake);
+		expect(await p.readRamVar(12)).to.equal(1);
+		fake.ramValues.set(12, 0);
+		expect(await p.readRamVar(12)).to.equal(0);
+	});
 });
 
 describe("Mk2Protocol device identification (issue #3)", () => {
