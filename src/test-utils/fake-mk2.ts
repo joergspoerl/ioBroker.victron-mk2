@@ -47,6 +47,8 @@ export class FakeMk2Serial {
 	private opened = false;
 	openError?: Error;
 	splitResponses = false;
+	/** Optional artificial response delay, for timeout/deadline tests. */
+	responseDelayMs = 0;
 	written: Buffer[] = [];
 	responseProvider?: (request: Buffer) => Buffer | Buffer[] | null;
 
@@ -82,6 +84,9 @@ export class FakeMk2Serial {
 		const response = this.responseProvider(data);
 		if (!response) return;
 		const frames = Array.isArray(response) ? response : [response];
+		if (this.responseDelayMs > 0) {
+			await new Promise((resolve) => setTimeout(resolve, this.responseDelayMs));
+		}
 		for (const frame of frames) {
 			if (this.splitResponses) {
 				for (let i = 0; i < frame.length; i += 2) {
