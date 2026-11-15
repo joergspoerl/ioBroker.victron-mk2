@@ -153,6 +153,12 @@ class Mk2Serial {
         const result = (_a = this.port) === null || _a === void 0 ? void 0 : _a.read(size);
         return result ? result : null;
     }
+    /** Read everything currently buffered (serialport read() without a size). */
+    readAvailable() {
+        var _a;
+        const result = (_a = this.port) === null || _a === void 0 ? void 0 : _a.read();
+        return result ? result : null;
+    }
 }
 exports.Mk2Serial = Mk2Serial;
 //# sourceMappingURL=serialWrapper.js.map
