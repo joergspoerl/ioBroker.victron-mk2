@@ -539,7 +539,7 @@ export class Mk2Model {
 	};
 
 	"control.force_state":    Mk2DataEntry = {
-		descr: "force a spezific state",
+		descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode.",
 		unit:  "",
 		role:  "state",
 		type: "number",

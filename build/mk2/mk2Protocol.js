@@ -722,7 +722,13 @@ class Mk2Protocol {
         await this.assertFlagSupported(bit);
         const mask = 1 << bit;
         const flags = await this.readFlags0();
-        await this.writeFlags0(value == 1 ? flags | mask : flags & ~mask);
+        const next = value == 1 ? flags | mask : flags & ~mask;
+        if (next === flags) {
+            // Nothing to change: do not spend an EEPROM write on it (review F1).
+            this.log.debug(`${name}: already ${value}, no write needed`);
+            return;
+        }
+        await this.writeFlags0(next);
         const readback = await this.readFlags0();
         if (((readback & mask) !== 0) !== (value == 1)) {
             throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
@@ -748,7 +754,12 @@ class Mk2Protocol {
             // unrelated Flags1 option on the device (review T11).
             throw new errors_1.Mk2ValidationError(`${name}: Flags1 register could not be read, refusing to write`);
         }
-        await this.writeSetting(1, value == 1 ? flags | mask : flags & ~mask);
+        const next = value == 1 ? flags | mask : flags & ~mask;
+        if (next === flags) {
+            this.log.debug(`${name}: already ${value}, no write needed`);
+            return;
+        }
+        await this.writeSetting(1, next);
         const readback = await this.readSetting(1);
         if (readback === null) {
             throw new Error(`${name}: no Flags1 readback after write`);
@@ -779,6 +790,11 @@ class Mk2Protocol {
         const max = (_b = info.max) !== null && _b !== void 0 ? _b : 0xffff;
         if (raw < min || raw > max) {
             throw new errors_1.Mk2ValidationError(`${name}: ${value} is out of the device range (raw ${min}-${max})`);
+        }
+        const current = await this.readSetting(id);
+        if (current === raw) {
+            this.log.debug(`${name}: already ${value}, no EEPROM write needed`);
+            return;
         }
         await this.writeSetting(id, raw);
         const readback = await this.readSetting(id);
@@ -827,6 +843,11 @@ class Mk2Protocol {
         const max = (_b = info.max) !== null && _b !== void 0 ? _b : 120;
         if (raw < min || raw > max) {
             throw new errors_1.Mk2ValidationError(`IBatBulk must be between ${min} and ${max} (got ${value})`);
+        }
+        const current = await this.readSetting(4);
+        if (current === raw) {
+            this.log.debug(`IBatBulk: already ${value}, no EEPROM write needed`);
+            return;
         }
         await this.writeSetting(4, raw);
         const readback = await this.readSetting(4);

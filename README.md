@@ -31,6 +31,10 @@ Victron Multiplus
   explicit, documented mode.
 - `victron-mk2.0.control.force_state`: charge-state force
   (1 = Equalise, 2 = Absorption, 3 = Float) — not an on/off mode.
+  **Equalise is a battery maintenance action**: it charges for one hour at
+  1/2/4 V above the absorption voltage (12/24/48 V systems) with a quarter of the
+  normal current. Only use it deliberately and with knowledge of your battery
+  (for OPzV see the battery documentation in the devops-home repo).
 - `victron-mk2.0.control.DisableCharge`, `control.WeakACInput`,
   `control.IBatBulk`: charger/weak-AC/bulk-current settings with validated writes.
 - `victron-mk2.0.control.DisableAES`, `control.AssistEnabled` (Flags0) and
