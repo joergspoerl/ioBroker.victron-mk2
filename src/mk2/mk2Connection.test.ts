@@ -312,3 +312,23 @@ describe("shutdown (issue #59)", () => {
 		expect(fake.isOpen()).to.equal(false);
 	});
 });
+
+describe("diagnostic counters (issues #65, #66)", () => {
+	it("counts a failed sync and records the error", async function () {
+		this.timeout(10000);
+		const fake = new FakeMk2Serial(); // no version frame ever
+		const conn = connWith(fake);
+		await expect(conn.sync()).to.be.rejectedWith("no version frame");
+		expect(conn.syncErrors).to.equal(1);
+		expect(conn.lastError).to.contain("no version frame");
+		expect(fake.isOpen()).to.equal(false);
+	});
+
+	it("counts protocol errors such as an invalid frame length", async () => {
+		const fake = new FakeMk2Serial();
+		fake.push(Buffer.from([0x00, 0x00, 0x00]));
+		const conn = connWith(fake);
+		await expect(conn.receiveFrame(100)).to.be.rejectedWith("length 0");
+		expect(conn.protocolErrors).to.equal(1);
+	});
+});

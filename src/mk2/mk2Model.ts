@@ -90,6 +90,22 @@ export class Mk2Model {
 		value: "",
 	};
 
+	"diag.protocol_errors":    Mk2DataEntry = {
+		descr: "Protocol/stream errors (e.g. invalid frame length) since adapter start",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: 0,
+	};
+
+	"diag.sync_errors":    Mk2DataEntry = {
+		descr: "Failed MK2 synchronisations (no version frame) since adapter start",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: 0,
+	};
+
 	"diag.last_control_error":    Mk2DataEntry = {
 		descr: "Last dropped/failed control write as 'state: reason' (empty after a successful write)",
 		unit:  "",

@@ -36,6 +36,8 @@ export class Mk2Connection {
 	/** Diagnostics (issue #8), counted since the adapter started. */
 	timeouts = 0;
 	checksumErrors = 0;
+	protocolErrors = 0;
+	syncErrors = 0;
 	lastError = "";
 	/** Incremented on every successful sync, so clients can drop stale caches. */
 	generation = 0;
@@ -125,7 +127,8 @@ export class Mk2Connection {
 			await sleep(20);
 		}
 		this.synced = false;
-		throw new Mk2TransportError("Sync - receive no version frame - no mk2 connected ?");
+		// A failed sync is a transport failure and must be visible in diag.* (N10).
+		await this.fail("sync", "Sync - receive no version frame - no mk2 connected ?");
 	}
 
 	/** Find a complete, checksum-valid 'V' frame anywhere in the rx buffer. */
@@ -330,9 +333,11 @@ export class Mk2Connection {
 	 * error means the byte stream cannot be trusted any more, so the port is
 	 * closed and the next poll reopens and resynchronises (issue #8).
 	 */
-	private async fail(kind: "timeout" | "checksum" | "protocol", message: string): Promise<void> {
+	private async fail(kind: "timeout" | "checksum" | "protocol" | "sync", message: string): Promise<void> {
 		if (kind == "timeout") this.timeouts++;
 		if (kind == "checksum") this.checksumErrors++;
+		if (kind == "protocol") this.protocolErrors++;
+		if (kind == "sync") this.syncErrors++;
 		this.lastError = message;
 		this.synced = false;
 		this.rxBuffer = Buffer.alloc(0);
