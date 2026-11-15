@@ -48,6 +48,27 @@ class Mk2Model {
             type: "string",
             value: "",
         };
+        this["diag.protocol_errors"] = {
+            descr: "Protocol/stream errors (e.g. invalid frame length) since adapter start",
+            unit: "",
+            role: "value",
+            type: "number",
+            value: 0,
+        };
+        this["diag.sync_errors"] = {
+            descr: "Failed MK2 synchronisations (no version frame) since adapter start",
+            unit: "",
+            role: "value",
+            type: "number",
+            value: 0,
+        };
+        this["diag.last_control_error"] = {
+            descr: "Last dropped/failed control write as 'state: reason' (empty after a successful write)",
+            unit: "",
+            role: "state",
+            type: "string",
+            value: "",
+        };
         this["info.mk2_version"] = { descr: "MK2 firmware version (from the version frame)",
             unit: "",
             role: "value",
@@ -432,7 +453,7 @@ class Mk2Model {
             setFunc: (mk2, value) => mk2.set_assist(value)
         };
         this["control.switch_state"] = {
-            descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off)",
+            descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off). Attention: setting 1-3 switches the device on when it is Off (inverter runs from the battery).",
             unit: "",
             role: "state",
             type: "number",
@@ -446,7 +467,7 @@ class Mk2Model {
             setFunc: (mk2, value) => mk2.set_switch_state(value)
         };
         this["control.grid_mode"] = {
-            descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A, 2=Inverter only)",
+            descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A [needs PowerAssist], 2=Inverter only [switch 2 + 0 A, the 0 A setpoint persists]). Switches the device on when it is Off.",
             unit: "",
             role: "state",
             type: "number",
@@ -459,7 +480,7 @@ class Mk2Model {
             setFunc: (mk2, value) => mk2.set_grid_mode(value)
         };
         this["control.force_state"] = {
-            descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode.",
+            descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode. On OPzV/gel batteries only use Equalise deliberately and with battery knowledge.",
             unit: "",
             role: "state",
             type: "number",

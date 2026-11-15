@@ -69,6 +69,7 @@ class Mk2Protocol {
         this.deviceInfoLoaded = false;
         this.extendedSettingsLoaded = false;
         this.failedExtendedSettings.clear();
+        this.unsupportedScalings.clear();
         this.log.debug("new MK2 sync generation, cached metadata reset");
     }
     constructor(portPath, log, conn) {
@@ -79,6 +80,7 @@ class Mk2Protocol {
         this.settingInfoCache = new Map();
         this.extendedSettingsLoaded = false;
         this.failedExtendedSettings = new Set();
+        this.unsupportedScalings = new Set();
         this.ramInfoCache = new Map();
         this.unsupportedRam = new Set();
         this.deviceInfoLoaded = false;
@@ -109,7 +111,7 @@ class Mk2Protocol {
         }
         catch (Exception) {
             this.mk2Model["info.connection"].value = false;
-            this.log.error("Exception in poll " + Exception);
+            this.log.error("Exception in poll " + (Exception instanceof Error ? Exception.message : JSON.stringify(Exception)));
         }
         finally {
             this.updateDiagnostics();
@@ -134,10 +136,12 @@ class Mk2Protocol {
     }
     /** Mirror the connection health counters into the model (issue #8). */
     updateDiagnostics() {
-        var _a, _b, _c;
+        var _a, _b, _c, _d, _e;
         this.mk2Model["diag.timeouts"].value = (_a = this.conn.timeouts) !== null && _a !== void 0 ? _a : 0;
         this.mk2Model["diag.checksum_errors"].value = (_b = this.conn.checksumErrors) !== null && _b !== void 0 ? _b : 0;
         this.mk2Model["diag.last_error"].value = (_c = this.conn.lastError) !== null && _c !== void 0 ? _c : "";
+        this.mk2Model["diag.protocol_errors"].value = (_d = this.conn.protocolErrors) !== null && _d !== void 0 ? _d : 0;
+        this.mk2Model["diag.sync_errors"].value = (_e = this.conn.syncErrors) !== null && _e !== void 0 ? _e : 0;
     }
     /**
      * Minimal, read-only poll used to determine whether the MultiPlus has
@@ -177,7 +181,7 @@ class Mk2Protocol {
         this.log.debug("******   adress");
         return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response) => {
             if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01) {
-                throw ({ error: "no address frame" });
+                throw new Error("no address frame");
             }
             // The reply carries the address currently used by the MK2 (§7.1).
             this.mk2Model["info.address"].value = response[4];
@@ -189,7 +193,7 @@ class Mk2Protocol {
             // §4 note b: MK2 >= 1130128 omits the trailing 0x00, so the response can
             // be as short as 4 (length, marker, on, blink) plus checksum.
             if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x4c) {
-                throw ({ error: "no led_status frame" });
+                throw new Error("no led_status frame");
             }
             const led_status = response[3];
             const led_blink = response[4];
@@ -230,8 +234,12 @@ class Mk2Protocol {
         const info = await this.getRamInfo(id);
         if (!info.supported) {
             // Sc = 0 means "not supported". Caching scale 0 would publish 0 V / 0 A
-            // as if they were measurements (review M1) - leave the field empty.
-            this.log.warn(`RAM variable ${id} is not supported by this firmware; dependent values stay null`);
+            // as if they were measurements (review M1) - leave the field empty and
+            // warn only once per connection instead of on every poll (N6).
+            if (!this.unsupportedScalings.has(field)) {
+                this.unsupportedScalings.add(field);
+                this.log.warn(`RAM variable ${id} is not supported by this firmware; dependent values stay null`);
+            }
             return;
         }
         this.calc[field] = { scale: info.sc, offset: info.offset };
@@ -249,7 +257,7 @@ class Mk2Protocol {
     async loadScalingsIfNeeded() {
         this.log.debug("******   loadScalingsIfNeeded");
         for (const def of Mk2Protocol.RAM_SCALINGS) {
-            if (!this.calc[def.field]) {
+            if (!this.calc[def.field] && !this.unsupportedScalings.has(def.field)) {
                 await this.loadRamScaling(def.id, def.field);
             }
         }
@@ -258,7 +266,7 @@ class Mk2Protocol {
         this.log.debug("******   dc_info");
         return this.conn.communicate(this.create_frame("F", "\x00"), async (response) => {
             if (response[0] < 0x0f || response[1] != 0x20 || response[6] != 0x0c) {
-                throw ({ error: "no dc_info frame" });
+                throw new Error("no dc_info frame");
             }
             const ubat = bp.unpack("<H", response, 7)[0];
             // DC current fields are unsigned 24-bit values (protocol §6.1).
@@ -296,7 +304,7 @@ class Mk2Protocol {
         this.log.debug("******   ac_info");
         return this.conn.communicate(this.create_frame("F", "\x01"), async (frame) => {
             if (frame[0] < 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B) {
-                throw ({ error: "no ac_info frame" });
+                throw new Error("no ac_info frame");
             }
             const data = bp.unpack("<B B B B B H h H h B", frame, 2);
             const bf_factor = data[0];
@@ -352,7 +360,7 @@ class Mk2Protocol {
             // switch register; only 0x0D and longer include it. Reading data[11]
             // unconditionally used to return the checksum as the switch register.
             if (response[0] < 0x0c || response[1] != 0x41) {
-                throw ({ error: "no master_multi_led_info frame" });
+                throw new Error("no master_multi_led_info frame");
             }
             const data = bp.unpack("<H H H B", response, 7);
             this.mk2Model["assist.minlimit"].value = data[0] / 10.0;
@@ -416,6 +424,17 @@ class Mk2Protocol {
         if (!Number.isFinite(ampere) || ampere < 0) {
             throw new errors_1.Mk2ValidationError(`set_assist: invalid value ${ampere}`);
         }
+        if (ampere === 0) {
+            // §5 note 3 applies to the direct write too, not only to grid_mode:
+            // with PowerAssist off, 0 A disables the charger and keeps Bypass.
+            const assist = this.mk2Model["setting.flag.AssistEnabled"].value;
+            if (assist === false) {
+                throw new errors_1.Mk2ValidationError("set_assist: 0 A with PowerAssist disabled means charger off + Bypass, not zero grid (§5 note 3)");
+            }
+            if (assist === null) {
+                this.log.warn("set_assist: AssistEnabled is unknown; 0 A assumes PowerAssist is enabled");
+            }
+        }
         const max = this.mk2Model["assist.maxlimit"].value;
         if (typeof max == "number" && max > 0 && ampere > max) {
             this.log.warn(`set_assist: clamping ${ampere} A to ${max} A`);
@@ -471,7 +490,10 @@ class Mk2Protocol {
      * Explicit grid/solar mode.
      * 0 = grid (max input current, switch On)
      * 1 = zero grid / solar inverter (0 A, switch On; PowerAssist an => Invert)
-     * 2 = inverter only (switch state 2, limit ignored)
+     * 2 = inverter only (switch state 2 + 0 A). The live test on 2026-11-15 showed
+     * that switch state 2 alone does NOT enter Invert while AC is present, so the
+     * 0 A limit is required - it is not a substitute for "ignore limit". Note that
+     * this 0 A setpoint persists until another limit is written.
      */
     async set_grid_mode(mode) {
         if (![0, 1, 2].includes(mode)) {
@@ -499,11 +521,17 @@ class Mk2Protocol {
         }
         this.currentSwitchState = 3;
         const configured = this.mk2Model["setting.IMainsLimitAC1"].value;
+        const current = this.mk2Model["assist.limit"].value;
         const max = this.mk2Model["assist.maxlimit"].value;
-        // Grid mode must not silently replace the configured shore-current limit
-        // with the device rating (review M4).
+        // Grid mode must not silently raise the shore-current limit: prefer the
+        // configured value, then keep the current one, never the device rating
+        // just because the configuration is unknown (review N15).
         const limit = mode == 0
-            ? (typeof configured == "number" && configured > 0 ? configured : (typeof max == "number" && max > 0 ? max : 16))
+            ? (typeof configured == "number" && configured > 0
+                ? configured
+                : typeof current == "number" && current > 0
+                    ? current
+                    : typeof max == "number" && max > 0 ? max : 16)
             : 0;
         await this.set_assist(limit);
     }

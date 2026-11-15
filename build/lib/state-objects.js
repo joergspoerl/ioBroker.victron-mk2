@@ -17,8 +17,8 @@ function buildStateObject(key, v) {
     }
     if (key === "control.set_assist") {
         common.min = 0;
-        common.max = 16;
-        common.def = 16;
+        // max/def are set from assist.maxlimit after device discovery (N4);
+        // a static default here would reset them on every adapter start.
     }
     return {
         type: "state",
