@@ -40,7 +40,10 @@ jobs:
     strategy:
       matrix:
         node-version: [22.x, 24.x]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # The adapter runs on Linux (pi4). The ioBroker integration harness
+        # fails to add the instance on Windows ("Adding the adapter instance
+        # failed!"), so Windows is intentionally not part of this matrix.
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: ioBroker/testing-action-adapter@v1
