@@ -146,7 +146,7 @@ export class Mk2Model {
 	};
 
 	"battery.soc":    Mk2DataEntry = {
-		descr: "State of charge from the MultiPlus internal battery monitor",
+		descr: "SOC of the MultiPlus internal battery monitor - NOT the BMV; reads 0 % when the internal monitor is not configured",
 		unit:  "%",
 		role:  "value",
 		type: "number",
