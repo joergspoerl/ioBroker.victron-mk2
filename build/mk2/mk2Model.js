@@ -8,7 +8,7 @@ var led;
     led[led["BLINK_ANTI"] = 2] = "BLINK_ANTI";
     led[led["BLINK"] = 3] = "BLINK";
     led[led["UNKNOWN"] = 4] = "UNKNOWN";
-})(led = exports.led || (exports.led = {}));
+})(led || (exports.led = led = {}));
 const led_states = {
     "0": "OFF",
     "1": "ON",

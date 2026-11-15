@@ -1,7 +1,6 @@
 import { Mk2Connection } from "./mk2Connection";
 import { led, Mk2Model } from "./mk2Model";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const bp = require("bufferpack");
+import * as bp from "bufferpack";
 
 export interface IscaleEntry {
 	scale: number
