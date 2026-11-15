@@ -65,6 +65,37 @@ describe("Mk2Connection", () => {
 		});
 	});
 
+	describe("failure recovery (issue #8)", () => {
+		it("counts checksum errors, closes the port and invalidates the sync", async () => {
+			const frame = versionFrame();
+			frame[frame.length - 1] ^= 0xFF;
+			const fake = new FakeMk2Serial();
+			fake.push(frame);
+			await fake.open();
+			const conn = connWith(fake);
+			await expect(conn.receiveFrame(100)).to.be.rejectedWith("checksum");
+			expect(conn.checksumErrors).to.equal(1);
+			expect(conn.synced).to.equal(false);
+			expect(fake.isOpen()).to.equal(false);
+			expect(conn.lastError).to.contain("checksum");
+		});
+
+		it("counts timeouts and resynchronises on the next call", async () => {
+			const fake = new FakeMk2Serial();
+			await fake.open();
+			const conn = connWith(fake);
+			await expect(conn.receiveFrame(40)).to.be.rejectedWith("Timeout");
+			expect(conn.timeouts).to.equal(1);
+			expect(fake.isOpen()).to.equal(false);
+			expect(conn.lastError).to.contain("Timeout");
+
+			fake.push(versionFrame());
+			await conn.ensureSynced();
+			expect(fake.isOpen()).to.equal(true);
+			expect(conn.synced).to.equal(true);
+		});
+	});
+
 	describe("communicate", () => {		it("decodes a valid response and records the request", async () => {
 			const response = mk2Frame(0x41, [0x01, 0x00]);
 			const fake = new FakeMk2Serial(() => response);

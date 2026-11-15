@@ -32,6 +32,10 @@ export class Mk2Connection {
 	/** MK2 firmware version and mode byte from the last version frame (§3.4). */
 	mk2Version: number | null = null;
 	mk2Mode: number | null = null;
+	/** Diagnostics (issue #8), counted since the adapter started. */
+	timeouts = 0;
+	checksumErrors = 0;
+	lastError = "";
 
 	constructor(portPath: string, log: ioBroker.Logger, port?: Mk2Serial) {
 		this.portPath = portPath;
@@ -89,11 +93,11 @@ export class Mk2Connection {
 	 * timeout arrives. Errors (timeout, checksum, decode) are propagated to the
 	 * caller so that failed writes never look successful.
 	 */
-	async communicate(request: Buffer, decode: (response: Buffer) => Promise<void>): Promise<void> {
+	async communicate(request: Buffer, decode: (response: Buffer) => Promise<void>, options: { readTimeoutMs?: number } = {}): Promise<void> {
 		return this.communicateMulti(request, async (response: Buffer) => {
 			await decode(response);
 			return true;
-		});
+		}, options);
 	}
 
 	/**
@@ -126,7 +130,7 @@ export class Mk2Connection {
 			while (Date.now() < deadline) {
 				let frame: Buffer;
 				try {
-					frame = await this.receiveFrame(options.readTimeoutMs ?? 1000);
+					frame = await this.receiveFrame(options.readTimeoutMs ?? 500);
 				} catch (error) {
 					if (options.allowQuietEnd && decoded > 0) {
 						this.log.debug("communicateMulti: quiet end after " + decoded + " frame(s)");
@@ -166,8 +170,9 @@ export class Mk2Connection {
 	/**
 	 * Read one complete length-prefixed frame, with timeout and checksum
 	 * validation. Partial reads are accumulated until the whole frame arrived.
+	 * The default follows protocol §3.3 (500 ms); F5 needs a longer budget.
 	 */
-	async receiveFrame(timeoutMs = 1500): Promise<Buffer> {
+	async receiveFrame(timeoutMs = 500): Promise<Buffer> {
 		const deadline = Date.now() + timeoutMs;
 		let buf = Buffer.alloc(0);
 
@@ -186,7 +191,7 @@ export class Mk2Connection {
 			// it must not be counted as part of the frame length.
 			const len = buf[0] & 0x7F;
 			if (len == 0) {
-				throw new Error("Invalid MK2 frame length 0");
+				await this.fail("protocol", "Invalid MK2 frame length 0");
 			}
 			// Length excludes the length and checksum bytes, so the complete
 			// frame has len + 2 bytes (length + len + checksum).
@@ -202,17 +207,36 @@ export class Mk2Connection {
 			}
 
 			if (buf.length < needed) {
-				throw new Error("Timeout while receiving complete MK2 frame");
+				await this.fail("timeout", "Timeout while receiving complete MK2 frame");
 			}
 
 			const frame = buf.slice(0, needed);
 			if (!this.checksum(frame)) {
-				throw new Error("MK2 frame checksum error");
+				await this.fail("checksum", "MK2 frame checksum error");
 			}
 			this.frame_debug("RECV <-", frame);
 			return frame;
 		}
-		throw new Error("Timeout waiting for MK2 frame");
+		await this.fail("timeout", "Timeout waiting for MK2 frame");
+		throw new Error("unreachable");
+	}
+
+	/**
+	 * Count the failure and invalidate the connection. A timeout or checksum
+	 * error means the byte stream cannot be trusted any more, so the port is
+	 * closed and the next poll reopens and resynchronises (issue #8).
+	 */
+	private async fail(kind: "timeout" | "checksum" | "protocol", message: string): Promise<void> {
+		if (kind == "timeout") this.timeouts++;
+		if (kind == "checksum") this.checksumErrors++;
+		this.lastError = message;
+		this.synced = false;
+		try {
+			await this.port.close();
+		} catch {
+			// best effort; the reopen path handles a closed or broken port
+		}
+		throw new Error(message);
 	}
 
 	checksum(frame: Buffer): boolean {
