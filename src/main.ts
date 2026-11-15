@@ -46,6 +46,8 @@ class VictronMk2 extends utils.Adapter {
 		// Create the objects even without a configured port and report "not
 		// connected", instead of leaving no state at all (review N6).
 		await this.initObjects();
+		// Nothing is connected yet at startup; never keep a persisted true (N2).
+		await this.setStateAsync("info.connection", { val: false, ack: true });
 		if (!this.config.portPath) {
 			this.log.error("config portPath is empty; adapter will not poll until it is configured");
 			await this.setStateAsync("info.connection", { val: false, ack: true });
