@@ -339,12 +339,39 @@ class Mk2Model {
         // 	value: 0,
         // };
         this["control.set_assist"] = {
-            descr: "Set input current limit",
+            descr: "Set input current limit (A; 0 = Inverter/Zero grid when PowerAssist enabled)",
             unit: "A",
             role: "value.current",
             type: "number",
             value: 0,
             setFunc: (mk2, value) => mk2.set_assist(value)
+        };
+        this["control.switch_state"] = {
+            descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off)",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 3,
+            states: {
+                "1": "Charger only",
+                "2": "Inverter only",
+                "3": "On",
+                "4": "Off"
+            },
+            setFunc: (mk2, value) => mk2.set_switch_state(value)
+        };
+        this["control.grid_mode"] = {
+            descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A, 2=Inverter only)",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "Grid",
+                "1": "Zero grid / Invert",
+                "2": "Inverter only"
+            },
+            setFunc: (mk2, value) => mk2.set_grid_mode(value)
         };
         this["control.force_state"] = {
             descr: "force a spezific state",
