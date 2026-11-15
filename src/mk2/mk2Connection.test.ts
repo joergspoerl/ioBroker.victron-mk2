@@ -298,3 +298,17 @@ describe("sync split robustness (issue #56)", () => {
 		}
 	});
 });
+
+describe("shutdown (issue #59)", () => {
+	it("does not reopen the port after shutdown", async () => {
+		const fake = new FakeMk2Serial();
+		fake.push(versionFrame());
+		const conn = connWith(fake);
+		await conn.ensureSynced();
+		expect(conn.synced).to.equal(true);
+		await conn.shutdown();
+		expect(fake.isOpen()).to.equal(false);
+		await expect(conn.ensureSynced()).to.be.rejectedWith("shut down");
+		expect(fake.isOpen()).to.equal(false);
+	});
+});
