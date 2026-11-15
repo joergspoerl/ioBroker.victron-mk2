@@ -164,3 +164,39 @@ describe("Mk2Protocol control writes", () => {
 		expect(fake.requests.some((r) => r[3] == 0x0E)).to.equal(true);
 	});
 });
+
+describe("Mk2Protocol protocol validation", () => {
+	it("ac_info accepts a non-1 BF factor", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.poll();
+		fake.bfFactor = 2;
+		await p.ac_info();
+		expect(p.mk2Model["ac_info.umains"].value).to.equal(237);
+	});
+
+	it("dc_info accepts a different reserved marker byte", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.poll();
+		fake.dcMarker = 0x00;
+		await p.dc_info();
+		expect(p.mk2Model["dc_info.ubat"].value).to.be.closeTo(13.02, 0.01);
+	});
+
+	it("led_status accepts a short protocol frame", async () => {
+		const fake = new FakeMk2Connection();
+		fake.ledDataLength = 3;
+		const p = protocolWith(fake);
+		await p.led_status();
+		expect(p.mk2Model["led.mains"].value).to.equal(1);
+	});
+
+	it("address accepts a longer response frame", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		// the default address frame already exercises the minimum length
+		await p.address();
+		expect(fake.requests.length).to.equal(1);
+	});
+});

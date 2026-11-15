@@ -107,6 +107,9 @@ export class FakeMk2Connection {
 	limit = 16;
 	switchState = 3;
 	currentState = 8;
+	bfFactor = 1;
+	dcMarker = 0xB5;
+	ledDataLength = 6;
 	failNext?: string;
 
 	private respond(request: Buffer): Buffer {
@@ -114,8 +117,12 @@ export class FakeMk2Connection {
 		switch (command) {
 			case 0x41: // A
 				return mk2Frame(0x41, [0x01, 0x00]);
-			case 0x4C: // L
-				return mk2Frame(0x4C, [0x01, 0x00, 0x00, 0x00, 0x00, 0x00]);
+			case 0x4C: { // L
+				const data = Array(this.ledDataLength).fill(0);
+				data[0] = 0x01;
+				data[1] = 0x00;
+				return mk2Frame(0x4C, data);
+			}
 			case 0x53: // S
 				this.switchState = request[3];
 				this.limit = (request[5] << 8 | request[4]) / 10;
@@ -125,14 +132,14 @@ export class FakeMk2Connection {
 				if (frameType == 0x00) {
 					// DC info: marker, ubat 1302, ibat/cbat 0
 					return veBusFrame(0x20, [
-						0xB5, 0x9A, 0x22, 0x46, 0x0C, 0x16, 0x05,
+						this.dcMarker, 0x9A, 0x22, 0x46, 0x0C, 0x16, 0x05,
 						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x89,
 					], 0x0F);
 				}
 				if (frameType == 0x01) {
 					// AC info: 237.27 V, 50 Hz, state raw 0x46, phase 0x08
 					return veBusFrame(0x20, [
-						0x01, 0x01, 0x22, 0x46, 0x08, 0xAF, 0x5C,
+						this.bfFactor, 0x01, 0x22, 0x46, 0x08, 0xAF, 0x5C,
 						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC3,
 					], 0x0F);
 				}

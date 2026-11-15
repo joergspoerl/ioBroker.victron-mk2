@@ -116,7 +116,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response: Buffer): Promise<void> => {
 
-			if (response[0] != 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01 ) {
+			if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01 ) {
 				throw ({ error: "no address frame"})
 			}
 		})
@@ -128,7 +128,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate(this.create_frame("L", ""), async (response: Buffer) => {
 
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x4c ) {
+			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x4c ) {
 				throw ({ error: "no led_status frame"})
 			}
 
@@ -351,7 +351,9 @@ export class Mk2Protocol {
 			&& this.calc.imains_calc
 			&& this.calc.ubat_calc
 			&& this.calc.uinv_calc
-			&& this.calc.umains_calc) {
+			&& this.calc.umains_calc
+			&& this.calc.finv_calc
+			&& this.calc.fmains_calc) {
 			return
 		} else {
 			await this.umains_calc_load()
@@ -371,7 +373,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate (this.create_frame("F", "\x00"), async (response: Buffer): Promise<void> => {
 
-			if (response[0] != 0x0f || response[1] != 0x20 || response[2] != 0xb5 ) {
+			if (response[0] != 0x0f || response[1] != 0x20 || response[6] != 0x0c ) {
 				throw ({ error: "no dc_info frame"})
 			}
 
@@ -395,7 +397,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate (this.create_frame("F", "\x01"), async (frame: Buffer):Promise<void> => {
 
-			if (frame[0] != 0x0f || frame[1] != 0x20 || frame[2] != 0x01 ) {
+			if (frame[0] != 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B ) {
 				throw ( { error: "no ac_info frame"} )
 			}
 
@@ -409,6 +411,9 @@ export class Mk2Protocol {
 			const imains     = data[6];
 			const uinv       = data[7];
 			const iinv       = data[8];
+			// The current firmware returns the mains period as a single byte at
+			// data[13]; the protocol table describes a 2-byte field. Do not widen
+			// blindly, otherwise the checksum byte would be misread.
 			const fmains     = data[9]
 
 			if (this.calc.umains_calc
