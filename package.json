@@ -1,7 +1,7 @@
 {
   "name": "iobroker.victron-mk2",
   "version": "0.3.1",
-  "description": "Victron Multiplus",
+  "description": "Victron MultiPlus/Quattro via MK2/VE.Bus",
   "author": {
     "name": "joerg",
     "email": "joerg.spoerl@gmx.de"
@@ -10,9 +10,13 @@
   "license": "MIT",
   "keywords": [
     "ioBroker",
-    "template",
-    "Smart Home",
-    "home automation"
+    "victron",
+    "ve.bus",
+    "mk2",
+    "multiplus",
+    "inverter",
+    "charger",
+    "energy"
   ],
   "repository": {
     "type": "git",

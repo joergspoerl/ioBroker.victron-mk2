@@ -124,7 +124,7 @@
         "icon": "victron-mk2.png",
         "enabled": true,
         "extIcon": "https://raw.githubusercontent.com/joergspoerl/ioBroker.victron-mk2/master/admin/victron-mk2.png",
-        "readme": "https://github.com/joergspoerl/ioBroker.victron-mk2/blob/main/README.md",
+        "readme": "https://github.com/joergspoerl/ioBroker.victron-mk2/blob/master/README.md",
         "loglevel": "info",
         "mode": "daemon",
         "type": "energy",
