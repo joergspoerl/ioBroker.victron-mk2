@@ -72,3 +72,24 @@ describe("firmware-dependent behaviour (live findings 2026-11-15)", () => {
 		expect(p.mk2Model["ac_info.umains"].value).to.equal(null);
 	});
 });
+
+describe("unsupported scaling warnings (issue #62)", () => {
+	it("warns and queries only once per connection", async () => {
+		const fake = new FakeMk2Connection();
+		fake.ramInfoOverrides.set(4, { sc: 0, offset: 0 });
+		const warnings: string[] = [];
+		const logger = {
+			level: "info",
+			debug: () => undefined,
+			info: () => undefined,
+			warn: (m: string) => warnings.push(m),
+			error: () => undefined,
+		} as any;
+		const p = new Mk2Protocol("fake", logger, asConnection(fake));
+		await p.poll();
+		await p.poll();
+		await p.poll();
+		expect(warnings.filter((m) => m.includes("RAM variable 4")).length).to.equal(1);
+		expect(fake.requests.filter((r) => r[3] == 0x36 && r[4] == 4).length).to.equal(1);
+	});
+});
