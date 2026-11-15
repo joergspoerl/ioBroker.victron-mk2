@@ -32,6 +32,21 @@ class VictronMk2 extends utils.Adapter {
 	}
 
 	private async onReady(): Promise<void> {
+		try {
+			await this.startAdapter();
+		} catch (error) {
+			// Never leave an unhandled rejection or a crash/restart loop (N1).
+			const message = error instanceof Error ? error.message : String(error);
+			this.log.error("onReady failed: " + message);
+			try {
+				await this.setStateAsync("info.connection", { val: false, ack: true });
+			} catch {
+				// even the state write may fail in this situation
+			}
+		}
+	}
+
+	private async startAdapter(): Promise<void> {
 		const interval = Number(this.config.interval);
 		this.config.interval = Number.isFinite(interval) && interval >= 1 ? interval : 2;
 		this.log.info("config interval: " + this.config.interval);
@@ -98,6 +113,10 @@ class VictronMk2 extends utils.Adapter {
 	}
 
 	private mainLoop(): void {
+		// Idempotent: a second ready event must never orphan a running loop (N8).
+		if (this.pollLoop) {
+			return;
+		}
 		this.pollLoop = new PollLoop(() => this.updateStates(), this.config.interval * 1000);
 		this.pollLoop.start(10 * 1000);
 	}
