@@ -147,6 +147,9 @@ export class FakeMk2Connection {
 	ramValues = new Map<number, number>([[13, 16000], [14, 250], [16, 65236]]);
 	unsupportedRam = new Set<number>();
 	ramInfoOverrides = new Map<number, { sc: number; offset: number }>();
+	timeouts = 0;
+	checksumErrors = 0;
+	lastError = "";
 	failNext?: string;
 
 	private settingInfo(id: number): FakeSettingInfo {

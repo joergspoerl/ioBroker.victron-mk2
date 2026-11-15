@@ -16,6 +16,7 @@ import {
 	RamInfo,
 	ramScale,
 } from "./mk2Ram";
+import { switchStateFromRegister } from "./mk2Switch";
 import * as bp from "bufferpack";
 
 export interface IscaleEntry {
@@ -81,11 +82,22 @@ export class Mk2Protocol {
 			await this.get_flags()
 			await this.get_flags1()
 			await this.loadExtendedSettings()
+			this.mk2Model["info.connection"].value = true
 
 		} catch (Exception) {
+			this.mk2Model["info.connection"].value = false
 			this.log.error("Exception in poll " + Exception)
+		} finally {
+			this.updateDiagnostics()
 		}
 
+	}
+
+	/** Mirror the connection health counters into the model (issue #8). */
+	private updateDiagnostics(): void {
+		this.mk2Model["diag.timeouts"].value = this.conn.timeouts ?? 0
+		this.mk2Model["diag.checksum_errors"].value = this.conn.checksumErrors ?? 0
+		this.mk2Model["diag.last_error"].value = this.conn.lastError ?? ""
 	}
 
 	/**
@@ -474,7 +486,17 @@ export class Mk2Protocol {
 			this.mk2Model["switch.SwitchInvert"].value              = (switch_register & 0b00100000) > 0 ? 1 :0
 			this.mk2Model["switch.OnboardRemoteInvertSwitch"].value = (switch_register & 0b01000000) > 0 ? 1 :0
 			this.mk2Model["switch.RemoteGeneratorSelected"].value   = (switch_register & 0b10000000) > 0 ? 1 :0
-		});
+
+			// The device is authoritative for the panel switch state (issue #7):
+			// a front switch or remote panel change must not be overwritten by a
+			// stale local cache on the next limit write.
+			const derived = switchStateFromRegister(switch_register)
+			this.mk2Model["switch.state"].value = derived
+			if (derived !== this.currentSwitchState) {
+				this.log.info(`switch state changed on the device: ${this.currentSwitchState} -> ${derived}; adopting it`)
+				this.currentSwitchState = derived
+			}
+		}, { readTimeoutMs: 1200 }); // protocol §3.3: the F5 response may take >750 ms
 	}
 
 
@@ -517,7 +539,11 @@ export class Mk2Protocol {
 		const a  = Math.round(ampere * 10)
 		const lo = a&0xFF
 		const hi = (a>>8) & 0xFF
-		// Preserve the current switch state; do not hardcode "On".
+		if (this.currentSwitchState == 4) {
+			// A limit write always carries a panel state. Do not switch a device
+			// on that the operator switched off (issue #7).
+			throw new Error("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly")
+		}
 		const data = Buffer.from([this.currentSwitchState,lo, hi, 0x01, 0x80])
 
 		this.log.debug("******   set_assist");

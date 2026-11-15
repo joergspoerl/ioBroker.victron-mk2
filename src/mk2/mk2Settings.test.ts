@@ -155,6 +155,6 @@ describe("Mk2Protocol extended read-only settings (issue #4)", () => {
 		const p = protocolWith(fake);
 		await p.poll();
 		expect(p.mk2Model["setting.UBatAbsorption"].value).to.be.closeTo(14.2, 1e-9);
-		expect(p.mk2Model["setting.flag.DynamicCurrentLimiter"]).to.exist;
+		expect(p.mk2Model["setting.flag.DynamicCurrentLimiter"].value).to.equal(false);
 	});
 });

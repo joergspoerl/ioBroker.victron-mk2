@@ -102,6 +102,12 @@ class VictronMk2 extends utils.Adapter {
 		} catch (Exception) {
 			this.log.error("ERROR updateStates : " + JSON.stringify(Exception));
 			console.trace();
+			// Publish the lost connection as a state, not only as a log line.
+			try {
+				await this.setStateAsync("info.connection", { val: false, ack: true });
+			} catch {
+				// ignore secondary state errors while handling a failure
+			}
 		}
 	}
 

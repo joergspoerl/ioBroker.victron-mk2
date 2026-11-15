@@ -1,5 +1,6 @@
 import { Mk2Protocol } from "./mk2Protocol";
 import { FLAGS1, READONLY_SETTINGS } from "./mk2Settings";
+import { SWITCH_STATE_NAMES } from "./mk2Switch";
 
 export interface Mk2DataEntry {
 	descr: string,
@@ -57,8 +58,39 @@ export class Mk2Model {
 		}
 	}
 
-	"info.mk2_version":    Mk2DataEntry = {
-		descr: "MK2 firmware version (from the version frame)",
+	"info.connection":    Mk2DataEntry = {
+		descr: "True after a successful poll, false when the MK2/MultiPlus did not answer",
+		unit:  "",
+		role:  "state",
+		type: "boolean",
+		value: null,
+	};
+
+	"diag.timeouts":    Mk2DataEntry = {
+		descr: "Serial timeouts since adapter start",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: 0,
+	};
+
+	"diag.checksum_errors":    Mk2DataEntry = {
+		descr: "Frame checksum errors since adapter start",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: 0,
+	};
+
+	"diag.last_error":    Mk2DataEntry = {
+		descr: "Last serial/protocol error",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
+	"info.mk2_version":    Mk2DataEntry = {		descr: "MK2 firmware version (from the version frame)",
 		unit:  "",
 		role:  "value",
 		type: "number",
@@ -250,6 +282,15 @@ export class Mk2Model {
 		role:  "value.current",
 		type: "number",
 		value: 0,
+	};
+
+	"switch.state":    Mk2DataEntry = {
+		descr: "Panel switch state derived from the switch register (device is authoritative)",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: 3,
+		states: SWITCH_STATE_NAMES,
 	};
 
 	"switch.DirectRemoteSwitchCharge":    Mk2DataEntry = {
