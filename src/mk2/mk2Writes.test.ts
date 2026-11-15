@@ -159,3 +159,34 @@ describe("scaled setting writes (issue #10)", () => {
 		expect(p.mk2Model["setting.IBatBulk"].value).to.equal(100);
 	});
 });
+
+describe("EEPROM write avoidance (issue #28)", () => {
+	it("skips a flag write when the bit already has the wanted value", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_flagDisableAES(1); // already set in the fake
+		expect(fake.writes.length).to.equal(0);
+		await p.set_flagDisableAES(0);
+		expect(fake.writes.length).to.equal(1);
+		await p.set_flagDisableAES(0); // unchanged now
+		expect(fake.writes.length).to.equal(1);
+	});
+
+	it("skips a scaled setting write when the device already has the value", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_UBatAbsorption(14.2); // fake reads 1420 already
+		expect(fake.writes.length).to.equal(0);
+		await p.set_UBatAbsorption(14.3);
+		expect(fake.writes.length).to.equal(1);
+	});
+
+	it("skips an unchanged IBatBulk write", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_setting_IBatBulk(120);
+		expect(fake.writes.length).to.equal(0);
+		await p.set_setting_IBatBulk(100);
+		expect(fake.writes.length).to.equal(1);
+	});
+});
