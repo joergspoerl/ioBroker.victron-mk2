@@ -259,6 +259,12 @@ export class Mk2Protocol {
 	/** Load one RAM scale/offset pair into the calc cache (table-driven). */
 	private async loadRamScaling(id: number, field: keyof Calc): Promise<void> {
 		const info = await this.getRamInfo(id);
+		if (!info.supported) {
+			// Sc = 0 means "not supported". Caching scale 0 would publish 0 V / 0 A
+			// as if they were measurements (review M1) - leave the field empty.
+			this.log.warn(`RAM variable ${id} is not supported by this firmware; dependent values stay null`);
+			return;
+		}
 		this.calc[field] = { scale: info.sc, offset: info.offset };
 	}
 
@@ -308,11 +314,18 @@ export class Mk2Protocol {
 				// Net battery current (appendix 2): charging devices minus inverting
 				// devices. Positive means charging, like the BMV sign convention.
 				this.mk2Model["dc_info.ibat_net"].value = round(chargeCurrent - inverterCurrent, 2)
+			} else {
+				// Missing scalings (unsupported firmware) must not look like 0 V / 0 A.
+				for (const key of ["dc_info.ubat", "dc_info.ibat", "dc_info.icharge", "dc_info.ibat_net"]) {
+					this.mk2Model[key].value = null;
+				}
 			}
 			if (this.calc.finv_calc) {
 				const period = (finv + this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale)
 				// A period of 0 means "no inverter output", not a division by zero.
 				this.mk2Model["dc_info.finv"].value = period > 0 ? round(10 / period, 2) : 0
+			} else {
+				this.mk2Model["dc_info.finv"].value = null
 			}
 		});
 	}
@@ -356,6 +369,9 @@ export class Mk2Protocol {
 				this.mk2Model["ac_info.fmains"].value = round ((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 2)
 			} else {
 				this.log.debug("ac_info scaling not ready")
+				for (const key of ["ac_info.state", "ac_info.phase_info", "ac_info.umains", "ac_info.imains", "ac_info.uinv", "ac_info.iinv", "ac_info.fmains"]) {
+					this.mk2Model[key].value = null;
+				}
 			}
 
 
