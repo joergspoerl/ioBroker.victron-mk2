@@ -46,14 +46,16 @@ class Mk2Serial {
         var _a, _b;
         return (_b = (_a = this.port) === null || _a === void 0 ? void 0 : _a.isOpen) !== null && _b !== void 0 ? _b : false;
     }
-    open() {
-        return new Promise(async (resolve, reject) => {
-            var _a, _b, _c, _d;
-            // Load the native serialport binding only when a real port is opened.
-            // This keeps unit tests independent of the native dependency.
-            const mod = await Promise.resolve().then(() => __importStar(require("serialport")));
-            const SerialPortImpl = (_b = (_a = mod.SerialPort) !== null && _a !== void 0 ? _a : mod.default) !== null && _b !== void 0 ? _b : mod;
-            (_d = (_c = this.log) === null || _c === void 0 ? void 0 : _c.debug) === null || _d === void 0 ? void 0 : _d.call(_c, "open: " + this.portPath);
+    async open() {
+        var _a, _b, _c, _d;
+        // Load the native serialport binding only when a real port is opened.
+        // This keeps unit tests independent of the native dependency.
+        // The import must be awaited *outside* the Promise executor: a rejection
+        // inside an async executor would leave open() pending forever (review T3).
+        const mod = await Promise.resolve().then(() => __importStar(require("serialport")));
+        const SerialPortImpl = (_b = (_a = mod.SerialPort) !== null && _a !== void 0 ? _a : mod.default) !== null && _b !== void 0 ? _b : mod;
+        (_d = (_c = this.log) === null || _c === void 0 ? void 0 : _c.debug) === null || _d === void 0 ? void 0 : _d.call(_c, "open: " + this.portPath);
+        await new Promise((resolve, reject) => {
             const onOpen = (err1) => {
                 var _a, _b;
                 if (err1) {
@@ -86,7 +88,7 @@ class Mk2Serial {
                 // serialport 9.x: new SerialPort(path, options, callback)
                 this.port = new SerialPortImpl(this.portPath, { baudRate: 2400 }, onOpen);
             }
-            catch (_e) {
+            catch (_a) {
                 // serialport 10+/12: new SerialPort({ path, baudRate }, callback)
                 this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
             }
