@@ -244,182 +244,41 @@ export class Mk2Protocol {
 	}
 
 
-	async umains_calc_load(): Promise<void> {
-		this.log.debug("******   umains_calc_load");
+	/** RAM ids whose scale/offset the DC/AC frames need (protocol §7.3.9). */
+	private static readonly RAM_SCALINGS: { id: number; field: keyof Calc }[] = [
+		{ id: 0, field: "umains_calc" },
+		{ id: 1, field: "imains_calc" },
+		{ id: 2, field: "uinv_calc" },
+		{ id: 3, field: "iinv_calc" },
+		{ id: 4, field: "ubat_calc" },
+		{ id: 5, field: "ibat_calc" },
+		{ id: 7, field: "finv_calc" },
+		{ id: 8, field: "fmains_calc" },
+	];
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x00\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no umains_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.umains_calc =  {
-				scale:  data[0],
-				offset: data[2]
-			}
-		});
+	/** Load one RAM scale/offset pair into the calc cache (table-driven). */
+	private async loadRamScaling(id: number, field: keyof Calc): Promise<void> {
+		const info = await this.getRamInfo(id);
+		this.calc[field] = { scale: info.sc, offset: info.offset };
 	}
 
-	async imains_calc_load (): Promise<void> {
-		this.log.debug("******   imains_calc_load");
+	// Thin wrappers keep the historical method names used by tests and scripts.
+	async umains_calc_load(): Promise<void> { return this.loadRamScaling(0, "umains_calc"); }
+	async imains_calc_load(): Promise<void> { return this.loadRamScaling(1, "imains_calc"); }
+	async uinv_calc_load(): Promise<void> { return this.loadRamScaling(2, "uinv_calc"); }
+	async iinv_calc_load(): Promise<void> { return this.loadRamScaling(3, "iinv_calc"); }
+	async ubat_calc_load(): Promise<void> { return this.loadRamScaling(4, "ubat_calc"); }
+	async ibat_calc_load(): Promise<void> { return this.loadRamScaling(5, "ibat_calc"); }
+	async finv_calc_load(): Promise<void> { return this.loadRamScaling(7, "finv_calc"); }
+	async fmains_calc_load(): Promise<void> { return this.loadRamScaling(8, "fmains_calc"); }
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x01\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no imains_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.imains_calc = {
-				scale:  data[0],
-				offset: data[2]
-
-			}
-		});
-	}
-
-
-	async uinv_calc_load(): Promise<void> {
-		this.log.debug("******   uinv_calc_load");
-
-		return this.conn.communicate (this.create_frame("W", "\x36\x02\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no uinv_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.uinv_calc =  {
-				scale:  data[0],
-				offset: data[2]
-			}
-		});
-	}
-
-	async iinv_calc_load (): Promise<void> {
-		this.log.debug("******   iinv_calc_load");
-
-		return this.conn.communicate (this.create_frame("W", "\x36\x03\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no iinv_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.iinv_calc = {
-				scale:  data[0],
-				offset: data[2]
-
-			}
-		});
-	}
-
-
-
-	async ubat_calc_load(): Promise<void> {
-		this.log.debug("******   ubat_calc_load");
-
-		return this.conn.communicate (this.create_frame("W", "\x36\x04\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no ubat_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.ubat_calc =  {
-				scale:  data[0],
-				offset: data[2]
-			}
-		});
-	}
-
-	async ibat_calc_load (): Promise<void> {
-		this.log.debug("******   ibat_calc_load");
-
-		// RAM ID 5 = IBat (protocol §7.3.13.1). ID 6 is UBatRMS and was used here
-		// by mistake; both happen to scale by 0.01 on the current firmware, but
-		// ID 5 is the signed one (appendix 2).
-		return this.conn.communicate (this.create_frame("W", "\x36\x05\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no ibat_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.ibat_calc = {
-				scale:  data[0],
-				offset: data[2]
-
-			}
-		});
-	}
-
-	async finv_calc_load(): Promise<void> {
-		this.log.debug("******   finv_calc_load");
-
-		return this.conn.communicate (this.create_frame("W", "\x36\x07\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no finv_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.finv_calc =  {
-				scale:  data[0],
-				offset: data[2]
-			}
-		});
-	}
-
-	async fmains_calc_load (): Promise<void> {
-		this.log.debug("******   fmains_calc_load");
-
-		return this.conn.communicate (this.create_frame("W", "\x36\x08\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-				throw ({ error: "no fmains_calc_load frame"})
-			}
-
-			const data = bp.unpack("<h B h", response, 4)
-
-			this.calc.fmains_calc = {
-				scale:  data[0],
-				offset: data[2]
-
-			}
-		});
-	}
-
-
-	async  loadScalingsIfNeeded() :Promise<void> {
+	/** Load every missing scaling exactly once per connection. */
+	async loadScalingsIfNeeded(): Promise<void> {
 		this.log.debug("******   loadScalingsIfNeeded");
-
-		if (   this.calc.ibat_calc
-			&& this.calc.iinv_calc
-			&& this.calc.imains_calc
-			&& this.calc.ubat_calc
-			&& this.calc.uinv_calc
-			&& this.calc.umains_calc
-			&& this.calc.finv_calc
-			&& this.calc.fmains_calc) {
-			return
-		} else {
-			await this.umains_calc_load()
-			await this.imains_calc_load()
-			await this.uinv_calc_load()
-			await this.iinv_calc_load()
-			await this.ubat_calc_load()
-			await this.ibat_calc_load()
-			await this.finv_calc_load()
-			await this.fmains_calc_load()
+		for (const def of Mk2Protocol.RAM_SCALINGS) {
+			if (!this.calc[def.field]) {
+				await this.loadRamScaling(def.id, def.field);
+			}
 		}
 	}
 

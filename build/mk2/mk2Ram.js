@@ -23,7 +23,9 @@ function makeRamInfo(id, sc, offset) {
         offset,
         supported: sc !== 0,
         signed: sc < 0,
-        isBit: offset === 0x8000,
+        // The offset arrives as signed 16-bit, so the 0x8000 sentinel shows up as
+        // -32768. Compare on the raw 16-bit pattern, not on the signed number.
+        isBit: (offset & 0xffff) === 0x8000,
         bit: sc - 1,
     };
 }

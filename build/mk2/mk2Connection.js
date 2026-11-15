@@ -69,6 +69,8 @@ class Mk2Connection {
         this.timeouts = 0;
         this.checksumErrors = 0;
         this.lastError = "";
+        /** Incremented on every successful sync, so clients can drop stale caches. */
+        this.generation = 0;
         /**
          * Response budget per frame. Protocol §3.3 recommends 500 ms, but on a busy
          * host (ioBroker on a Raspberry Pi) 1500 ms has proven reliable; the F5
@@ -77,6 +79,8 @@ class Mk2Connection {
         this.responseTimeoutMs = 1500;
         /** Receive accumulator; bytes after a complete frame stay for the next read. */
         this.rxBuffer = Buffer.alloc(0);
+        /** Serialises every exchange; the tail continues even after a failure. */
+        this.queueTail = Promise.resolve();
         this.portPath = portPath;
         this.log = log;
         this.debug = ((_a = this.log) === null || _a === void 0 ? void 0 : _a.level) == "debug";
@@ -122,6 +126,7 @@ class Mk2Connection {
             }
             if (this.extractVersionFrame()) {
                 this.synced = true;
+                this.generation++;
                 this.log.debug("sync: version frame received");
                 return;
             }
@@ -200,8 +205,15 @@ class Mk2Connection {
      * fewer responses than the current protocol describes.
      */
     async communicateMulti(request, decode, options = {}) {
+        // A busy flag plus an await is not a mutex (review T13). Queue every
+        // exchange on a promise tail instead: concurrent callers are strictly
+        // serialised and a failure does not break the chain.
+        const run = this.queueTail.then(() => this.performExchange(request, decode, options));
+        this.queueTail = run.catch(() => undefined);
+        return run;
+    }
+    async performExchange(request, decode, options = {}) {
         var _a;
-        await this.waitForFreeLine();
         this.busy = true;
         let decoded = 0;
         try {
