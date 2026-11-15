@@ -15,7 +15,7 @@ export interface Mk2DataEntry {
 
 export type Mk2PropertyType = number | string | boolean | null; // entspricht ioBroker.StateValue
 
-export type ioBrokerRole = "state" | "value.current" | "value.voltage" | "value" | "value.temperature"
+export type ioBrokerRole = "state" | "value.current" | "value.voltage" | "value" | "value.temperature" | "indicator.connected"
 
 export enum led {
 	"OFF" = 0,
@@ -61,7 +61,7 @@ export class Mk2Model {
 	"info.connection":    Mk2DataEntry = {
 		descr: "True after a successful poll, false when the MK2/MultiPlus did not answer",
 		unit:  "",
-		role:  "state",
+		role:  "indicator.connected",
 		type: "boolean",
 		value: null,
 	};
@@ -158,7 +158,7 @@ export class Mk2Model {
 		unit:  "V",
 		role:  "value.voltage",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"dc_info.ibat":    Mk2DataEntry = {
@@ -166,7 +166,7 @@ export class Mk2Model {
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"dc_info.icharge":    Mk2DataEntry = {
@@ -174,7 +174,7 @@ export class Mk2Model {
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"dc_info.ibat_net":    Mk2DataEntry = {
@@ -182,7 +182,7 @@ export class Mk2Model {
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"dc_info.finv":    Mk2DataEntry = {
@@ -190,7 +190,7 @@ export class Mk2Model {
 		unit:  "Hz",
 		role:  "value",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"ac_info.umains":    Mk2DataEntry = {
@@ -198,7 +198,7 @@ export class Mk2Model {
 		unit:  "V",
 		role:  "value.voltage",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"ac_info.imains":    Mk2DataEntry = {
@@ -206,7 +206,7 @@ export class Mk2Model {
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"ac_info.fmains":    Mk2DataEntry = {
@@ -214,7 +214,7 @@ export class Mk2Model {
 		unit:  "Hz",
 		role:  "value",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"ac_info.uinv":    Mk2DataEntry = {
@@ -222,7 +222,7 @@ export class Mk2Model {
 		unit:  "V",
 		role:  "value.voltage",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 
@@ -231,7 +231,7 @@ export class Mk2Model {
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"ac_info.phase_info":    Mk2DataEntry = {
@@ -239,7 +239,7 @@ export class Mk2Model {
 		unit:  "",
 		role:  "state",
 		type: "number",
-		value: 0,
+		value: null,
 		states: {
 			"5"  : "This frame describes L4.",
 			"6"  : "This frame describes L3.",
@@ -257,7 +257,7 @@ export class Mk2Model {
 		unit:  "",
 		role:  "state",
 		type: "number",
-		value: 0,
+		value: null,
 	};
 
 	"assist.minlimit":    Mk2DataEntry = {
@@ -294,7 +294,7 @@ export class Mk2Model {
 	};
 
 	"switch.DirectRemoteSwitchCharge":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Direct remote switch: charge",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -306,7 +306,7 @@ export class Mk2Model {
 	};
 
 	"switch.DirectRemoteSwitchInvert":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Direct remote switch: invert",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -317,7 +317,7 @@ export class Mk2Model {
 		}
 	};
 	"switch.FrontSwitchUp":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Front switch up",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -328,7 +328,7 @@ export class Mk2Model {
 		}
 	};
 	"switch.FrontSwitchDown":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Front switch down",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -339,7 +339,7 @@ export class Mk2Model {
 		}
 	};
 	"switch.SwitchCharge":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Switch register: charge enabled",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -351,7 +351,7 @@ export class Mk2Model {
 	};
 
 	"switch.SwitchInvert":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Switch register: inverter enabled",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -362,7 +362,7 @@ export class Mk2Model {
 		}
 	};
 	"switch.OnboardRemoteInvertSwitch":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Onboard remote inverter switch",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -374,7 +374,7 @@ export class Mk2Model {
 	};
 
 	"switch.RemoteGeneratorSelected":    Mk2DataEntry = {
-		descr: "Switch states",
+		descr: "Remote generator selected",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -555,7 +555,7 @@ export class Mk2Model {
 	"control.IBatBulk":    Mk2DataEntry = {
 		descr: "IBatBulk",
 		unit:  "A",
-		role:  "state",
+		role:  "value.current",
 		type: "number",
 		value: 0,
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)
@@ -760,7 +760,7 @@ export class Mk2Model {
 	"setting.IBatBulk":    Mk2DataEntry = {
 		descr: "IBatBulk",
 		unit:  "A",
-		role:  "state",
+		role:  "value.current",
 		type: "number",
 		value: 0,
 		// setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)
