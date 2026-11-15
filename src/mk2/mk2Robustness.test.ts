@@ -58,6 +58,25 @@ describe("switch state derivation (issue #7)", () => {
 		await expect(p.set_assist(5)).to.be.rejectedWith("Off");
 		expect(fake.switchState).to.equal(3); // nothing was written
 	});
+
+	it("does not derive a switch state when the frame has no register (issue #38)", async () => {
+		const fake = new FakeMk2Connection();
+		fake.masterMultiLedHasRegister = false;
+		const p = protocolWith(fake);
+		await p.set_switch_state(2);
+		await p.master_multi_led_info();
+		expect(p.currentSwitchState).to.equal(2); // unchanged, not from the checksum
+		expect(p.mk2Model["switch.state"].value).to.equal(null);
+		expect(p.mk2Model["switch.SwitchInvert"].value).to.equal(null);
+	});
+
+	it("uses the register when it is present", async () => {
+		const fake = new FakeMk2Connection();
+		fake.switchRegister = 0b00010000;
+		const p = protocolWith(fake);
+		await p.master_multi_led_info();
+		expect(p.mk2Model["switch.state"].value).to.equal(1);
+	});
 });
 
 describe("connection diagnostics (issue #8)", () => {
