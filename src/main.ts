@@ -5,6 +5,7 @@ import { isStableState } from "./lib/state-gate";
 import { shouldHandleControlState } from "./lib/control-rules";
 import { processToSendQueue, QueueItem } from "./lib/send-queue";
 import { buildStateObject } from "./lib/state-objects";
+import { selectStatesToPublish } from "./lib/publish";
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -86,6 +87,10 @@ class VictronMk2 extends utils.Adapter {
 			// Read-only state poll first. While the MultiPlus is booting or off
 			// (state 10/20) no control command and no full poll is sent.
 			await this.mk2.pollStateOnly();
+			// Publish the state poll as well: an Off or a boot loop must be visible
+			// in ioBroker and to the watchdog, not just the last stable state.
+			await this.publishStates(["state.state", "state.substate", "info.address"]);
+			await this.setStateAsync("info.connection", { val: true, ack: true });
 			const state = this.mk2.mk2Model["state.state"].value;
 			if (!isStableState(state)) {
 				this.log.debug("MultiPlus not stable yet (state " + state + "), deferring control writes");
@@ -94,16 +99,7 @@ class VictronMk2 extends utils.Adapter {
 
 			await this.processToSendQueue();
 			await this.mk2.poll();
-
-			for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
-				const v = value as Mk2DataEntry;
-				if (v.value !== v.valueOld && !v.setFunc) {
-					await this.setStateAsync(key, {
-						val: v.value,
-						ack: true,
-					});
-				}
-			}
+			await this.publishStates();
 		} catch (Exception) {
 			// JSON.stringify(Error) yields "{}", so log the message and stack.
 			const message = Exception instanceof Error ? (Exception.stack ?? Exception.message) : JSON.stringify(Exception);
@@ -111,9 +107,25 @@ class VictronMk2 extends utils.Adapter {
 			// Publish the lost connection as a state, not only as a log line.
 			try {
 				await this.setStateAsync("info.connection", { val: false, ack: true });
+				if (this.mk2) {
+					await this.setStateAsync("diag.timeouts", { val: this.mk2.conn.timeouts, ack: true });
+					await this.setStateAsync("diag.checksum_errors", { val: this.mk2.conn.checksumErrors, ack: true });
+					await this.setStateAsync("diag.last_error", { val: this.mk2.conn.lastError, ack: true });
+				}
 			} catch {
 				// ignore secondary state errors while handling a failure
 			}
+		}
+	}
+
+	private async publishStates(only?: string[]): Promise<void> {
+		if (!this.mk2) return;
+		for (const key of selectStatesToPublish(this.mk2.mk2Model, only)) {
+			const entry = this.mk2.mk2Model[key];
+			await this.setStateAsync(key, {
+				val: entry.value,
+				ack: true,
+			});
 		}
 	}
 
