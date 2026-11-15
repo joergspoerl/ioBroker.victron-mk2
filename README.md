@@ -34,6 +34,32 @@ Victron Multiplus
 - `victron-mk2.0.control.DisableCharge`, `control.WeakACInput`,
   `control.IBatBulk`: charger/weak-AC/bulk-current settings with validated writes.
 
+### Telemetry and diagnostics
+
+- `dc_info.ubat`, `dc_info.ibat` (DC current used by the inverter),
+  `dc_info.icharge` (DC current from the chargers), **`dc_info.ibat_net`**
+  (net battery current = icharge − ibat, positive = charging), `dc_info.finv`
+  (inverter frequency).
+- **`power.inverter`, `power.output`**: filtered power in W from the RAM
+  variables (signed), **`battery.soc`**: SOC of the MultiPlus internal battery
+  monitor. Variables the firmware does not offer stay `null` and are not polled
+  again.
+- `state.state` encodes `mainState*10 + subState`; **`state.substate`** exposes
+  the charge phase separately (bulk/absorption/float/storage/equalise/…).
+- **`info.device_sw_version`/`_text`**, `info.mk2_version`, `info.mk2_mode`,
+  `info.address`: device identification, read once per connection.
+- **`info.connection`**, `diag.timeouts`, `diag.checksum_errors`,
+  `diag.last_error`: connection health. A timeout or checksum error closes the
+  port and forces a resynchronisation on the next poll.
+- **`switch.state`**: panel switch state derived from the device switch
+  register. The device is authoritative; `set_assist` never switches a device on
+  that the operator switched off.
+- **`setting.*`**: Flags0/Flags1 and, once per connection, the read-only settings
+  (charge voltages, DC low limits, mains voltage window, AES limits, AC input
+  current limits, PowerAssist boost factor). Scale/offset/min/max come from
+  `CommandGetSettingInfo`; unsupported settings stay `null`, and flag writes are
+  rejected when the device support mask does not advertise the bit.
+
 The adapter performs a read-only state poll before enabling control writes and
 never sends control commands while the MultiPlus is booting (state 10/20).
 If the MultiPlus does not finish booting with the MK2 attached, start it first
@@ -131,6 +157,13 @@ Detailed release notes: [CHANGELOG.md](CHANGELOG.md).
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
+### 0.2.0 (2026-11-15)
+- Setting metadata (GetSettingInfo) with support/range validation for writes
+- Read-only settings + Flags1, RAM power/SOC telemetry, firmware identification
+- Net battery current, inverter frequency, charge sub-state
+- Device-authoritative switch state; no implicit power-on via limit writes
+- Connection health states and reconnect hardening
+
 ### 0.1.0 (2026-11-15)
 - Robust serial I/O (timeouts, complete frames, checksum validation)
 - Startup gate: no control writes while the MultiPlus is booting

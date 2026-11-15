@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "news": {
+            "0.2.0": {
+                "en": "Protocol coverage release: setting metadata (GetSettingInfo) with support/range validation, read-only settings and Flags1, RAM power/SOC telemetry, device firmware identification, net battery current, charge sub-state, device-authoritative switch state, connection health states and reconnect hardening",
+                "de": "Protokoll-Vollabdeckung: Setting-Metadaten (GetSettingInfo) mit Support-/Bereichsvalidierung, read-only Settings und Flags1, RAM-Leistung/SOC, Firmware-Identifikation, Netto-Batteriestrom, Lade-Sub-State, geräteseitiger Switch-State, Verbindungszustand und Reconnect-Härtung"
+            },
             "0.1.0": {
                 "en": "Robust MK2 serial I/O (timeouts, complete frames, checksum validation), startup gate, explicit switch/grid modes (zero grid / inverter only), validated and retried writes, generic protocol validation, model roles and DC scaling fixes, unit tests",
                 "de": "Robuste MK2-Serial-I/O (Timeouts, vollständige Frames, Checksummenprüfung), Startup-Gate, explizite Switch-/Grid-Modi (Zero Grid / Inverter only), validierte und wiederholte Writes, generische Protokollvalidierung, Modellrollen und DC-Skalierung korrigiert, Unit-Tests"
