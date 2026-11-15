@@ -48,14 +48,13 @@ class Mk2Serial {
     }
     open() {
         return new Promise(async (resolve, reject) => {
-            var _a, _b;
+            var _a, _b, _c, _d;
             // Load the native serialport binding only when a real port is opened.
             // This keeps unit tests independent of the native dependency.
-            const { default: SerialPortImpl } = await Promise.resolve().then(() => __importStar(require("serialport")));
-            (_b = (_a = this.log) === null || _a === void 0 ? void 0 : _a.debug) === null || _b === void 0 ? void 0 : _b.call(_a, "open: " + this.portPath);
-            this.port = new SerialPortImpl(this.portPath, {
-                baudRate: 2400,
-            }, (err1) => {
+            const mod = await Promise.resolve().then(() => __importStar(require("serialport")));
+            const SerialPortImpl = (_b = (_a = mod.SerialPort) !== null && _a !== void 0 ? _a : mod.default) !== null && _b !== void 0 ? _b : mod;
+            (_d = (_c = this.log) === null || _c === void 0 ? void 0 : _c.debug) === null || _d === void 0 ? void 0 : _d.call(_c, "open: " + this.portPath);
+            const onOpen = (err1) => {
                 var _a, _b;
                 if (err1) {
                     reject(err1);
@@ -82,7 +81,15 @@ class Mk2Serial {
                     (_b = (_a = this.log) === null || _a === void 0 ? void 0 : _a.info) === null || _b === void 0 ? void 0 : _b.call(_a, "serial port closed");
                 });
                 resolve();
-            });
+            };
+            try {
+                // serialport 9.x: new SerialPort(path, options, callback)
+                this.port = new SerialPortImpl(this.portPath, { baudRate: 2400 }, onOpen);
+            }
+            catch (_e) {
+                // serialport 10+/12: new SerialPort({ path, baudRate }, callback)
+                this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
+            }
         });
     }
     close() {

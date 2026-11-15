@@ -22,43 +22,46 @@ export class Mk2Serial {
 		return new Promise(async (resolve, reject) => {
 			// Load the native serialport binding only when a real port is opened.
 			// This keeps unit tests independent of the native dependency.
-			const { default: SerialPortImpl } = await import("serialport");
+			const mod: any = await import("serialport");
+			const SerialPortImpl = mod.SerialPort ?? mod.default ?? mod;
 			this.log?.debug?.("open: " + this.portPath);
-			this.port = new SerialPortImpl(
-				this.portPath,
-				{
-					baudRate: 2400,
-				},
-				(err1) => {
-					if (err1) {
-						reject(err1);
-						return;
-					}
 
-					if (!this.port) {
-						reject(new Error("serial port was not created"));
-						return;
-					}
+			const onOpen = (err1: any): void => {
+				if (err1) {
+					reject(err1);
+					return;
+				}
+				if (!this.port) {
+					reject(new Error("serial port was not created"));
+					return;
+				}
 
-					// MK2 needs DTR set to receive data (protocol §3.1).
-					this.port.set({
-						dtr: true,
-						rts: false,
-						cts: false,
-						brk: false,
-					});
-					this.log?.debug?.("mk2-dtr: on");
+				// MK2 needs DTR set to receive data (protocol §3.1).
+				this.port.set({
+					dtr: true,
+					rts: false,
+					cts: false,
+					brk: false,
+				});
+				this.log?.debug?.("mk2-dtr: on");
 
-					this.port.on("error", (err) => {
-						this.log?.warn?.("serial port error: " + err);
-					});
-					this.port.on("close", () => {
-						this.log?.info?.("serial port closed");
-					});
+				this.port.on("error", (err) => {
+					this.log?.warn?.("serial port error: " + err);
+				});
+				this.port.on("close", () => {
+					this.log?.info?.("serial port closed");
+				});
 
-					resolve();
-				},
-			);
+				resolve();
+			};
+
+			try {
+				// serialport 9.x: new SerialPort(path, options, callback)
+				this.port = new SerialPortImpl(this.portPath, { baudRate: 2400 }, onOpen);
+			} catch {
+				// serialport 10+/12: new SerialPort({ path, baudRate }, callback)
+				this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
+			}
 		});
 	}
 
