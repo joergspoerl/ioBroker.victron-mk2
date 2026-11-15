@@ -235,3 +235,29 @@ describe("Mk2Connection", () => {
 		});
 	});
 });
+
+describe("concurrency (issue #23)", () => {
+	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+	it("serialises concurrent exchanges instead of interleaving them", async () => {
+		const response = mk2Frame(0x41, [0x01, 0x00]);
+		const fake = new FakeMk2Serial(() => response);
+		fake.push(versionFrame());
+		const conn = new Mk2Connection("fake", log as any, fake as any);
+		const order: string[] = [];
+
+		await Promise.all([
+			conn.communicate(mk2Frame(0x41, [0x01, 0x00]), async () => {
+				order.push("a-start");
+				await sleep(60);
+				order.push("a-end");
+			}),
+			conn.communicate(mk2Frame(0x41, [0x01, 0x00]), async () => {
+				order.push("b-start");
+				await sleep(1);
+				order.push("b-end");
+			}),
+		]);
+		expect(order).to.deep.equal(["a-start", "a-end", "b-start", "b-end"]);
+	});
+});
