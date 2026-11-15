@@ -47,6 +47,11 @@ Victron Multiplus
   `control.IMainsLimitAC1`: charge voltages and the configured AC1 input current
   limit. Values are converted with the device scale and rejected when they fall
   outside the range the device reports via `GetSettingInfo`.
+  **Battery safety:** charge voltages must match the battery. For the BAE OPzV
+  800 bank in this installation the targets are **14,20 V absorption** and
+  **13,40 V float** (see `docs/batterie-bae-opzv-800.md` in devops-home). Only
+  change them with knowledge of the battery; every write is read back, and
+  unchanged values are not written at all (EEPROM wear).
 
 Every setting/flag write is read back from the device; a mismatch logs a warning
 and the corresponding read-only `setting.*` state is refreshed.
