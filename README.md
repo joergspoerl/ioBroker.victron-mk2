@@ -56,8 +56,9 @@ and the corresponding read-only `setting.*` state is refreshed.
   (inverter frequency).
 - **`power.inverter`, `power.output`**: filtered power in W from the RAM
   variables (signed), **`battery.soc`**: SOC of the MultiPlus internal battery
-  monitor. Variables the firmware does not offer stay `null` and are not polled
-  again.
+  monitor – **not** the BMV; it reads 0 % when that internal monitor is not
+  configured. Variables the firmware does not offer stay `null` and are not
+  polled again.
 - `state.state` encodes `mainState*10 + subState`; **`state.substate`** exposes
   the charge phase separately (bulk/absorption/float/storage/equalise/…).
 - **`info.device_sw_version`/`_text`**, `info.mk2_version`, `info.mk2_mode`,
