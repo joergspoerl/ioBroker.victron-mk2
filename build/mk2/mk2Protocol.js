@@ -51,16 +51,16 @@ function round(number, decimal) {
     return Math.round(number * e) / e;
 }
 class Mk2Protocol {
-    constructor(portPath, log) {
+    constructor(portPath, log, conn) {
         this.mk2Model = new mk2Model_1.Mk2Model();
         this.portPath = portPath;
-        this.conn = new mk2Connection_1.Mk2Connection(portPath, log);
+        this.conn = conn !== null && conn !== void 0 ? conn : new mk2Connection_1.Mk2Connection(portPath, log);
         this.calc = new Calc();
         this.log = log;
     }
     async poll() {
         try {
-            await this.conn.sync();
+            await this.conn.ensureSynced();
             await this.address();
             await this.loadScalingsIfNeeded();
             await this.led_status();
@@ -77,6 +77,15 @@ class Mk2Protocol {
         catch (Exception) {
             this.log.error("Exception in poll " + Exception);
         }
+    }
+    /**
+     * Minimal, read-only poll used to determine whether the MultiPlus has
+     * finished booting before any control command is sent.
+     */
+    async pollStateOnly() {
+        await this.conn.ensureSynced();
+        await this.address();
+        await this.get_state();
     }
     checksum(buffer) {
         let sum = 0;
@@ -294,17 +303,15 @@ class Mk2Protocol {
             if (response[0] != 0x0f || response[1] != 0x20 || response[2] != 0xb5) {
                 throw ({ error: "no dc_info frame" });
             }
-            const ubat = bp.unpack("<H", response, 7);
-            //if (frame[11] < 0x80) { frame  }
-            const ibat_buf = Buffer.concat([response.slice(9, 12), Buffer.from("\x00"), Buffer.from(response[11] > 0x80 ? "\x00" : "\xFF")]);
-            const cbat_buf = Buffer.concat([response.slice(12, 15), Buffer.from("\x00"), Buffer.from(response[14] > 0x80 ? "\x00" : "\xFF")]);
-            const ibat = bp.unpack("<i", ibat_buf);
-            const cbat = bp.unpack("<i", cbat_buf);
+            const ubat = bp.unpack("<H", response, 7)[0];
+            // DC current fields are unsigned 24-bit values (protocol §6.1).
+            const ibat = response[9] | (response[10] << 8) | (response[11] << 16);
+            const cbat = response[12] | (response[13] << 8) | (response[14] << 16);
             // const finv = bp.unpack("<B", response, 15);
             if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
-                this.mk2Model["dc_info.ubat"].value = round(((ubat + this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale) / 10), 2);
-                this.mk2Model["dc_info.ibat"].value = round(((ibat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10), 2);
-                this.mk2Model["dc_info.icharge"].value = round(((cbat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10), 2);
+                this.mk2Model["dc_info.ubat"].value = round(((ubat + this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale)), 2);
+                this.mk2Model["dc_info.ibat"].value = round(((ibat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)), 2);
+                this.mk2Model["dc_info.icharge"].value = round(((cbat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)), 2);
                 // this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
             }
         });
