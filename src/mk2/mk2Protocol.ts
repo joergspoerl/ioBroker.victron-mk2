@@ -141,6 +141,8 @@ export class Mk2Protocol {
 		this.mk2Model["diag.timeouts"].value = this.conn.timeouts ?? 0
 		this.mk2Model["diag.checksum_errors"].value = this.conn.checksumErrors ?? 0
 		this.mk2Model["diag.last_error"].value = this.conn.lastError ?? ""
+		this.mk2Model["diag.protocol_errors"].value = this.conn.protocolErrors ?? 0
+		this.mk2Model["diag.sync_errors"].value = this.conn.syncErrors ?? 0
 	}
 
 	/**
