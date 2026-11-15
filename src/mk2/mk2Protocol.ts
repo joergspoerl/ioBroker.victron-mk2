@@ -557,7 +557,10 @@ export class Mk2Protocol {
 	 * Explicit grid/solar mode.
 	 * 0 = grid (max input current, switch On)
 	 * 1 = zero grid / solar inverter (0 A, switch On; PowerAssist an => Invert)
-	 * 2 = inverter only (switch state 2, limit ignored)
+	 * 2 = inverter only (switch state 2 + 0 A). The live test on 2026-11-15 showed
+	 * that switch state 2 alone does NOT enter Invert while AC is present, so the
+	 * 0 A limit is required - it is not a substitute for "ignore limit". Note that
+	 * this 0 A setpoint persists until another limit is written.
 	 */
 	async set_grid_mode (mode:number) : Promise<void> {
 		if (![0,1,2].includes(mode)) {

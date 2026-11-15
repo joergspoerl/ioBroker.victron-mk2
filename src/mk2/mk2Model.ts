@@ -549,7 +549,7 @@ export class Mk2Model {
 	};
 
 	"control.grid_mode":    Mk2DataEntry = {
-		descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A, 2=Inverter only)",
+		descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A [needs PowerAssist], 2=Inverter only [switch 2 + 0 A, the 0 A setpoint persists]). Switches the device on when it is Off.",
 		unit:  "",
 		role:  "state",
 		type: "number",
