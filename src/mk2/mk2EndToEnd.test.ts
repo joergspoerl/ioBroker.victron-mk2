@@ -25,6 +25,7 @@ describe("end-to-end through the real Mk2Connection receiver", () => {
 			0x30, // switch register: charge + invert
 		], 0x0d);
 		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
 			if (request[2] == 0x46 && request[3] == 0x05) return f5;
 			return mk2Frame(0x41, [0x01, 0x00]);
 		});
@@ -36,13 +37,13 @@ describe("end-to-end through the real Mk2Connection receiver", () => {
 		expect(p.mk2Model["switch.state"].value).to.equal(3);
 	});
 
-	it("tolerates a longer F5 frame (protocol §3.2)", async () => {
-		const f5 = veBusFrame(0x41, [
+	it("tolerates a longer F5 frame (protocol §3.2)", async () => {		const f5 = veBusFrame(0x41, [
 			0x10, 0x00, 0x00, 0x00, 0x04,
 			0x1f, 0x00, 0xa0, 0x00,
 			0x64, 0x00, 0x30, 0x00, // extra byte at the end
 		], 0x0e);
 		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
 			if (request[2] == 0x46 && request[3] == 0x05) return f5;
 			return mk2Frame(0x41, [0x01, 0x00]);
 		});
@@ -51,5 +52,63 @@ describe("end-to-end through the real Mk2Connection receiver", () => {
 		const p = new Mk2Protocol("fake", log as any, conn);
 		await p.master_multi_led_info();
 		expect(p.mk2Model["assist.limit"].value).to.equal(10);
+	});
+});
+
+describe("longer responses are tolerated (issue #42)", () => {
+	function protocolFor(fake: FakeMk2Serial): Mk2Protocol {
+		return new Mk2Protocol("fake", log as any, new Mk2Connection("fake", log as any, fake as any));
+	}
+
+	it("DC info with an extra trailing byte", async () => {
+		const dc = veBusFrame(0x20, [
+			0x00, 0x9a, 0x22, 0x46, 0x0c, 0x16, 0x05,
+			0, 0, 0, 0, 0, 0, 20, 0x00,
+		], 0x10);
+		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
+			if (request[2] == 0x46 && request[3] == 0x00) return dc;
+			return mk2Frame(0x41, [0x01, 0x00]);
+		});
+		fake.push(versionFrame());
+		const p = protocolFor(fake);
+		await p.loadScalingsIfNeeded();
+		await p.dc_info();
+		expect(p.mk2Model["dc_info.ubat"].value).to.be.closeTo(13.02, 0.01);
+		expect(p.mk2Model["dc_info.finv"].value).to.equal(50);
+	});
+
+	it("AC info with an extra trailing byte", async () => {
+		const ac = veBusFrame(0x20, [
+			0x01, 0x01, 0x22, 0x46, 0x08, 0xaf, 0x5c,
+			0, 0, 0, 0, 0, 0, 0xc3, 0x00,
+		], 0x10);
+		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x36 && request[4] == 8) {
+				// mains period scaling: offset 205, scale 0.0005 (50 Hz at raw 195)
+				return mk2Frame(0x57, [0x8e, 0x30, 0x78, 0x8f, 205, 0]);
+			}
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
+			if (request[2] == 0x46 && request[3] == 0x01) return ac;
+			return mk2Frame(0x41, [0x01, 0x00]);
+		});
+		fake.push(versionFrame());
+		const p = protocolFor(fake);
+		await p.loadScalingsIfNeeded();
+		await p.ac_info();
+		expect(p.mk2Model["ac_info.umains"].value).to.equal(237);
+		expect(p.mk2Model["ac_info.fmains"].value).to.equal(50);
+	});
+
+	it("state response with an extra byte", async () => {
+		const response = mk2Frame(0x57, [0x94, 8, 0, 0x00]);
+		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57) return response;
+			return mk2Frame(0x41, [0x01, 0x00]);
+		});
+		fake.push(versionFrame());
+		const p = protocolFor(fake);
+		await p.get_state();
+		expect(p.mk2Model["state.state"].value).to.equal(80);
 	});
 });
