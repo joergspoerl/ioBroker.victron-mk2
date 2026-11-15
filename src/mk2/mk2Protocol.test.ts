@@ -134,6 +134,22 @@ describe("Mk2Protocol control writes", () => {
 		await expect(p.set_grid_mode(3)).to.be.rejectedWith("invalid");
 	});
 
+	it("rejects zero grid when PowerAssist is disabled (issue #45)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		p.mk2Model["setting.flag.AssistEnabled"].value = false;
+		await expect(p.set_grid_mode(1)).to.be.rejectedWith("PowerAssist");
+		expect(fake.requests.filter((r) => r[2] == 0x53).length).to.equal(0);
+	});
+
+	it("allows zero grid with PowerAssist enabled", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		p.mk2Model["setting.flag.AssistEnabled"].value = true;
+		await p.set_grid_mode(1);
+		expect(fake.limit).to.equal(0);
+	});
+
 	it("set_setting_IBatBulk accepts a valid value", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
