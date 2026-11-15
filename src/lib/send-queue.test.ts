@@ -76,12 +76,28 @@ describe("send queue", () => {
 		expect(attempts).to.equal(1);
 	});
 
-	it("returns the completed writes for acknowledgement (issue #17)", async () => {
-		const { mk2 } = fakeMk2WithFailure(0);
+	it("returns the completed writes for acknowledgement (issue #17)", async () => {		const { mk2 } = fakeMk2WithFailure(0);
 		const queue: QueueItem[] = [{ name: "control.test", value: 10, attempts: 0 }];
 		const completed = await processToSendQueue(mk2 as any, queue, log as any);
 		expect(completed).to.have.length(1);
 		expect(completed[0].name).to.equal("control.test");
+	});
+
+	it("drops expired control writes instead of firing them late (issue #39)", async () => {
+		let calls = 0;
+		const mk2 = {
+			mk2Model: {
+				"control.test": { value: 0, setFunc: async () => { calls++; } },
+			},
+		};
+		const expired: QueueItem[] = [{ name: "control.test", value: 1, attempts: 0, ts: Date.now() - 120000 }];
+		await processToSendQueue(mk2 as any, expired, log as any);
+		expect(calls).to.equal(0);
+		expect(expired).to.have.length(0);
+
+		const fresh: QueueItem[] = [{ name: "control.test", value: 1, attempts: 0, ts: Date.now() }];
+		await processToSendQueue(mk2 as any, fresh, log as any);
+		expect(calls).to.equal(1);
 	});
 
 	it("reports unknown control states without throwing", async () => {

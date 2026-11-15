@@ -5,6 +5,8 @@ export interface QueueItem {
 	name: string;
 	value: number;
 	attempts: number;
+	/** Creation time; entries older than the TTL are dropped instead of firing late. */
+	ts?: number;
 }
 
 /**
@@ -34,10 +36,17 @@ export async function processToSendQueue(
 	queue: QueueItem[],
 	log: ioBroker.Logger,
 	maxAttempts = 3,
+	maxAgeMs = 60000,
 ): Promise<QueueItem[]> {
 	const completed: QueueItem[] = [];
 	while (queue.length > 0) {
 		const item = queue.shift()!;
+
+		// A queued command must not fire minutes or hours later (review H2).
+		if (item.ts && Date.now() - item.ts > maxAgeMs) {
+			log.warn(`Dropping expired control write ${item.name} (older than ${Math.round(maxAgeMs / 1000)} s)`);
+			continue;
+		}
 		const entry = mk2.mk2Model[item.name];
 
 		if (!entry || typeof entry.setFunc !== "function") {
