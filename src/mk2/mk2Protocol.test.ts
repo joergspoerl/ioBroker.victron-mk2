@@ -150,6 +150,16 @@ describe("Mk2Protocol control writes", () => {
 		expect(fake.limit).to.equal(0);
 	});
 
+	it("clamps up to the device minimum instead of acknowledging an impossible value (issue #49)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.poll(); // minlimit = 3.1 A
+		await p.set_assist(0.1);
+		expect(fake.limit).to.be.closeTo(3.1, 0.001);
+		await p.set_assist(0); // 0 A is the inverter mode, not clamped
+		expect(fake.limit).to.equal(0);
+	});
+
 	it("set_setting_IBatBulk accepts a valid value", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);

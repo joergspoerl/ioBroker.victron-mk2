@@ -482,6 +482,13 @@ export class Mk2Protocol {
 			this.log.warn(`set_assist: clamping ${ampere} A to ${max} A`)
 			ampere = max
 		}
+		const min = this.mk2Model["assist.minlimit"].value
+		if (ampere > 0 && typeof min == "number" && min > 0 && ampere < min) {
+			// The device would silently clamp up to its minimum (§5 note 2); do it
+			// explicitly instead of acknowledging a value that never took effect.
+			this.log.warn(`set_assist: clamping ${ampere} A up to the device minimum ${min} A`)
+			ampere = min
+		}
 		const a  = Math.round(ampere * 10)
 		// Protocol §5 variant 2: Limit/10 Ampere; values >= 0x8000 mean "ignore
 		// the limit". Never let the bitwise conversion wrap around to 0 A.
