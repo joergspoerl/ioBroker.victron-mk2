@@ -157,6 +157,8 @@ export class FakeMk2Connection {
 	settingValues = new Map<number, number>();
 	/** Per-setting overrides of scale/offset/default/min/max. */
 	settingInfoOverrides = new Map<number, FakeSettingInfo>();
+	/** Settings whose info answer stops after Sc/Offset (older firmware). */
+	settingInfoPartial = new Set<number>();
 	ibatBulk = 120;
 	mk2Version: number | null = 1130128;
 	mk2Mode: number | null = 0;
@@ -285,14 +287,15 @@ export class FakeMk2Connection {
 						return winmonFrames([[0x89, 0x00, 0x00]]);
 					}
 					const info = this.settingInfo(settingId);
-					// Five responses, packed three plus two (protocol §7.3).
-					return winmonFrames([
+					const wFrames = [
 						[0x89, info.sc & 0xFF, (info.sc >> 8) & 0xFF],
 						[0x8A, info.offset & 0xFF, (info.offset >> 8) & 0xFF],
 						[0x8B, info.def & 0xFF, (info.def >> 8) & 0xFF],
 						[0x8C, info.min & 0xFF, (info.min >> 8) & 0xFF],
 						[0x8D, info.max & 0xFF, (info.max >> 8) & 0xFF],
-					]);
+					];
+					// Five responses, packed three plus two (protocol §7.3).
+					return winmonFrames(this.settingInfoPartial.has(settingId) ? wFrames.slice(0, 2) : wFrames);
 				}
 				if (sub == 0x33) {
 					// CommandWriteSetting + CommandWriteData arrive as two frames in
