@@ -294,7 +294,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate (this.create_frame("F", "\x00"), async (response: Buffer): Promise<void> => {
 
-			if (response[0] != 0x0f || response[1] != 0x20 || response[6] != 0x0c ) {
+			if (response[0] < 0x0f || response[1] != 0x20 || response[6] != 0x0c ) {
 				throw ({ error: "no dc_info frame"})
 			}
 
@@ -335,7 +335,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate (this.create_frame("F", "\x01"), async (frame: Buffer):Promise<void> => {
 
-			if (frame[0] != 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B ) {
+			if (frame[0] < 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B ) {
 				throw ( { error: "no ac_info frame"} )
 			}
 
@@ -458,7 +458,7 @@ export class Mk2Protocol {
 	 * own so charge phases do not have to be decoded from a two-digit number.
 	 */
 	private decodeStateResponse(response: Buffer, context: string): void {
-		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
+		if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
 			throw new Error(`${context}: no valid state response`)
 		}
 
@@ -498,7 +498,7 @@ export class Mk2Protocol {
 		this.log.debug("******   set_assist");
 
 		return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
-			if (response[0] != 0x02 || response[1] != 0xff || response[2] != 0x53) {
+			if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
 				throw new Error("set_assist: no valid S response")
 			}
 			this.log.debug("set_assist ->" + JSON.stringify(response))
@@ -514,7 +514,7 @@ export class Mk2Protocol {
 		// Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
 		const data = Buffer.from([state, 0xFF, 0xFF, 0x01, 0x80])
 		return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
-			if (response[0] != 0x02 || response[1] != 0xff || response[2] != 0x53) {
+			if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
 				throw new Error("set_switch_state: no valid S response")
 			}
 		})
@@ -571,7 +571,7 @@ export class Mk2Protocol {
 	async readSetting(id: number): Promise<number | null> {
 		let value: number | null = null;
 		await this.conn.communicate(this.create_frame("W", Buffer.from([0x31, id & 0xFF, (id >> 8) & 0xFF])), async (response: Buffer) => {
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57) {
 				throw new Error("readSetting: no valid response");
 			}
 			if (response[3] == 0x91) {
@@ -592,7 +592,7 @@ export class Mk2Protocol {
 		const second_cmd = Buffer.from([0x34, raw & 0xFF, (raw >> 8) & 0xFF]);
 		const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
 		return this.conn.communicate(frames, async (response: Buffer) => {
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
+			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
 				throw new Error(`writeSetting(${id}): no valid write response`);
 			}
 		});
@@ -726,7 +726,7 @@ export class Mk2Protocol {
 		let raw: number | null = null;
 		let unsupported = false;
 		await this.conn.communicate(this.create_frame("W", Buffer.from([0x30, id & 0xFF])), async (response: Buffer) => {
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57) {
 				throw new Error("readRamVar: no valid response");
 			}
 			if (response[3] == 0x90) {
@@ -782,7 +782,7 @@ export class Mk2Protocol {
 	private async readDeviceVersionPart(command: number, expected: number): Promise<number | null> {
 		let part: number | null = null;
 		await this.conn.communicate(this.create_frame("W", Buffer.from([command, 0x00, 0x00])), async (response: Buffer) => {
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
+			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
 				throw new Error(`readDeviceVersionPart 0x${command.toString(16)}: no valid response`);
 			}
 			part = bp.unpack("<H", response, 4)[0];
