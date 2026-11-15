@@ -79,7 +79,7 @@ class VictronMk2 extends utils.Adapter {
 			await this.pollLoop.stop(3000);
 		}
 		try {
-			await this.mk2?.conn.port.close();
+			await this.mk2?.conn.shutdown();
 		} catch {
 			// ignore close errors during shutdown
 		}

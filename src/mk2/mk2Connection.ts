@@ -48,6 +48,8 @@ export class Mk2Connection {
 	/** Receive accumulator; bytes after a complete frame stay for the next read. */
 	private rxBuffer = Buffer.alloc(0);
 
+	private closedDown = false;
+
 	constructor(portPath: string, log: ioBroker.Logger, port?: Mk2Serial) {
 		this.portPath = portPath;
 		this.log = log;
@@ -66,12 +68,27 @@ export class Mk2Connection {
 
 	/** Open the port and synchronise once; resynchronise after a reconnect. */
 	async ensureSynced(): Promise<void> {
+		if (this.closedDown) {
+			// After shutdown an in-flight iteration must not reopen the port (N3).
+			throw new Mk2TransportError("connection is shut down");
+		}
 		if (!this.port.isOpen()) {
 			this.synced = false;
 			await this.port.open();
 		}
 		if (!this.synced) {
 			await this.sync();
+		}
+	}
+
+	/** Permanently close the connection; a later ensureSynced() rejects. */
+	async shutdown(): Promise<void> {
+		this.closedDown = true;
+		this.synced = false;
+		try {
+			await this.port.close();
+		} catch {
+			// best effort
 		}
 	}
 
