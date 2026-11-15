@@ -115,7 +115,7 @@ export class Mk2Connection {
 	private extractVersionFrame(): boolean {
 		const buf = this.rxBuffer;
 		let incompleteAt: number | null = null;
-		for (let i = 0; i + 3 < buf.length; i++) {
+		for (let i = 0; i + 2 < buf.length; i++) {
 			if (buf[i + 1] !== 0xff || buf[i + 2] !== 0x56) {
 				continue;
 			}
@@ -146,8 +146,10 @@ export class Mk2Connection {
 			// Keep an incomplete candidate for the next read; drop the rest.
 			this.rxBuffer = buf.slice(incompleteAt);
 		} else {
-			// Keep only a possible split frame marker, drop the rest of the noise.
-			this.rxBuffer = buf.slice(Math.max(0, buf.length - 2));
+			// Keep a possible frame start (length + marker + command = 3 bytes),
+			// not just two bytes - otherwise a split after the third byte loses
+			// the length byte and the sync never succeeds (review N9).
+			this.rxBuffer = buf.slice(Math.max(0, buf.length - 3));
 		}
 		return false;
 	}
