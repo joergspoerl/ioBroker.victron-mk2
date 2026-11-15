@@ -99,23 +99,11 @@ class Mk2Model {
             }
         };
         this["ac_info.state"] = {
-            descr: "Indicates the Multi main state",
+            descr: "AC info state (raw; use state.state for the main state)",
             unit: "",
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "Down",
-                "1": "Startup",
-                "2": "Off",
-                "3": "Slave",
-                "4": "InvertFull",
-                "5": "InvertHalf",
-                "6": "InvertAES",
-                "7": "PowerAssist",
-                "8": "Bypass",
-                "9": "StateCharge",
-            }
         };
         this["assist.minlimit"] = {
             descr: "Minimum input current limit",
