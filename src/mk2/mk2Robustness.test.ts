@@ -125,3 +125,22 @@ describe("connection diagnostics (issue #8)", () => {
 		expect(p.mk2Model["info.connection"].value).to.equal(false);
 	});
 });
+
+describe("error message quality (issue #61)", () => {
+	it("logs the decoder message instead of [object Object]", async () => {
+		const fake = new FakeMk2Connection();
+		fake.dcPhase = 0x00; // invalid DC phase marker -> the decoder rejects the frame
+		const errors: string[] = [];
+		const logger = {
+			level: "info",
+			debug: () => undefined,
+			info: () => undefined,
+			warn: () => undefined,
+			error: (m: string) => errors.push(m),
+		} as any;
+		const p = new Mk2Protocol("fake", logger, asConnection(fake));
+		await p.poll();
+		expect(errors.some((m) => m.includes("no dc_info frame"))).to.equal(true);
+		expect(errors.some((m) => m.includes("[object Object]"))).to.equal(false);
+	});
+});
