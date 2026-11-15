@@ -55,7 +55,12 @@ and the corresponding read-only `setting.*` state is refreshed.
   (net battery current = icharge − ibat, positive = charging), `dc_info.finv`
   (inverter frequency).
 - **`power.inverter`, `power.output`**: filtered power in W from the RAM
-  variables (signed), **`battery.soc`**: SOC of the MultiPlus internal battery
+  variables (signed). **Note:** these RAM variables require newer firmware
+  (filtered watts exist from 207); on older units such as firmware 1909140 they
+  stay `null`. The adapter deliberately does **not** compute `U × I` as a power
+  substitute, because that would be VA, not W. Use an external meter or see the
+  firmware-update section of the devops-home runbook.
+  **`battery.soc`**: SOC of the MultiPlus internal battery
   monitor – **not** the BMV; it reads 0 % when that internal monitor is not
   configured. Variables the firmware does not offer stay `null` and are not
   polled again.
