@@ -58,6 +58,7 @@ export class Mk2Protocol {
 	settingInfoCache = new Map<number, SettingInfo>();
 	private extendedSettingsLoaded = false;
 	private failedExtendedSettings = new Set<number>();
+	private unsupportedScalings = new Set<keyof Calc>();
 	private ramInfoCache = new Map<number, RamInfo>();
 	private unsupportedRam = new Set<number>();
 	private deviceInfoLoaded = false;
@@ -80,6 +81,7 @@ export class Mk2Protocol {
 		this.deviceInfoLoaded = false;
 		this.extendedSettingsLoaded = false;
 		this.failedExtendedSettings.clear();
+		this.unsupportedScalings.clear();
 		this.log.debug("new MK2 sync generation, cached metadata reset");
 	}
 
@@ -265,8 +267,12 @@ export class Mk2Protocol {
 		const info = await this.getRamInfo(id);
 		if (!info.supported) {
 			// Sc = 0 means "not supported". Caching scale 0 would publish 0 V / 0 A
-			// as if they were measurements (review M1) - leave the field empty.
-			this.log.warn(`RAM variable ${id} is not supported by this firmware; dependent values stay null`);
+			// as if they were measurements (review M1) - leave the field empty and
+			// warn only once per connection instead of on every poll (N6).
+			if (!this.unsupportedScalings.has(field)) {
+				this.unsupportedScalings.add(field);
+				this.log.warn(`RAM variable ${id} is not supported by this firmware; dependent values stay null`);
+			}
 			return;
 		}
 		this.calc[field] = { scale: info.sc, offset: info.offset };
@@ -286,7 +292,7 @@ export class Mk2Protocol {
 	async loadScalingsIfNeeded(): Promise<void> {
 		this.log.debug("******   loadScalingsIfNeeded");
 		for (const def of Mk2Protocol.RAM_SCALINGS) {
-			if (!this.calc[def.field]) {
+			if (!this.calc[def.field] && !this.unsupportedScalings.has(def.field)) {
 				await this.loadRamScaling(def.id, def.field);
 			}
 		}
