@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { Mk2Connection } from "./mk2Connection";
+import { Mk2TransportError } from "../lib/errors";
 import { FakeMk2Serial, mk2Frame, versionFrame } from "../test-utils/fake-mk2";
 
 const log = {
@@ -93,6 +94,14 @@ describe("Mk2Connection", () => {
 			await conn.ensureSynced();
 			expect(fake.isOpen()).to.equal(true);
 			expect(conn.synced).to.equal(true);
+		});
+
+		it("classifies a missing response as a transport error (issue #40)", async () => {
+			const fake = new FakeMk2Serial(); // never answers
+			fake.push(versionFrame());
+			const conn = connWith(fake);
+			await expect(conn.communicate(mk2Frame(0x41, [0x01, 0x00]), async () => undefined, { readTimeoutMs: 30 }))
+				.to.be.rejectedWith(Mk2TransportError);
 		});
 	});
 

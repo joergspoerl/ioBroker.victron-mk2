@@ -245,7 +245,7 @@ export class Mk2Connection {
 					}
 				}
 			}
-			throw new Error("Timeout waiting for response from MK2");
+			throw new Mk2TransportError("Timeout waiting for response from MK2");
 		} finally {
 			this.busy = false;
 		}
@@ -322,7 +322,7 @@ export class Mk2Connection {
 		} catch {
 			// best effort; the reopen path handles a closed or broken port
 		}
-		throw new Error(message);
+		throw new Mk2TransportError(message);
 	}
 
 	checksum(frame: Buffer): boolean {
