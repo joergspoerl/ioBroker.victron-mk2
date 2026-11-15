@@ -563,6 +563,11 @@ export class Mk2Protocol {
 			ampere = max
 		}
 		const a  = Math.round(ampere * 10)
+		// Protocol §5 variant 2: Limit/10 Ampere; values >= 0x8000 mean "ignore
+		// the limit". Never let the bitwise conversion wrap around to 0 A.
+		if (a > 0x7fff) {
+			throw new Mk2ValidationError(`set_assist: ${ampere} A exceeds the protocol range (max 3276.7 A)`)
+		}
 		const lo = a&0xFF
 		const hi = (a>>8) & 0xFF
 		if (this.currentSwitchState == 4) {

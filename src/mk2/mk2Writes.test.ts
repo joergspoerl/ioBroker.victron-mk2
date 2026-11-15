@@ -21,6 +21,24 @@ function protocolWith(fake: FakeMk2Connection, logger?: any): Mk2Protocol {
 	return new Mk2Protocol("fake", logger ?? makeLog().logger, asConnection(fake));
 }
 
+describe("set_assist range safety (issue #11)", () => {
+	it("rejects values that would wrap around to 0 A", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await expect(p.set_assist(6553.6)).to.be.rejectedWith(Mk2ValidationError);
+		await expect(p.set_assist(1e308)).to.be.rejectedWith(Mk2ValidationError);
+		expect(fake.requests.filter((r) => r[2] == 0x53).length).to.equal(0);
+	});
+
+	it("accepts the protocol maximum and rejects one step above", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_assist(3276.7);
+		expect(fake.limit).to.be.closeTo(3276.7, 0.01);
+		await expect(p.set_assist(3276.8)).to.be.rejectedWith(Mk2ValidationError);
+	});
+});
+
 describe("additional flag controls (issue #10)", () => {
 	it("writes DisableAES (Flags0 bit 8) with readback", async () => {
 		const fake = new FakeMk2Connection();
