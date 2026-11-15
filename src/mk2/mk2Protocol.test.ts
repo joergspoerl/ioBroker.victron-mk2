@@ -63,6 +63,11 @@ describe("Mk2Protocol", () => {
 		expect(p.mk2Model["setting.flag.WeakACInput"].value).to.equal(false);
 		expect(p.mk2Model["setting.IBatBulk"].value).to.equal(120);
 	});
+
+	it("maps state 0 to a display name (issue #50)", () => {
+		const p = protocolWith(new FakeMk2Connection());
+		expect(p.mk2Model["state.state"].states?.["0"]).to.equal("down");
+	});
 });
 
 describe("Mk2Protocol control writes", () => {
