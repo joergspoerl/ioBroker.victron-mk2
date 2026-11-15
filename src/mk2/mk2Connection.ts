@@ -1,7 +1,6 @@
 import { Mk2Serial } from "./serialWrapper";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const util = require("util")
+import * as util from "util";
 // helper function
 function sleep(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));

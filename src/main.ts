@@ -93,7 +93,7 @@ class VictronMk2 extends utils.Adapter {
 			// Here you must clear all timeouts or intervals that may still be active
 			this.mainLoopRunning = false;
 			callback();
-		} catch (e) {
+		} catch {
 			callback();
 		}
 	}
