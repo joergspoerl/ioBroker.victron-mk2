@@ -28,6 +28,9 @@ jobs:
           # install-command: 'npm install'
           type-checking: true
           lint: true
+          # The native serialport 9 binding does not build on modern Node and is
+          # not needed for unit/manifest tests (no real port is opened).
+          install-command: 'npm ci --ignore-scripts'
 
   # Runs adapter tests on all supported node versions and OSes
   adapter-tests:
@@ -43,6 +46,7 @@ jobs:
       - uses: ioBroker/testing-action-adapter@v1
         with:
           node-version: ${{ matrix.node-version }}
+          install-command: 'npm ci --ignore-scripts'
           os: ${{ matrix.os }}
           # Uncomment the following line if your adapter cannot be installed using 'npm ci'
           # install-command: 'npm install'
