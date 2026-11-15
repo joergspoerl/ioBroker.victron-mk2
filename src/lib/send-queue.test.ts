@@ -143,3 +143,31 @@ describe("send queue", () => {
 		expect(queue).to.have.length(0);
 	});
 });
+
+describe("control error visibility (issue #63)", () => {
+	it("records a rejected write in diag.last_control_error", async () => {
+		const mk2 = {
+			mk2Model: {
+				"control.test": {
+					value: 0,
+					setFunc: async () => {
+						throw new Mk2ValidationError("out of range");
+					},
+				},
+				"diag.last_control_error": { value: "" },
+			},
+		};
+		const queue: QueueItem[] = [{ name: "control.test", value: 500, attempts: 0 }];
+		await processToSendQueue(mk2 as any, queue, log as any);
+		expect(mk2.mk2Model["diag.last_control_error"].value).to.contain("control.test");
+		expect(mk2.mk2Model["diag.last_control_error"].value).to.contain("out of range");
+	});
+
+	it("clears the error after a successful write", async () => {
+		const { mk2 } = fakeMk2WithFailure(0) as any;
+		mk2.mk2Model["diag.last_control_error"] = { value: "control.test: earlier" };
+		const queue: QueueItem[] = [{ name: "control.test", value: 10, attempts: 0 }];
+		await processToSendQueue(mk2, queue, log as any);
+		expect(mk2.mk2Model["diag.last_control_error"].value).to.equal("");
+	});
+});

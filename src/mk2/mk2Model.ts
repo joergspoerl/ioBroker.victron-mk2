@@ -90,6 +90,14 @@ export class Mk2Model {
 		value: "",
 	};
 
+	"diag.last_control_error":    Mk2DataEntry = {
+		descr: "Last dropped/failed control write as 'state: reason' (empty after a successful write)",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: "",
+	};
+
 	"info.mk2_version":    Mk2DataEntry = {		descr: "MK2 firmware version (from the version frame)",
 		unit:  "",
 		role:  "value",
