@@ -701,6 +701,12 @@ export class Mk2Protocol {
 			async (frame: Buffer) => collector.addFrame(frame),
 			{ allowQuietEnd: true },
 		);
+		if (!collector.isComplete()) {
+			// A quiet end after the first frame is only acceptable for the explicit
+			// "not supported" answer. Anything else would leave min/max unknown and
+			// could later authorize a write with made-up limits (review T2).
+			throw new Error(`getSettingInfo(${id}): incomplete response, refusing to use it`);
+		}
 		this.settingInfoCache.set(id, collector.info);
 		return collector.info;
 	}

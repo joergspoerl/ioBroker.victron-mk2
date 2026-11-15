@@ -158,3 +158,27 @@ describe("Mk2Protocol extended read-only settings (issue #4)", () => {
 		expect(p.mk2Model["setting.flag.DynamicCurrentLimiter"].value).to.equal(false);
 	});
 });
+
+describe("incomplete setting metadata (issue #12)", () => {
+	it("rejects and does not cache an incomplete answer", async () => {
+		const fake = new FakeMk2Connection();
+		fake.settingInfoPartial.add(4);
+		const p = protocolWith(fake);
+		await expect(p.getSettingInfo(4)).to.be.rejectedWith("incomplete");
+		expect(p.settingInfoCache.has(4)).to.equal(false);
+		await expect(p.set_setting_IBatBulk(100)).to.be.rejectedWith("incomplete");
+		expect(fake.writes.length).to.equal(0);
+	});
+
+	it("accepts the setting once a complete answer arrives", async () => {
+		const fake = new FakeMk2Connection();
+		fake.settingInfoPartial.add(4);
+		const p = protocolWith(fake);
+		await expect(p.getSettingInfo(4)).to.be.rejectedWith("incomplete");
+		fake.settingInfoPartial.delete(4);
+		const info = await p.getSettingInfo(4);
+		expect(info.max).to.equal(120);
+		await p.set_setting_IBatBulk(100);
+		expect(fake.ibatBulk).to.equal(100);
+	});
+});
