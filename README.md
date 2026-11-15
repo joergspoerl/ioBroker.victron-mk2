@@ -15,6 +15,33 @@
 
 Victron Multiplus
 
+### Controls and operating modes
+
+- `victron-mk2.0.control.set_assist`: AC input current limit in A. `0 A` is a
+  valid zero-grid/solar mode: with PowerAssist enabled the MultiPlus switches
+  to Invert; with PowerAssist disabled it stays in Bypass with the charger off.
+  The value is clamped to the device maximum (`assist.maxlimit`).
+- `victron-mk2.0.control.switch_state`: VE.Bus switch state
+  (1 = Charger only, 2 = Inverter only, 3 = On, 4 = Off). Changing it does not
+  change the current limit (the limit is ignored).
+- `victron-mk2.0.control.grid_mode`: `0 = Grid` (max limit, On),
+  `1 = Zero grid / Invert` (0 A, On), `2 = Inverter only` (switch state 2 + 0 A;
+  on this model the 0-A write is what forces Invert with AC present).
+  Use this instead of writing `set_assist = 0` from automation if you want an
+  explicit, documented mode.
+- `victron-mk2.0.control.force_state`: charge-state force
+  (1 = Equalise, 2 = Absorption, 3 = Float) — not an on/off mode.
+- `victron-mk2.0.control.DisableCharge`, `control.WeakACInput`,
+  `control.IBatBulk`: charger/weak-AC/bulk-current settings with validated writes.
+
+The adapter performs a read-only state poll before enabling control writes and
+never sends control commands while the MultiPlus is booting (state 10/20).
+If the MultiPlus does not finish booting with the MK2 attached, start it first
+without the MK2 and attach/start the adapter afterwards.
+
+All reads/writes use length-prefixed frames with checksum validation and
+timeouts; failed control writes are retried on a later poll cycle.
+
 ## Developer manual
 This section is intended for the developer. It can be deleted later
 
@@ -99,10 +126,19 @@ The ioBroker.admin interface will then be available at http://localhost:9081/
 Please refer to the [`dev-server` documentation](https://github.com/ioBroker/dev-server#command-line) for more details.
 
 ## Changelog
+Detailed release notes: [CHANGELOG.md](CHANGELOG.md).
 <!--
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
+### 0.1.0 (2026-11-15)
+- Robust serial I/O (timeouts, complete frames, checksum validation)
+- Startup gate: no control writes while the MultiPlus is booting
+- Explicit switch/grid modes (`control.switch_state`, `control.grid_mode`)
+- `set_assist` preserves the switch state and clamps to the device maximum
+- Validated/retried writes, generic protocol validation, model roles, DC scaling fixes
+- Unit tests for frames, controls, startup gate and model mapping
+
 ### 0.0.6 (2022-11-22)
 - state changes -> mk2 queueing
 

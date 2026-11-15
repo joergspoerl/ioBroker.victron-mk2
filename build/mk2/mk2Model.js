@@ -8,7 +8,7 @@ var led;
     led[led["BLINK_ANTI"] = 2] = "BLINK_ANTI";
     led[led["BLINK"] = 3] = "BLINK";
     led[led["UNKNOWN"] = 4] = "UNKNOWN";
-})(led = exports.led || (exports.led = {}));
+})(led || (exports.led = led = {}));
 const led_states = {
     "0": "OFF",
     "1": "ON",
@@ -99,23 +99,11 @@ class Mk2Model {
             }
         };
         this["ac_info.state"] = {
-            descr: "Indicates the Multi main state",
+            descr: "AC info state (raw; use state.state for the main state)",
             unit: "",
             role: "state",
             type: "number",
             value: 0,
-            states: {
-                "0": "Down",
-                "1": "Startup",
-                "2": "Off",
-                "3": "Slave",
-                "4": "InvertFull",
-                "5": "InvertHalf",
-                "6": "InvertAES",
-                "7": "PowerAssist",
-                "8": "Bypass",
-                "9": "StateCharge",
-            }
         };
         this["assist.minlimit"] = {
             descr: "Minimum input current limit",
@@ -339,12 +327,39 @@ class Mk2Model {
         // 	value: 0,
         // };
         this["control.set_assist"] = {
-            descr: "Set input current limit",
+            descr: "Set input current limit (A; 0 = Inverter/Zero grid when PowerAssist enabled)",
             unit: "A",
             role: "value.current",
             type: "number",
             value: 0,
             setFunc: (mk2, value) => mk2.set_assist(value)
+        };
+        this["control.switch_state"] = {
+            descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off)",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 3,
+            states: {
+                "1": "Charger only",
+                "2": "Inverter only",
+                "3": "On",
+                "4": "Off"
+            },
+            setFunc: (mk2, value) => mk2.set_switch_state(value)
+        };
+        this["control.grid_mode"] = {
+            descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A, 2=Inverter only)",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: 0,
+            states: {
+                "0": "Grid",
+                "1": "Zero grid / Invert",
+                "2": "Inverter only"
+            },
+            setFunc: (mk2, value) => mk2.set_grid_mode(value)
         };
         this["control.force_state"] = {
             descr: "force a spezific state",
