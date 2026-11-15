@@ -138,6 +138,18 @@ describe("Mk2Connection", () => {
 			const next = await conn.receiveFrame(200);
 			expect(next[2]).to.equal(0x41);
 		});
+
+		it("finds a valid frame behind an incomplete false candidate (issue #20)", async () => {
+			const fake = new FakeMk2Serial();
+			// 7f ff 56 looks like a long version frame but is incomplete; the real
+			// version frame follows immediately in the same buffer.
+			fake.push(Buffer.from([0x7f, 0xff, 0x56]));
+			fake.push(versionFrame());
+			const conn = connWith(fake);
+			await conn.sync();
+			expect(conn.synced).to.equal(true);
+			expect(conn.mk2Version).to.equal(0x00113e98);
+		});
 	});
 
 	describe("communicate", () => {		it("decodes a valid response and records the request", async () => {
