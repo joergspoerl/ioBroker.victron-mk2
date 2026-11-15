@@ -487,6 +487,17 @@ export class Mk2Protocol {
 		if (!Number.isFinite(ampere) || ampere < 0) {
 			throw new Mk2ValidationError(`set_assist: invalid value ${ampere}`)
 		}
+		if (ampere === 0) {
+			// §5 note 3 applies to the direct write too, not only to grid_mode:
+			// with PowerAssist off, 0 A disables the charger and keeps Bypass.
+			const assist = this.mk2Model["setting.flag.AssistEnabled"].value
+			if (assist === false) {
+				throw new Mk2ValidationError("set_assist: 0 A with PowerAssist disabled means charger off + Bypass, not zero grid (§5 note 3)")
+			}
+			if (assist === null) {
+				this.log.warn("set_assist: AssistEnabled is unknown; 0 A assumes PowerAssist is enabled")
+			}
+		}
 		const max = this.mk2Model["assist.maxlimit"].value
 		if (typeof max == "number" && max > 0 && ampere > max) {
 			this.log.warn(`set_assist: clamping ${ampere} A to ${max} A`)

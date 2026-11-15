@@ -165,6 +165,14 @@ describe("Mk2Protocol control writes", () => {
 		expect(fake.limit).to.equal(0);
 	});
 
+	it("set_assist(0) is rejected too when PowerAssist is disabled (issue #69)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		p.mk2Model["setting.flag.AssistEnabled"].value = false;
+		await expect(p.set_assist(0)).to.be.rejectedWith("PowerAssist");
+		expect(fake.requests.filter((r) => r[2] == 0x53).length).to.equal(0);
+	});
+
 	it("set_setting_IBatBulk accepts a valid value", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
