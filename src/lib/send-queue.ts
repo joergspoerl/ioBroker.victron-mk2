@@ -1,4 +1,5 @@
 import { Mk2Protocol } from "../mk2/mk2Protocol";
+import { Mk2ValidationError } from "./errors";
 
 export interface QueueItem {
 	name: string;
@@ -30,6 +31,11 @@ export async function processToSendQueue(
 		try {
 			await entry.setFunc(mk2, item.value);
 		} catch (ex) {
+			if (ex instanceof Mk2ValidationError) {
+				// Invalid input can never succeed; retrying only spams the log.
+				log.error(`Control write ${item.name} rejected: ${ex.message}`);
+				continue;
+			}
 			item.attempts++;
 			if (item.attempts < maxAttempts) {
 				queue.unshift(item);

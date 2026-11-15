@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { processToSendQueue, QueueItem } from "./send-queue";
+import { Mk2ValidationError } from "./errors";
 
 const log = {
 	debug: () => undefined,
@@ -54,8 +55,26 @@ describe("send queue", () => {
 		expect(queue).to.have.length(0);
 	});
 
-	it("reports unknown control states without throwing", async () => {
-		const { mk2 } = fakeMk2WithFailure(0);
+	it("does not retry validation errors", async () => {
+		let attempts = 0;
+		const mk2 = {
+			mk2Model: {
+				"control.test": {
+					value: 0,
+					setFunc: async () => {
+						attempts++;
+						throw new Mk2ValidationError("out of range");
+					},
+				},
+			},
+		};
+		const queue: QueueItem[] = [{ name: "control.test", value: 500, attempts: 0 }];
+		await processToSendQueue(mk2 as any, queue, log as any);
+		expect(queue).to.have.length(0);
+		expect(attempts).to.equal(1);
+	});
+
+	it("reports unknown control states without throwing", async () => {		const { mk2 } = fakeMk2WithFailure(0);
 		const queue: QueueItem[] = [{ name: "control.unknown", value: 10, attempts: 0 }];
 		await processToSendQueue(mk2 as any, queue, log as any);
 		expect(queue).to.have.length(0);

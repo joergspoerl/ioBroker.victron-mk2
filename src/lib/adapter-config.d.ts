@@ -5,7 +5,9 @@ declare global {
 	namespace ioBroker {
 		interface AdapterConfig {
 			interval: number;
-			portPath: string
+			portPath: string;
+			/** Optional response budget per MK2 frame in ms (default 1500). */
+			responseTimeout?: number;
 		}
 	}
 }

@@ -186,7 +186,18 @@ Rein statisch: Protokoll 3.14 Volltext gegen `src/mk2/*`, `src/main.ts`,
 Punkte 3, 4 und 8 ist jeweils ein kurzer Live-Readback am MultiPlus nötig
 (Adapter gestoppt, exklusiver Port), bevor sie als „funktioniert“ gelten.
 
-**Umsetzung (2026-11-15):** Issues #1–#9 sind in **v0.2.0** implementiert
-(Branch `feat/protocol-coverage`, Commits `fbe1170`, `52373a9`, `8feb1de` +
-Release). Die Befunde B1–B6 sind damit adressiert; ausstehend bleibt die
-read-only Live-Verifikation der neuen Lese pfade vor dem Deployment.
+**Umsetzung (2026-11-15):** Issues #1–#9 sind in **v0.2.0** implementiert und
+auf `master` gemergt. Die read-only Live-Verifikation und die Modus-/Schreibtests
+am MultiPlus sind ebenfalls erfolgt; Ergebnisse stehen in `CHANGELOG.md`
+(0.2.0, Abschnitt Validation). Wichtigste neue Live-Erkenntnisse:
+
+- MultiPlus-Firmware **1909140** (`19 9 140`): Revision 140 < 207, deshalb
+  existiert das AC-Info-State-Feld nicht und `ac_info.state` ist jetzt `null`.
+- RAM 14/16 (Leistung) werden von dieser Firmware **nicht** angeboten (Sc = 0,
+  kurzer Frame); `power.*` bleiben `null`. SOC des internen Monitors ist 0 %
+  (nicht gepflegt; BMV bleibt maßgeblich).
+- UBatLowLimit **9,30 V**, UMains-Fenster **180–270 V**, AES 0,25 A,
+  DynamicCurrentLimiter und RemoteOverrulesAC1 **an** – die bisher offenen
+  Runbook-Prüfpunkte sind damit ohne VEConfigure beantwortet.
+- Nicht auf Hardware getestet bleiben: physischer MK2-Replug, MultiPlus-Boot mit
+  laufendem Adapter, `force_state`.

@@ -71,6 +71,11 @@ class VictronMk2 extends utils.Adapter {
         this.log.info("config interval: " + this.config.interval);
         this.log.info("config portPath: " + this.config.portPath);
         this.mk2 = new mk2Protocol_1.Mk2Protocol(this.config.portPath, this.log);
+        const responseTimeout = Number(this.config.responseTimeout);
+        if (Number.isFinite(responseTimeout) && responseTimeout >= 250) {
+            this.mk2.conn.responseTimeoutMs = responseTimeout;
+            this.log.info("config responseTimeout: " + responseTimeout + " ms");
+        }
         await this.initObjects();
         this.mainLoop();
         this.subscribeStates("control.*");
@@ -102,6 +107,7 @@ class VictronMk2 extends utils.Adapter {
         }, 10 * 1000);
     }
     async updateStates() {
+        var _a;
         try {
             if (!this.mk2)
                 return;
@@ -126,13 +132,14 @@ class VictronMk2 extends utils.Adapter {
             }
         }
         catch (Exception) {
-            this.log.error("ERROR updateStates : " + JSON.stringify(Exception));
-            console.trace();
+            // JSON.stringify(Error) yields "{}", so log the message and stack.
+            const message = Exception instanceof Error ? ((_a = Exception.stack) !== null && _a !== void 0 ? _a : Exception.message) : JSON.stringify(Exception);
+            this.log.error("ERROR updateStates : " + message);
             // Publish the lost connection as a state, not only as a log line.
             try {
                 await this.setStateAsync("info.connection", { val: false, ack: true });
             }
-            catch (_a) {
+            catch (_b) {
                 // ignore secondary state errors while handling a failure
             }
         }

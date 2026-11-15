@@ -68,6 +68,12 @@ class Mk2Connection {
         this.timeouts = 0;
         this.checksumErrors = 0;
         this.lastError = "";
+        /**
+         * Response budget per frame. Protocol §3.3 recommends 500 ms, but on a busy
+         * host (ioBroker on a Raspberry Pi) 1500 ms has proven reliable; the F5
+         * response gets its own longer budget either way.
+         */
+        this.responseTimeoutMs = 1500;
         this.portPath = portPath;
         this.log = log;
         this.debug = ((_a = this.log) === null || _a === void 0 ? void 0 : _a.level) == "debug";
@@ -148,7 +154,7 @@ class Mk2Connection {
             while (Date.now() < deadline) {
                 let frame;
                 try {
-                    frame = await this.receiveFrame((_a = options.readTimeoutMs) !== null && _a !== void 0 ? _a : 500);
+                    frame = await this.receiveFrame((_a = options.readTimeoutMs) !== null && _a !== void 0 ? _a : this.responseTimeoutMs);
                 }
                 catch (error) {
                     if (options.allowQuietEnd && decoded > 0) {
@@ -185,9 +191,10 @@ class Mk2Connection {
     /**
      * Read one complete length-prefixed frame, with timeout and checksum
      * validation. Partial reads are accumulated until the whole frame arrived.
-     * The default follows protocol §3.3 (500 ms); F5 needs a longer budget.
+     * The default follows the configured response budget (protocol §3.3 names
+     * 500 ms; a busy host may need more). F5 gets a longer budget either way.
      */
-    async receiveFrame(timeoutMs = 500) {
+    async receiveFrame(timeoutMs = this.responseTimeoutMs) {
         const deadline = Date.now() + timeoutMs;
         let buf = Buffer.alloc(0);
         while (Date.now() < deadline) {
