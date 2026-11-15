@@ -102,6 +102,10 @@ describe("Mk2Connection", () => {
 			const conn = connWith(fake);
 			await expect(conn.communicate(mk2Frame(0x41, [0x01, 0x00]), async () => undefined, { readTimeoutMs: 30 }))
 				.to.be.rejectedWith(Mk2TransportError);
+			// and the failure is visible in the diagnostics, not only as a throw (#68)
+			expect(conn.timeouts).to.equal(1);
+			expect(conn.lastError).to.contain("Timeout");
+			expect(fake.isOpen()).to.equal(false);
 		});
 	});
 

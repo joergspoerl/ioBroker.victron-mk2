@@ -267,7 +267,8 @@ export class Mk2Connection {
 					}
 				}
 			}
-			throw new Mk2TransportError("Timeout waiting for response from MK2");
+			await this.fail("timeout", "Timeout waiting for response from MK2");
+			throw new Error("unreachable");
 		} finally {
 			this.busy = false;
 		}
@@ -324,7 +325,7 @@ export class Mk2Connection {
 			this.rxBuffer = this.rxBuffer.slice(needed);
 			if (ledAppended) {
 				// The appended LED block is not a response to the next command (N12).
-				this.discardAppendedLedStatus();
+				await this.discardAppendedLedStatus(deadline);
 			}
 			this.frame_debug("RECV <-", frame);
 			return frame;
@@ -334,7 +335,16 @@ export class Mk2Connection {
 	}
 
 	/** Drop an appended 'L' <on> <blink> block after a frame with the LED bit. */
-	private discardAppendedLedStatus(): void {
+	private async discardAppendedLedStatus(deadline: number): Promise<void> {
+		// The appended block is usually still in the driver's buffer, not in ours.
+		while (this.rxBuffer.length < 3 && Date.now() < deadline) {
+			const chunk = this.port.read(3 - this.rxBuffer.length);
+			if (chunk) {
+				this.rxBuffer = Buffer.concat([this.rxBuffer, chunk]);
+			} else {
+				await sleep(5);
+			}
+		}
 		if (this.rxBuffer.length >= 3 && this.rxBuffer[0] == 0x4c) {
 			this.log.debug("discarding appended LED status frame");
 			this.rxBuffer = this.rxBuffer.slice(3);
