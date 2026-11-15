@@ -160,6 +160,8 @@ export class FakeMk2Connection {
 	settingInfoOverrides = new Map<number, FakeSettingInfo>();
 	/** Settings whose info answer stops after Sc/Offset (older firmware). */
 	settingInfoPartial = new Set<number>();
+	/** Settings that are readable in principle but whose read fails (0x91). */
+	unreadableSettings = new Set<number>();
 	ibatBulk = 120;
 	mk2Version: number | null = 1130128;
 	mk2Mode: number | null = 0;
@@ -275,7 +277,7 @@ export class FakeMk2Connection {
 				}
 				if (sub == 0x31) {
 					const settingId = request[4] | (request[5] << 8);
-					if (this.unsupportedSettings.has(settingId)) {
+					if (this.unsupportedSettings.has(settingId) || this.unreadableSettings.has(settingId)) {
 						return [mk2Frame(0x57, [0x91, 0x00, 0x00])];
 					}
 					const value = this.settingValue(settingId);

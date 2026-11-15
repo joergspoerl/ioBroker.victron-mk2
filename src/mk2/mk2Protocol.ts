@@ -958,9 +958,17 @@ export class Mk2Protocol {
 			throw new Mk2ValidationError(`${name}: flag ${flag} is not supported by this device`);
 		}
 		const mask = 1 << bit;
-		const flags = (await this.readSetting(1)) ?? 0;
+		const flags = await this.readSetting(1);
+		if (flags === null) {
+			// Never read-modify-write from an assumed zero: that would clear every
+			// unrelated Flags1 option on the device (review T11).
+			throw new Mk2ValidationError(`${name}: Flags1 register could not be read, refusing to write`);
+		}
 		await this.writeSetting(1, value == 1 ? flags | mask : flags & ~mask);
-		const readback = (await this.readSetting(1)) ?? 0;
+		const readback = await this.readSetting(1);
+		if (readback === null) {
+			throw new Error(`${name}: no Flags1 readback after write`);
+		}
 		if (((readback & mask) !== 0) !== (value == 1)) {
 			throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
 		}
