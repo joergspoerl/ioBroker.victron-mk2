@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.3.1",
+        "version": "0.3.2",
         "news": {
+            "0.3.2": {
+                "en": "Second audit round: switch register no longer read from the checksum, Off is recoverable, no false 0 V/0 A values, longer frames tolerated, readback failures never retried, numerous correctness and convention fixes",
+                "de": "Zweite Auditrunde: Switch-Register nicht mehr aus der Pruefsumme, Off bleibt revidierbar, keine falschen 0-V/0-A-Werte, laengere Frames toleriert, Readback-Fehler ohne Retry, viele Korrekturen"
+            },
             "0.3.1": {
                 "en": "Fix: robust MK2 synchronisation on a byte stream that does not start at a frame boundary (no more startup timeouts)",
                 "de": "Fix: robuste MK2-Synchronisation auch bei Bytestrom ohne Frame-Grenze (keine Start-Timeouts mehr)"

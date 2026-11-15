@@ -68,6 +68,7 @@ class Mk2Protocol {
         this.unsupportedRam.clear();
         this.deviceInfoLoaded = false;
         this.extendedSettingsLoaded = false;
+        this.failedExtendedSettings.clear();
         this.log.debug("new MK2 sync generation, cached metadata reset");
     }
     constructor(portPath, log, conn) {
@@ -77,6 +78,7 @@ class Mk2Protocol {
         /** Cached CommandGetSettingInfo answers, keyed by setting id. */
         this.settingInfoCache = new Map();
         this.extendedSettingsLoaded = false;
+        this.failedExtendedSettings = new Set();
         this.ramInfoCache = new Map();
         this.unsupportedRam = new Set();
         this.deviceInfoLoaded = false;
@@ -611,13 +613,26 @@ class Mk2Protocol {
             return;
         }
         for (const def of mk2Settings_1.READONLY_SETTINGS) {
-            const info = await this.getSettingInfo(def.id);
-            if (!info.supported) {
+            if (this.failedExtendedSettings.has(def.id) && !force) {
                 this.mk2Model[def.key].value = null;
                 continue;
             }
-            const raw = await this.readSetting(def.id);
-            this.mk2Model[def.key].value = raw === null ? null : round((0, mk2Settings_1.settingDisplayValue)(info, raw), 3);
+            try {
+                const info = await this.getSettingInfo(def.id);
+                if (!info.supported) {
+                    this.mk2Model[def.key].value = null;
+                    continue;
+                }
+                const raw = await this.readSetting(def.id);
+                this.mk2Model[def.key].value = raw === null ? null : round((0, mk2Settings_1.settingDisplayValue)(info, raw), 3);
+            }
+            catch (error) {
+                // One broken setting must neither block the others nor cause a full
+                // reload on every poll (review N9). Negative-cache it until resync.
+                this.log.warn(`setting ${def.key} could not be loaded: ${error instanceof Error ? error.message : error}`);
+                this.failedExtendedSettings.add(def.id);
+                this.mk2Model[def.key].value = null;
+            }
         }
         this.extendedSettingsLoaded = true;
     }
