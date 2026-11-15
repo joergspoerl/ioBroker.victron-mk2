@@ -42,6 +42,8 @@ export class Mk2Connection {
 	 * response gets its own longer budget either way.
 	 */
 	responseTimeoutMs = 1500;
+	/** Receive accumulator; bytes after a complete frame stay for the next read. */
+	private rxBuffer = Buffer.alloc(0);
 
 	constructor(portPath: string, log: ioBroker.Logger, port?: Mk2Serial) {
 		this.portPath = portPath;
@@ -67,29 +69,77 @@ export class Mk2Connection {
 		}
 	}
 
+	/**
+	 * Synchronise on the MK2 version frame.
+	 *
+	 * When the port is opened in the middle of a transmission, the byte stream
+	 * does not start at a frame boundary. Instead of trusting the first length
+	 * byte (which used to produce a startup timeout on every adapter start), scan
+	 * the stream for a complete, checksum-valid version frame and keep the
+	 * remaining bytes for the next read.
+	 */
 	async sync(): Promise<void> {
 		if (!this.port.isOpen()) {
 			await this.port.open();
 		}
-		await this.port.flush_Workaround();
+		await this.discardInput();
 
 		const deadline = Date.now() + 5000;
 		while (Date.now() < deadline) {
-			const frame = await this.receiveFrame(1000);
-			if (frame[1] == mk2SpezialFrame.normal && frame[2] == 0x56) {
-				// 'V' <Version0..3> <Mode>; the mode byte also tells VE 9-bit from
-				// VE.Bus and carries the current address (§3.4).
-				if (frame.length >= 8) {
-					this.mk2Version = (frame[3] | (frame[4] << 8) | (frame[5] << 16) | (frame[6] << 24)) >>> 0;
-					this.mk2Mode = frame[7];
-				}
+			// read() without a size returns everything buffered. A sized read would
+			// return null until that many bytes are available, which would stall
+			// the synchronisation forever on a 9-byte version frame.
+			const chunk = this.port.readAvailable();
+			if (chunk) {
+				this.rxBuffer = Buffer.concat([this.rxBuffer, chunk]);
+			}
+			if (this.extractVersionFrame()) {
 				this.synced = true;
 				this.log.debug("sync: version frame received");
 				return;
 			}
+			await sleep(20);
 		}
 		this.synced = false;
 		throw new Error("Sync - receive no version frame - no mk2 connected ?");
+	}
+
+	/** Find a complete, checksum-valid 'V' frame anywhere in the rx buffer. */
+	private extractVersionFrame(): boolean {
+		const buf = this.rxBuffer;
+		for (let i = 0; i + 3 < buf.length; i++) {
+			if (buf[i + 1] !== 0xff || buf[i + 2] !== 0x56) {
+				continue;
+			}
+			const len = buf[i] & 0x7f;
+			if (len < 5) {
+				continue;
+			}
+			const total = len + 2;
+			if (i + total > buf.length) {
+				// Incomplete candidate: wait for more bytes instead of discarding it.
+				this.rxBuffer = buf.slice(i);
+				return false;
+			}
+			const frame = buf.slice(i, i + total);
+			if (!this.checksum(frame)) {
+				continue; // false positive inside other data, keep scanning
+			}
+			// 'V' <Version0..3> <Mode> (§3.4)
+			this.mk2Version = (frame[3] | (frame[4] << 8) | (frame[5] << 16) | (frame[6] << 24)) >>> 0;
+			this.mk2Mode = frame[7];
+			this.rxBuffer = buf.slice(i + total);
+			return true;
+		}
+		// Keep only a possible split frame marker, drop the rest of the noise.
+		this.rxBuffer = buf.slice(Math.max(0, buf.length - 2));
+		return false;
+	}
+
+	/** Drop stale input, both in the driver buffer and in our own accumulator. */
+	private async discardInput(): Promise<void> {
+		this.rxBuffer = Buffer.alloc(0);
+		await this.port.flush_Workaround();
 	}
 
 	/**
@@ -127,7 +177,7 @@ export class Mk2Connection {
 
 		try {
 			await this.ensureSynced();
-			await this.port.flush_Workaround();
+			await this.discardInput();
 
 			this.frame_debug("SEND ->", request);
 			await this.port.write(request);
@@ -181,13 +231,12 @@ export class Mk2Connection {
 	 */
 	async receiveFrame(timeoutMs = this.responseTimeoutMs): Promise<Buffer> {
 		const deadline = Date.now() + timeoutMs;
-		let buf = Buffer.alloc(0);
 
 		while (Date.now() < deadline) {
-			if (buf.length == 0) {
+			if (this.rxBuffer.length == 0) {
 				const lengthByte = this.port.read(1);
 				if (lengthByte) {
-					buf = Buffer.concat([buf, lengthByte]);
+					this.rxBuffer = Buffer.concat([this.rxBuffer, lengthByte]);
 				} else {
 					await sleep(5);
 					continue;
@@ -196,7 +245,7 @@ export class Mk2Connection {
 
 			// Bit 7 of the length byte means an LED status frame is appended;
 			// it must not be counted as part of the frame length.
-			const len = buf[0] & 0x7F;
+			const len = this.rxBuffer[0] & 0x7F;
 			if (len == 0) {
 				await this.fail("protocol", "Invalid MK2 frame length 0");
 			}
@@ -204,23 +253,24 @@ export class Mk2Connection {
 			// frame has len + 2 bytes (length + len + checksum).
 			const needed = len + 2;
 
-			while (buf.length < needed && Date.now() < deadline) {
-				const chunk = this.port.read(needed - buf.length);
+			while (this.rxBuffer.length < needed && Date.now() < deadline) {
+				const chunk = this.port.read(needed - this.rxBuffer.length);
 				if (chunk) {
-					buf = Buffer.concat([buf, chunk]);
+					this.rxBuffer = Buffer.concat([this.rxBuffer, chunk]);
 				} else {
 					await sleep(5);
 				}
 			}
 
-			if (buf.length < needed) {
+			if (this.rxBuffer.length < needed) {
 				await this.fail("timeout", "Timeout while receiving complete MK2 frame");
 			}
 
-			const frame = buf.slice(0, needed);
+			const frame = this.rxBuffer.slice(0, needed);
 			if (!this.checksum(frame)) {
 				await this.fail("checksum", "MK2 frame checksum error");
 			}
+			this.rxBuffer = this.rxBuffer.slice(needed);
 			this.frame_debug("RECV <-", frame);
 			return frame;
 		}
@@ -238,6 +288,7 @@ export class Mk2Connection {
 		if (kind == "checksum") this.checksumErrors++;
 		this.lastError = message;
 		this.synced = false;
+		this.rxBuffer = Buffer.alloc(0);
 		try {
 			await this.port.close();
 		} catch {

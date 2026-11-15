@@ -127,4 +127,10 @@ export class Mk2Serial {
 		const result = this.port?.read(size);
 		return result ? (result as Buffer) : null;
 	}
+
+	/** Read everything currently buffered (serialport read() without a size). */
+	readAvailable(): Buffer | null {
+		const result = this.port?.read();
+		return result ? (result as Buffer) : null;
+	}
 }

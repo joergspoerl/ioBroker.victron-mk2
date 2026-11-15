@@ -96,6 +96,50 @@ describe("Mk2Connection", () => {
 		});
 	});
 
+	describe("sync robustness", () => {
+		it("synchronises when the stream starts with garbage", async () => {
+			const fake = new FakeMk2Serial();
+			fake.push(Buffer.from([0x00, 0x13, 0x77]));
+			fake.push(versionFrame());
+			const conn = connWith(fake);
+			await conn.sync();
+			expect(conn.synced).to.equal(true);
+			expect(conn.mk2Version).to.equal(0x00113e98);
+		});
+
+		it("synchronises when the version frame arrives byte by byte", async () => {
+			const fake = new FakeMk2Serial();
+			for (const b of versionFrame()) {
+				fake.push(Buffer.from([b]));
+			}
+			const conn = connWith(fake);
+			await conn.sync();
+			expect(conn.synced).to.equal(true);
+		});
+
+		it("ignores a version-looking sequence with a broken checksum", async () => {
+			const fake = new FakeMk2Serial();
+			const bad = versionFrame();
+			bad[bad.length - 1] ^= 0xFF;
+			fake.push(bad);
+			fake.push(versionFrame());
+			const conn = connWith(fake);
+			await conn.sync();
+			expect(conn.synced).to.equal(true);
+			expect(conn.mk2Version).to.equal(0x00113e98);
+		});
+
+		it("keeps frames that arrive after the version frame", async () => {
+			const fake = new FakeMk2Serial();
+			fake.push(versionFrame());
+			fake.push(mk2Frame(0x41, [0x01, 0x00]));
+			const conn = connWith(fake);
+			await conn.sync();
+			const next = await conn.receiveFrame(200);
+			expect(next[2]).to.equal(0x41);
+		});
+	});
+
 	describe("communicate", () => {		it("decodes a valid response and records the request", async () => {
 			const response = mk2Frame(0x41, [0x01, 0x00]);
 			const fake = new FakeMk2Serial(() => response);

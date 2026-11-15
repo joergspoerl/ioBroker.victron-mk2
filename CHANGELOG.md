@@ -3,6 +3,32 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.1 (2026-11-15)
+
+### Fixed
+
+- **Startup synchronisation on a non-aligned byte stream.** Opening the port in
+  the middle of a transmission used to produce a handful of "no version frame"
+  or partial-frame errors on every adapter start. `sync()` now scans the stream
+  for a complete, checksum-valid version frame, tolerating leading garbage and
+  frames split across many reads, and keeps bytes after the version frame for the
+  next read. The receive path uses one persistent accumulator, so frame data is
+  never lost between calls.
+- The fake serial port in the tests now mimics serialport's real sized-read
+  behaviour (a sized read returns null until enough bytes are buffered). This
+  caught a bug where a large `read(64)` stalled the synchronisation completely;
+  the scanner now uses an unsized "read everything buffered" call.
+
+### Validation
+
+- 116 TypeScript unit tests + 37 package tests; `tsc`, `eslint`, `build` green.
+- New tests: garbage before the version frame, byte-by-byte delivery, a
+  version-looking sequence with a broken checksum, and frames after the version
+  frame staying readable.
+- **Live on pi4**: three consecutive adapter restarts with **0 timeouts**,
+  `info.connection = true`, `state.state = 80` (Bypass), MK2 version 1130136 read
+  correctly, no error log entries.
+
 ## 0.3.0 (2026-11-15)
 
 Implements issue #10: more device configuration is writable, with the same

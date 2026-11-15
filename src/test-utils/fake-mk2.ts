@@ -92,16 +92,33 @@ export class FakeMk2Serial {
 		}
 	}
 
+	/**
+	 * Faithful to serialport: a sized read returns null until that many bytes
+	 * are buffered. A lenient fake would hide exactly the bug where a large read
+	 * stalls the MK2 synchronisation.
+	 */
 	read(size: number): Buffer | null {
-		if (this.buffer.length == 0) {
-			if (this.incoming.length == 0) return null;
-			this.buffer = Buffer.concat(this.incoming);
-			this.incoming = [];
-		}
-		if (this.buffer.length == 0) return null;
+		this.collect();
+		if (this.buffer.length < size) return null;
 		const out = this.buffer.slice(0, size);
 		this.buffer = this.buffer.slice(size);
 		return out;
+	}
+
+	/** Equivalent of serialport read() without a size: everything buffered. */
+	readAvailable(): Buffer | null {
+		this.collect();
+		if (this.buffer.length == 0) return null;
+		const out = this.buffer;
+		this.buffer = Buffer.alloc(0);
+		return out;
+	}
+
+	private collect(): void {
+		if (this.incoming.length) {
+			this.buffer = Buffer.concat([this.buffer, ...this.incoming]);
+			this.incoming = [];
+		}
 	}
 }
 
