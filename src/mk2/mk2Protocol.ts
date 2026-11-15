@@ -39,15 +39,15 @@ export class Mk2Protocol {
 	calc: Calc;
 	log: ioBroker.Logger;
 
-	constructor(portPath: string, log: ioBroker.Logger) {
-		this.portPath = portPath
-		this.conn = new Mk2Connection(portPath, log)
-		this.calc = new Calc()
-		this.log = log
+	constructor(portPath: string, log: ioBroker.Logger, conn?: Mk2Connection) {
+		this.portPath = portPath;
+		this.conn = conn ?? new Mk2Connection(portPath, log);
+		this.calc = new Calc();
+		this.log = log;
 	}
 	async poll(): Promise<void> {
 		try {
-			await this.conn.sync()
+			await this.conn.ensureSynced()
 			await this.address()
 			await this.loadScalingsIfNeeded()
 			await this.led_status()
@@ -65,6 +65,16 @@ export class Mk2Protocol {
 			this.log.error("Exception in poll " + Exception)
 		}
 
+	}
+
+	/**
+	 * Minimal, read-only poll used to determine whether the MultiPlus has
+	 * finished booting before any control command is sent.
+	 */
+	async pollStateOnly(): Promise<void> {
+		await this.conn.ensureSynced()
+		await this.address()
+		await this.get_state()
 	}
 
 	checksum(buffer: Buffer): boolean {
@@ -363,18 +373,16 @@ export class Mk2Protocol {
 				throw ({ error: "no dc_info frame"})
 			}
 
-			const ubat = bp.unpack("<H", response, 7);
-			//if (frame[11] < 0x80) { frame  }
-			const ibat_buf = Buffer.concat([response.slice(9,12),  Buffer.from("\x00"), Buffer.from(response[11]>0x80 ? "\x00" : "\xFF")])
-			const cbat_buf = Buffer.concat([response.slice(12,15), Buffer.from("\x00"), Buffer.from(response[14]>0x80 ? "\x00" : "\xFF")])
-			const ibat = bp.unpack("<i", ibat_buf);
-			const cbat = bp.unpack("<i", cbat_buf);
+			const ubat = bp.unpack("<H", response, 7)[0];
+			// DC current fields are unsigned 24-bit values (protocol §6.1).
+			const ibat = response[9] | (response[10] << 8) | (response[11] << 16);
+			const cbat = response[12] | (response[13] << 8) | (response[14] << 16);
 			// const finv = bp.unpack("<B", response, 15);
 
 			if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
-				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale) / 10),   2)
-				this.mk2Model["dc_info.ibat"].value = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
-				this.mk2Model["dc_info.icharge"].value = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale) / 10),   2)
+				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale)),   2)
+				this.mk2Model["dc_info.ibat"].value = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)),   2)
+				this.mk2Model["dc_info.icharge"].value = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)),   2)
 				// this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
 			}
 		});
