@@ -895,22 +895,111 @@ export class Mk2Protocol {
 	}
 
 	async set_flagDisableCharge(value: number): Promise<void> {
-		this.log.debug("set_flagDisableCharge newValue " + value);
-		await this.assertFlagSupported(6);
-		const flags = await this.readFlags0();
-		const mask = 1 << 6; // DisableCharge
-		const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
-		await this.writeFlags0(newFlags);
+		return this.setFlags0Bit(6, value, "DisableCharge");
 	}
 
 	async set_flagWeakACInput(value: number): Promise<void> {
-		this.log.debug("set_flagWeakACInput newValue " + value);
-		await this.assertFlagSupported(14);
-		const flags = await this.readFlags0();
-		const mask = 1 << 14; // Weak AC input
-		const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
-		await this.writeFlags0(newFlags);
+		return this.setFlags0Bit(14, value, "WeakACInput");
 	}
+
+	async set_flagDisableAES(value: number): Promise<void> {
+		return this.setFlags0Bit(8, value, "DisableAES");
+	}
+
+	async set_flagAssistEnabled(value: number): Promise<void> {
+		return this.setFlags0Bit(5, value, "AssistEnabled");
+	}
+
+	/**
+	 * Read-modify-write for one Flags0 bit: validate against the device support
+	 * mask, write, then read the register back and warn on a mismatch.
+	 */
+	private async setFlags0Bit(bit: number, value: number, name: string): Promise<void> {
+		if (value !== 0 && value !== 1) {
+			throw new Mk2ValidationError(`${name}: value must be 0 or 1 (got ${value})`);
+		}
+		await this.assertFlagSupported(bit);
+		const mask = 1 << bit;
+		const flags = await this.readFlags0();
+		await this.writeFlags0(value == 1 ? flags | mask : flags & ~mask);
+		const readback = await this.readFlags0();
+		if (((readback & mask) !== 0) !== (value == 1)) {
+			this.log.warn(`${name}: readback mismatch after write (wanted ${value})`);
+		}
+	}
+
+	/** Same pattern for Flags1 (global flag numbers 16-31, setting id 1). */
+	private async setFlags1Bit(flag: number, value: number, name: string): Promise<void> {
+		if (value !== 0 && value !== 1) {
+			throw new Mk2ValidationError(`${name}: value must be 0 or 1 (got ${value})`);
+		}
+		const bit = flags1Bit(flag);
+		const info = await this.getSettingInfo(1);
+		if (!info.supported) {
+			throw new Mk2ValidationError("Flags1 is not supported by this device");
+		}
+		if (info.max !== null && (info.max & (1 << bit)) === 0) {
+			throw new Mk2ValidationError(`${name}: flag ${flag} is not supported by this device`);
+		}
+		const mask = 1 << bit;
+		const flags = (await this.readSetting(1)) ?? 0;
+		await this.writeSetting(1, value == 1 ? flags | mask : flags & ~mask);
+		const readback = (await this.readSetting(1)) ?? 0;
+		if (((readback & mask) !== 0) !== (value == 1)) {
+			this.log.warn(`${name}: readback mismatch after write (wanted ${value})`);
+		}
+	}
+
+	async set_flagDynamicCurrentLimiter(value: number): Promise<void> {
+		return this.setFlags1Bit(28, value, "DynamicCurrentLimiter");
+	}
+
+	/**
+	 * Write a scaled setting (charge voltages, AC input limits) using the device
+	 * metadata: display -> raw conversion, device min/max validation, write and
+	 * readback. Also refreshes the read-only setting state.
+	 */
+	async setSettingScaled(id: number, value: number, name: string): Promise<void> {
+		if (!Number.isFinite(value)) {
+			throw new Mk2ValidationError(`${name}: invalid value ${value}`);
+		}
+		const info = await this.getSettingInfo(id);
+		if (!info.supported) {
+			throw new Mk2ValidationError(`${name}: not supported by this device`);
+		}
+		const raw = settingRawValue(info, value);
+		const min = info.min ?? 0;
+		const max = info.max ?? 0xffff;
+		if (raw < min || raw > max) {
+			throw new Mk2ValidationError(`${name}: ${value} is out of the device range (raw ${min}-${max})`);
+		}
+		await this.writeSetting(id, raw);
+		const readback = await this.readSetting(id);
+		if (readback === null) {
+			this.log.warn(`${name}: no readback after write`);
+			return;
+		}
+		if (readback !== raw) {
+			this.log.warn(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+		}
+		const def = READONLY_SETTINGS.find((d) => d.id === id);
+		if (def) {
+			this.mk2Model[def.key].value = round(settingDisplayValue(info, readback), 3);
+		}
+	}
+
+	async set_UBatAbsorption(value: number): Promise<void> {
+		return this.setSettingScaled(2, value, "UBatAbsorption");
+	}
+
+	async set_UBatFloat(value: number): Promise<void> {
+		return this.setSettingScaled(3, value, "UBatFloat");
+	}
+
+	async set_IMainsLimitAC1(value: number): Promise<void> {
+		return this.setSettingScaled(6, value, "IMainsLimitAC1");
+	}
+
 
 	async get_setting_IBatBulk () : Promise<void> {
 		this.log.debug("******   get_setting_IBatBulk");
@@ -940,6 +1029,13 @@ export class Mk2Protocol {
 			throw new Mk2ValidationError(`IBatBulk must be between ${min} and ${max} (got ${value})`)
 		}
 		await this.writeSetting(4, raw);
+		const readback = await this.readSetting(4);
+		if (readback !== null && readback !== raw) {
+			this.log.warn(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+		}
+		if (readback !== null) {
+			this.mk2Model["setting.IBatBulk"].value = round(settingDisplayValue(info, readback), 2);
+		}
 	}
 
 }

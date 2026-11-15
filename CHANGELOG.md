@@ -3,6 +3,47 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.0 (2026-11-15)
+
+Implements issue #10: more device configuration is writable, with the same
+validation and readback discipline as the existing controls.
+
+### Added
+
+- **`control.DisableAES`** (Flags0 bit 8) and **`control.AssistEnabled`**
+  (Flags0 bit 5).
+- **`control.DynamicCurrentLimiter`** – first **Flags1** write (global flag 28,
+  register bit 12), including the Flags1 support-mask check.
+- **`control.UBatAbsorption`**, **`control.UBatFloat`** and
+  **`control.IMainsLimitAC1`** – scaled settings written through
+  `CommandGetSettingInfo` metadata (display → raw conversion, device min/max).
+- **Readback after every setting/flag write**: the register is read again, a
+  mismatch logs a warning, and the read-only `setting.*` state is refreshed.
+
+### Changed
+
+- Flag writes share one read-modify-write helper with support validation instead
+  of per-flag copies.
+- `IBatBulk` writes now also verify the readback and refresh `setting.IBatBulk`.
+- `CONTROL_STATE_IDS` covers the new controls, and a unit test asserts that every
+  model entry with a `setFunc` is whitelisted. (Found during live testing: new
+  controls were silently ignored while they were missing from that list.)
+
+### Validation
+
+- 112 TypeScript unit tests + 37 package tests; `tsc`, `eslint`, `build` green.
+  New tests cover flag read-modify-write on Flags0/Flags1, 0/1 validation,
+  support-mask rejection, display↔raw conversion, device range rejection,
+  unsupported settings, readback-mismatch warnings and the whitelist drift check.
+- **Live on the MultiPlus** (firmware 1909140, no load on AC output):
+  - `IMainsLimitAC1`: 15 A written and read back, then restored to 16 A.
+  - `UBatFloat`: 13,45 V written and read back, then restored to 13,40 V.
+  - `AssistEnabled`, `DynamicCurrentLimiter`, `DisableAES`: each switched off and
+    back on with matching `setting.flag.*` readback, device stable in Bypass.
+  - `UBatAbsorption = 25` rejected (device range 12,00–16,00 V), no write, no
+    retry, value unchanged at 14,20 V.
+  - `info.connection = true` throughout, `diag.timeouts = 1` (startup).
+
 ## 0.2.0 (2026-11-15)
 
 Protocol coverage release, implementing issues #1–#9 from the full audit against
