@@ -89,6 +89,14 @@ describe("additional flag controls (issue #10)", () => {
 		const p = protocolWith(fake);
 		await expect(p.set_flagDynamicCurrentLimiter(1)).to.be.rejectedWith("not supported");
 	});
+
+	it("never read-modify-writes Flags1 from an unreadable register (issue #21)", async () => {
+		const fake = new FakeMk2Connection();
+		fake.unreadableSettings.add(1);
+		const p = protocolWith(fake);
+		await expect(p.set_flagDynamicCurrentLimiter(1)).to.be.rejectedWith("could not be read");
+		expect(fake.writes.length).to.equal(0);
+	});
 });
 
 describe("scaled setting writes (issue #10)", () => {
