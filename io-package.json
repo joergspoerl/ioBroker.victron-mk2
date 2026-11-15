@@ -98,25 +98,21 @@
             "zh-cn": "victron-mk2"
         },
         "desc": {
-            "en": "Victron Multiplus",
-            "de": "Victron MultiPlus",
-            "ru": "Виктрон Мультиплюс",
-            "pt": "Victron Multiplus",
-            "nl": "Victron Multiplus",
-            "fr": "Victron Multiplus",
-            "it": "Victron Multiplus",
-            "es": "Multiplus de Victron",
-            "pl": "Victron Multiplus",
-            "zh-cn": "Victron Multiplus"
+            "en": "Victron MultiPlus/Quattro inverter chargers via MK2/VE.Bus: telemetry, limits, modes, settings and diagnostics",
+            "de": "Victron MultiPlus/Quattro Wechselrichter/Ladegeräte über MK2/VE.Bus: Telemetrie, Limits, Modi, Einstellungen und Diagnose"
         },
         "authors": [
             "joergoss <joerg.oss@gmx.de>"
         ],
         "keywords": [
             "ioBroker",
-            "template",
-            "Smart Home",
-            "home automation"
+            "victron",
+            "ve.bus",
+            "mk2",
+            "multiplus",
+            "inverter",
+            "charger",
+            "energy"
         ],
         "license": "MIT",
         "platform": "Javascript/Node.js",
