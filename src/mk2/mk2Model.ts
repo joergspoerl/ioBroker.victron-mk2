@@ -253,7 +253,7 @@ export class Mk2Model {
 	};
 
 	"ac_info.state":    Mk2DataEntry = {
-		descr: "AC info state (raw; use state.state for the main state)",
+		descr: "AC info state (raw; only on Multi firmware >= 207, otherwise null; main state = state.state)",
 		unit:  "",
 		role:  "state",
 		type: "number",

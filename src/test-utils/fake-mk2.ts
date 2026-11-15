@@ -299,6 +299,11 @@ export class FakeMk2Connection {
 						sc = override.sc;
 						offset = override.offset;
 					}
+					if (sc == 0) {
+						// Real devices answer unsupported variables with only the
+						// Sc frame and no offset (protocol §7.3.9).
+						return [mk2Frame(0x57, [0x8e, 0x00, 0x00])];
+					}
 					return [mk2Frame(0x57, [
 						0x8E, sc & 0xFF, sc >> 8,
 						0x8F, offset & 0xFF, offset >> 8,
