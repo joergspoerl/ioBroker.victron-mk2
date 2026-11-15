@@ -37,6 +37,8 @@ export class Mk2Connection {
 	timeouts = 0;
 	checksumErrors = 0;
 	lastError = "";
+	/** Incremented on every successful sync, so clients can drop stale caches. */
+	generation = 0;
 	/**
 	 * Response budget per frame. Protocol §3.3 recommends 500 ms, but on a busy
 	 * host (ioBroker on a Raspberry Pi) 1500 ms has proven reliable; the F5
@@ -99,6 +101,7 @@ export class Mk2Connection {
 			}
 			if (this.extractVersionFrame()) {
 				this.synced = true;
+				this.generation++;
 				this.log.debug("sync: version frame received");
 				return;
 			}
