@@ -150,6 +150,7 @@ export class FakeMk2Connection {
 	dcChargeCurrent = 0;
 	inverterPeriod = 20; // 20 * 0.01 = 0.2 s -> 50 Hz
 	switchRegister = 0b00110000; // SwitchCharge + SwitchInvert -> On
+	masterMultiLedHasRegister = true;
 	flags0 = (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 11);
 	flags1 = 0;
 	/** Settings that the fake device does not support (Sc = 0 / 0x91). */
@@ -239,14 +240,16 @@ export class FakeMk2Connection {
 					], 0x0F)];
 				}
 				if (frameType == 0x05) {
-					// MasterMultiLED: min 3.1 A, max 16 A, actual = limit,
-					// switch register configurable
-					return [veBusFrame(0x41, [
+					const data = [
 						0x10, 0x00, 0x00, 0x00, 0x04,
 						0x1F, 0x00, 0xA0, 0x00,
 						Math.round(this.limit * 10) & 0xFF, Math.round(this.limit * 10) >> 8,
-						this.switchRegister,
-					], 0x0C)];
+					];
+					if (this.masterMultiLedHasRegister) {
+						data.push(this.switchRegister);
+					}
+					// 0x0C = 11 data bytes (no switch register), 0x0D = 12 (with it)
+					return [veBusFrame(0x41, data, data.length + 1)];
 				}
 				break;
 			}

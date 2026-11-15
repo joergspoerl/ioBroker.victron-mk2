@@ -379,7 +379,10 @@ export class Mk2Protocol {
 		this.log.debug("******   master_multi_led_info");
 		return this.conn.communicate (this.create_frame("F", "\x05"), async (response: Buffer) => {
 
-			if (response[0] != 0x0c || response[1] != 0x41) {
+			// §3.2: responses may grow. A 0x0C frame carries 11 data bytes and NO
+			// switch register; only 0x0D and longer include it. Reading data[11]
+			// unconditionally used to return the checksum as the switch register.
+			if (response[0] < 0x0c || response[1] != 0x41) {
 				throw ({ error: "no master_multi_led_info frame"})
 			}
 
@@ -388,6 +391,19 @@ export class Mk2Protocol {
 			this.mk2Model["assist.minlimit"].value = data[0]/10.0
 			this.mk2Model["assist.maxlimit"].value = data[1]/10.0
 			this.mk2Model["assist.limit"].value = data[2]/10.0
+
+			const hasSwitchRegister = response[0] >= 0x0d && response.length >= 15;
+			if (!hasSwitchRegister) {
+				// No register in this frame: never derive a switch state from other
+				// bytes (formerly the checksum), and keep the local state as-is.
+				for (const key of Object.keys(this.mk2Model)) {
+					if (key.startsWith("switch.")) {
+						this.mk2Model[key].value = null;
+					}
+				}
+				this.log.debug("master_multi_led_info: frame carries no switch register");
+				return;
+			}
 
 			const switch_register = data[3]
 			this.mk2Model["switch.DirectRemoteSwitchCharge"].value  = (switch_register & 0b00000001) > 0 ? 1 :0
