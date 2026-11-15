@@ -392,7 +392,7 @@ export class Mk2Model {
 		type: "number",
 		value: 0,
 		states:  {
-			"00": "down",
+			"0": "down",
 			"10": "startup",
 			"20": "off",
 			"30": "slave",
