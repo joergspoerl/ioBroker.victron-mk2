@@ -76,6 +76,14 @@ describe("send queue", () => {
 		expect(attempts).to.equal(1);
 	});
 
+	it("returns the completed writes for acknowledgement (issue #17)", async () => {
+		const { mk2 } = fakeMk2WithFailure(0);
+		const queue: QueueItem[] = [{ name: "control.test", value: 10, attempts: 0 }];
+		const completed = await processToSendQueue(mk2 as any, queue, log as any);
+		expect(completed).to.have.length(1);
+		expect(completed[0].name).to.equal("control.test");
+	});
+
 	it("reports unknown control states without throwing", async () => {
 		const { mk2 } = fakeMk2WithFailure(0);
 		const queue: QueueItem[] = [{ name: "control.unknown", value: 10, attempts: 0 }];

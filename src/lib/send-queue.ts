@@ -17,11 +17,11 @@ export async function processControlWrites(
 	queue: QueueItem[],
 	log: ioBroker.Logger,
 	maxAttempts = 3,
-): Promise<void> {
+): Promise<QueueItem[]> {
 	if (queue.length > 0) {
 		await mk2.master_multi_led_info();
 	}
-	await processToSendQueue(mk2, queue, log, maxAttempts);
+	return processToSendQueue(mk2, queue, log, maxAttempts);
 }
 
 /**
@@ -34,7 +34,8 @@ export async function processToSendQueue(
 	queue: QueueItem[],
 	log: ioBroker.Logger,
 	maxAttempts = 3,
-): Promise<void> {
+): Promise<QueueItem[]> {
+	const completed: QueueItem[] = [];
 	while (queue.length > 0) {
 		const item = queue.shift()!;
 		const entry = mk2.mk2Model[item.name];
@@ -47,6 +48,7 @@ export async function processToSendQueue(
 		entry.value = item.value;
 		try {
 			await entry.setFunc(mk2, item.value);
+			completed.push(item);
 		} catch (ex) {
 			if (ex instanceof Mk2ValidationError) {
 				// Invalid input can never succeed; retrying only spams the log.
@@ -63,4 +65,5 @@ export async function processToSendQueue(
 			log.error(`Control write ${item.name} failed permanently after ${maxAttempts} attempts: ${ex}`);
 		}
 	}
+	return completed;
 }

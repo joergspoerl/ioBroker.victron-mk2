@@ -131,7 +131,12 @@ class VictronMk2 extends utils.Adapter {
 
 	async processToSendQueue(): Promise<void> {
 		if (!this.mk2) return;
-		await processControlWrites(this.mk2, this.toSendQueue, this.log);
+		const completed = await processControlWrites(this.mk2, this.toSendQueue, this.log);
+		for (const item of completed) {
+			// Acknowledge successful writes; ack=true is never forwarded again, so
+			// this cannot retrigger the control path (review T7).
+			await this.setStateAsync(item.name, { val: item.value, ack: true });
+		}
 	}
 
 	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
