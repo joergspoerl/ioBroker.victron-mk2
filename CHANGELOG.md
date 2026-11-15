@@ -3,6 +3,58 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.3 (2026-11-16)
+
+Third audit round (lifecycle + serial robustness, DeepSeek V4.1 Flash): 18
+findings, fixed as issues #56–#73. Details: `docs/audit-round3-2026-11-16.md`.
+
+### Fixed
+
+- **Sync scanner**: a frame split exactly after the third byte (`len`, 0xFF, 'V')
+  no longer loses the length byte; candidates are recognised from three bytes and
+  the fallback keeps three bytes. Tested with splits at every offset.
+- **`onReady` failure handling**: startup errors are caught, logged and published
+  as `info.connection = false` instead of an unhandled rejection/restart loop.
+- **Startup state**: `info.connection` is published as `false` at startup, so a
+  persisted `true` cannot outlive a restart.
+- **No reopen after unload**: the connection has a shutdown state; a late
+  iteration can no longer reopen the port after `onUnload`.
+- **`control.set_assist` metadata**: no static max/def that would overwrite the
+  discovered device limits on every start.
+- **Log quality**: decoders throw real `Error` objects, so failures carry their
+  message instead of `[object Object]`.
+- **Safety**: the PowerAssist guard now applies to direct `set_assist(0)` writes
+  too (0 A with PowerAssist off would disable the charger and keep Bypass), and
+  `grid_mode(0)` keeps the current limit when nothing is configured instead of
+  jumping to the device rating.
+
+### Added
+
+- **Diagnostics**: `diag.sync_errors`, `diag.protocol_errors` and
+  `diag.last_control_error` (dropped/failed writes are now visible, and cleared
+  after a successful write).
+- **Adapter lifecycle tests**: `src/main.test.ts` is a real suite with a stubbed
+  ioBroker runtime (onReady failure, empty port, startup state, double loop start).
+- **Serial tests**: splits at every byte offset, appended LED status blocks are
+  read and discarded instead of being decoded as a response, and diagnostic
+  counters are asserted on the real failure paths.
+
+### Changed
+
+- `grid_mode(2)` keeps using 0 A (required by this hardware, as measured on
+  2026-11-15); comments and object descriptions now say so, and both mode controls
+  warn that they switch an Off device on. `control.force_state` warns about
+  Equalise on OPzV/gel batteries.
+- Unsupported RAM scalings are negative-cached and only reported once per
+  connection.
+
+### Validation
+
+- 176 TypeScript unit tests + 47 package/integration tests; `tsc`, `eslint`,
+  `build` green; CI on master successful.
+- Live on pi4: v0.3.3 deployed via `scripts/deploy-pi4.sh`, stable Bypass polling,
+  `info.connection = true`, `diag.timeouts = 0`.
+
 ## 0.3.2 (2026-11-15)
 
 Second audit round (independent model, DeepSeek V4.1 Flash): 18 findings, all

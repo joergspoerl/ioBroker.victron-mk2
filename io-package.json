@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.3.2",
+        "version": "0.3.3",
         "news": {
+            "0.3.3": {
+                "en": "Third audit round: lifecycle hardening, safe startup state, no reopen after unload, PowerAssist guard for direct 0 A writes, new diagnostic counters and real lifecycle tests",
+                "de": "Dritte Auditrunde: Lebenszyklus-Härtung, sauberer Startzustand, kein Reopen nach Unload, PowerAssist-Sperre auch bei direktem 0-A-Write, neue Diagnosezähler und echte Lifecycle-Tests"
+            },
             "0.3.2": {
                 "en": "Second audit round: switch register no longer read from the checksum, Off is recoverable, no false 0 V/0 A values, longer frames tolerated, readback failures never retried, numerous correctness and convention fixes",
                 "de": "Zweite Auditrunde: Switch-Register nicht mehr aus der Pruefsumme, Off bleibt revidierbar, keine falschen 0-V/0-A-Werte, laengere Frames toleriert, Readback-Fehler ohne Retry, viele Korrekturen"

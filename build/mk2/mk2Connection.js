@@ -68,6 +68,8 @@ class Mk2Connection {
         /** Diagnostics (issue #8), counted since the adapter started. */
         this.timeouts = 0;
         this.checksumErrors = 0;
+        this.protocolErrors = 0;
+        this.syncErrors = 0;
         this.lastError = "";
         /** Incremented on every successful sync, so clients can drop stale caches. */
         this.generation = 0;
@@ -79,6 +81,7 @@ class Mk2Connection {
         this.responseTimeoutMs = 1500;
         /** Receive accumulator; bytes after a complete frame stay for the next read. */
         this.rxBuffer = Buffer.alloc(0);
+        this.closedDown = false;
         /** Serialises every exchange; the tail continues even after a failure. */
         this.queueTail = Promise.resolve();
         this.portPath = portPath;
@@ -93,12 +96,27 @@ class Mk2Connection {
     }
     /** Open the port and synchronise once; resynchronise after a reconnect. */
     async ensureSynced() {
+        if (this.closedDown) {
+            // After shutdown an in-flight iteration must not reopen the port (N3).
+            throw new errors_1.Mk2TransportError("connection is shut down");
+        }
         if (!this.port.isOpen()) {
             this.synced = false;
             await this.port.open();
         }
         if (!this.synced) {
             await this.sync();
+        }
+    }
+    /** Permanently close the connection; a later ensureSynced() rejects. */
+    async shutdown() {
+        this.closedDown = true;
+        this.synced = false;
+        try {
+            await this.port.close();
+        }
+        catch (_a) {
+            // best effort
         }
     }
     /**
@@ -133,13 +151,14 @@ class Mk2Connection {
             await sleep(20);
         }
         this.synced = false;
-        throw new errors_1.Mk2TransportError("Sync - receive no version frame - no mk2 connected ?");
+        // A failed sync is a transport failure and must be visible in diag.* (N10).
+        await this.fail("sync", "Sync - receive no version frame - no mk2 connected ?");
     }
     /** Find a complete, checksum-valid 'V' frame anywhere in the rx buffer. */
     extractVersionFrame() {
         const buf = this.rxBuffer;
         let incompleteAt = null;
-        for (let i = 0; i + 3 < buf.length; i++) {
+        for (let i = 0; i + 2 < buf.length; i++) {
             if (buf[i + 1] !== 0xff || buf[i + 2] !== 0x56) {
                 continue;
             }
@@ -171,8 +190,10 @@ class Mk2Connection {
             this.rxBuffer = buf.slice(incompleteAt);
         }
         else {
-            // Keep only a possible split frame marker, drop the rest of the noise.
-            this.rxBuffer = buf.slice(Math.max(0, buf.length - 2));
+            // Keep a possible frame start (length + marker + command = 3 bytes),
+            // not just two bytes - otherwise a split after the third byte loses
+            // the length byte and the sync never succeeds (review N9).
+            this.rxBuffer = buf.slice(Math.max(0, buf.length - 3));
         }
         return false;
     }
@@ -253,7 +274,8 @@ class Mk2Connection {
                     }
                 }
             }
-            throw new errors_1.Mk2TransportError("Timeout waiting for response from MK2");
+            await this.fail("timeout", "Timeout waiting for response from MK2");
+            throw new Error("unreachable");
         }
         finally {
             this.busy = false;
@@ -281,6 +303,7 @@ class Mk2Connection {
             // Bit 7 of the length byte means an LED status frame is appended;
             // it must not be counted as part of the frame length.
             const len = this.rxBuffer[0] & 0x7F;
+            const ledAppended = (this.rxBuffer[0] & 0x80) !== 0;
             if (len == 0) {
                 await this.fail("protocol", "Invalid MK2 frame length 0");
             }
@@ -304,11 +327,32 @@ class Mk2Connection {
                 await this.fail("checksum", "MK2 frame checksum error");
             }
             this.rxBuffer = this.rxBuffer.slice(needed);
+            if (ledAppended) {
+                // The appended LED block is not a response to the next command (N12).
+                await this.discardAppendedLedStatus(deadline);
+            }
             this.frame_debug("RECV <-", frame);
             return frame;
         }
         await this.fail("timeout", "Timeout waiting for MK2 frame");
         throw new Error("unreachable");
+    }
+    /** Drop an appended 'L' <on> <blink> block after a frame with the LED bit. */
+    async discardAppendedLedStatus(deadline) {
+        // The appended block is usually still in the driver's buffer, not in ours.
+        while (this.rxBuffer.length < 3 && Date.now() < deadline) {
+            const chunk = this.port.read(3 - this.rxBuffer.length);
+            if (chunk) {
+                this.rxBuffer = Buffer.concat([this.rxBuffer, chunk]);
+            }
+            else {
+                await sleep(5);
+            }
+        }
+        if (this.rxBuffer.length >= 3 && this.rxBuffer[0] == 0x4c) {
+            this.log.debug("discarding appended LED status frame");
+            this.rxBuffer = this.rxBuffer.slice(3);
+        }
     }
     /**
      * Count the failure and invalidate the connection. A timeout or checksum
@@ -320,6 +364,10 @@ class Mk2Connection {
             this.timeouts++;
         if (kind == "checksum")
             this.checksumErrors++;
+        if (kind == "protocol")
+            this.protocolErrors++;
+        if (kind == "sync")
+            this.syncErrors++;
         this.lastError = message;
         this.synced = false;
         this.rxBuffer = Buffer.alloc(0);

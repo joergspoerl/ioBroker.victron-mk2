@@ -3,6 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.processControlWrites = processControlWrites;
 exports.processToSendQueue = processToSendQueue;
 const errors_1 = require("./errors");
+/** Record a dropped/failed control write in the model, so "pending" and
+ * "discarded" are distinguishable from the outside (review N7). */
+function reportControlError(mk2, item, reason) {
+    const entry = mk2.mk2Model["diag.last_control_error"];
+    if (entry) {
+        entry.value = `${item.name}: ${reason}`;
+    }
+}
 /**
  * Forward queued control writes. When writes are pending, the switch register is
  * refreshed first: the device is authoritative for the panel switch state, and a
@@ -26,23 +34,30 @@ async function processToSendQueue(mk2, queue, log, maxAttempts = 3, maxAgeMs = 6
         // A queued command must not fire minutes or hours later (review H2).
         if (item.ts && Date.now() - item.ts > maxAgeMs) {
             log.warn(`Dropping expired control write ${item.name} (older than ${Math.round(maxAgeMs / 1000)} s)`);
+            reportControlError(mk2, item, "expired (TTL)");
             continue;
         }
         const entry = mk2.mk2Model[item.name];
         if (!entry || typeof entry.setFunc !== "function") {
             log.warn(`Dropping unknown control state ${item.name}`);
+            reportControlError(mk2, item, "unknown control state");
             continue;
         }
         entry.value = item.value;
         try {
             await entry.setFunc(mk2, item.value);
             completed.push(item);
+            const errorEntry = mk2.mk2Model["diag.last_control_error"];
+            if (errorEntry && typeof errorEntry.value === "string" && errorEntry.value.startsWith(item.name + ":")) {
+                errorEntry.value = "";
+            }
         }
         catch (ex) {
             if (ex instanceof errors_1.Mk2ValidationError || ex instanceof errors_1.Mk2ReadbackError) {
                 // Invalid input or an unconfirmed write can never succeed by repeating;
                 // retrying would only repeat the same EEPROM write.
                 log.error(`Control write ${item.name} rejected: ${ex.message}`);
+                reportControlError(mk2, item, ex.message);
                 continue;
             }
             item.attempts++;
@@ -53,6 +68,7 @@ async function processToSendQueue(mk2, queue, log, maxAttempts = 3, maxAgeMs = 6
                 break;
             }
             log.error(`Control write ${item.name} failed permanently after ${maxAttempts} attempts: ${ex}`);
+            reportControlError(mk2, item, `failed after ${maxAttempts} attempts`);
         }
     }
     return completed;

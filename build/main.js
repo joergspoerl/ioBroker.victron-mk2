@@ -61,6 +61,22 @@ class VictronMk2 extends utils.Adapter {
         this.on("unload", this.onUnload.bind(this));
     }
     async onReady() {
+        try {
+            await this.startAdapter();
+        }
+        catch (error) {
+            // Never leave an unhandled rejection or a crash/restart loop (N1).
+            const message = error instanceof Error ? error.message : String(error);
+            this.log.error("onReady failed: " + message);
+            try {
+                await this.setStateAsync("info.connection", { val: false, ack: true });
+            }
+            catch (_a) {
+                // even the state write may fail in this situation
+            }
+        }
+    }
+    async startAdapter() {
         const interval = Number(this.config.interval);
         this.config.interval = Number.isFinite(interval) && interval >= 1 ? interval : 2;
         this.log.info("config interval: " + this.config.interval);
@@ -74,6 +90,8 @@ class VictronMk2 extends utils.Adapter {
         // Create the objects even without a configured port and report "not
         // connected", instead of leaving no state at all (review N6).
         await this.initObjects();
+        // Nothing is connected yet at startup; never keep a persisted true (N2).
+        await this.setStateAsync("info.connection", { val: false, ack: true });
         if (!this.config.portPath) {
             this.log.error("config portPath is empty; adapter will not poll until it is configured");
             await this.setStateAsync("info.connection", { val: false, ack: true });
@@ -90,7 +108,7 @@ class VictronMk2 extends utils.Adapter {
             await this.pollLoop.stop(3000);
         }
         try {
-            await ((_a = this.mk2) === null || _a === void 0 ? void 0 : _a.conn.port.close());
+            await ((_a = this.mk2) === null || _a === void 0 ? void 0 : _a.conn.shutdown());
         }
         catch (_b) {
             // ignore close errors during shutdown
@@ -126,6 +144,10 @@ class VictronMk2 extends utils.Adapter {
         });
     }
     mainLoop() {
+        // Idempotent: a second ready event must never orphan a running loop (N8).
+        if (this.pollLoop) {
+            return;
+        }
         this.pollLoop = new poll_loop_1.PollLoop(() => this.updateStates(), this.config.interval * 1000);
         this.pollLoop.start(10 * 1000);
     }
