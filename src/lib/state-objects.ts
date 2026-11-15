@@ -24,3 +24,21 @@ export function buildStateObject(key: string, v: Mk2DataEntry): any {
 		native: {},
 	};
 }
+
+/**
+ * True when the model definition differs from the stored object and therefore
+ * needs an upgrade. Only definition fields are compared: user customisation
+ * (e.g. `common.custom` for InfluxDB history) must not trigger or be overwritten.
+ */
+export function objectDefinitionChanged(existing: any, next: any): boolean {
+	const fields = ["name", "type", "role", "read", "write", "unit", "states", "min", "max", "def"];
+	for (const field of fields) {
+		const before = JSON.stringify(existing?.common?.[field] ?? null);
+		const after = JSON.stringify(next?.common?.[field] ?? null);
+		if (before !== after) {
+			return true;
+		}
+	}
+	return false;
+}
+

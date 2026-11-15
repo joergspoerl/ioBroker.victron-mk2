@@ -4,7 +4,7 @@ import { Mk2Protocol } from "./mk2/mk2Protocol";
 import { isStableState } from "./lib/state-gate";
 import { shouldHandleControlState } from "./lib/control-rules";
 import { processControlWrites, QueueItem } from "./lib/send-queue";
-import { buildStateObject } from "./lib/state-objects";
+import { buildStateObject, objectDefinitionChanged } from "./lib/state-objects";
 import { publishModel } from "./lib/publish";
 
 function sleep(ms: number): Promise<void> {
@@ -22,6 +22,7 @@ class VictronMk2 extends utils.Adapter {
 	mk2: Mk2Protocol | undefined;
 	mainLoopRunning = true;
 	toSendQueue: QueueItem[] = [];
+	private assistLimitObjectMax: number | null = null;
 
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({
@@ -67,8 +68,27 @@ class VictronMk2 extends utils.Adapter {
 	private async initObjects(): Promise<void> {
 		if (!this.mk2) return;
 		for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
-			await this.setObjectNotExistsAsync(key, buildStateObject(key, value as Mk2DataEntry));
+			const object = buildStateObject(key, value as Mk2DataEntry);
+			const existing = await this.getObjectAsync(key);
+			if (!existing) {
+				await this.setObjectNotExistsAsync(key, object);
+			} else if (objectDefinitionChanged(existing, object)) {
+				// Upgrade roles/descriptions/units/state maps on existing objects;
+				// extendObject keeps user customisation such as InfluxDB history.
+				await this.extendObjectAsync(key, object);
+			}
 		}
+	}
+
+	/** Keep control.set_assist's limits in sync with the discovered device. */
+	private async updateAssistLimitObject(): Promise<void> {
+		if (!this.mk2) return;
+		const max = this.mk2.mk2Model["assist.maxlimit"].value;
+		if (typeof max != "number" || max <= 0 || max === this.assistLimitObjectMax) return;
+		this.assistLimitObjectMax = max;
+		await this.extendObjectAsync("control.set_assist", {
+			common: { min: 0, max, def: max },
+		});
 	}
 
 	private async mainLoop(): Promise<void> {
@@ -100,6 +120,7 @@ class VictronMk2 extends utils.Adapter {
 			await this.processToSendQueue();
 			await this.mk2.poll();
 			await this.publishStates();
+			await this.updateAssistLimitObject();
 		} catch (Exception) {
 			// JSON.stringify(Error) yields "{}", so log the message and stack.
 			const message = Exception instanceof Error ? (Exception.stack ?? Exception.message) : JSON.stringify(Exception);
