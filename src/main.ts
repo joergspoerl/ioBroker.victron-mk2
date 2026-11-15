@@ -3,7 +3,7 @@ import { Mk2DataEntry } from "./mk2/mk2Model";
 import { Mk2Protocol } from "./mk2/mk2Protocol";
 import { isStableState } from "./lib/state-gate";
 import { shouldHandleControlState } from "./lib/control-rules";
-import { processToSendQueue, QueueItem } from "./lib/send-queue";
+import { processControlWrites, QueueItem } from "./lib/send-queue";
 import { buildStateObject } from "./lib/state-objects";
 import { selectStatesToPublish } from "./lib/publish";
 
@@ -131,7 +131,7 @@ class VictronMk2 extends utils.Adapter {
 
 	async processToSendQueue(): Promise<void> {
 		if (!this.mk2) return;
-		await processToSendQueue(this.mk2, this.toSendQueue, this.log);
+		await processControlWrites(this.mk2, this.toSendQueue, this.log);
 	}
 
 	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {

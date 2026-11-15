@@ -8,6 +8,23 @@ export interface QueueItem {
 }
 
 /**
+ * Forward queued control writes. When writes are pending, the switch register is
+ * refreshed first: the device is authoritative for the panel switch state, and a
+ * manual change since the last poll must not be overwritten (review T5).
+ */
+export async function processControlWrites(
+	mk2: Mk2Protocol,
+	queue: QueueItem[],
+	log: ioBroker.Logger,
+	maxAttempts = 3,
+): Promise<void> {
+	if (queue.length > 0) {
+		await mk2.master_multi_led_info();
+	}
+	await processToSendQueue(mk2, queue, log, maxAttempts);
+}
+
+/**
  * Forward queued control writes to the MK2. Failed writes are retried on a
  * later poll cycle (bounded), never silently dropped. Unknown states are
  * reported instead of causing a TypeError.
