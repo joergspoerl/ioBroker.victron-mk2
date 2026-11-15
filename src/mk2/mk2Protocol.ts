@@ -201,7 +201,9 @@ export class Mk2Protocol {
 
 		return this.conn.communicate(this.create_frame("L", ""), async (response: Buffer) => {
 
-			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x4c ) {
+			// §4 note b: MK2 >= 1130128 omits the trailing 0x00, so the response can
+			// be as short as 4 (length, marker, on, blink) plus checksum.
+			if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x4c ) {
 				throw ({ error: "no led_status frame"})
 			}
 
