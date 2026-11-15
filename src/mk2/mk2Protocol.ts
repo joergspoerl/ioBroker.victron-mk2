@@ -584,7 +584,8 @@ export class Mk2Protocol {
 			throw new Error(`set_grid_mode: invalid mode ${mode}`)
 		}
 		if (mode == 2) {
-			await this.set_switch_state(2)
+			this.currentSwitchState = 2;
+			await this.set_assist(0);
 			return
 		}
 		this.currentSwitchState = 3

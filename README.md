@@ -25,7 +25,8 @@ Victron Multiplus
   (1 = Charger only, 2 = Inverter only, 3 = On, 4 = Off). Changing it does not
   change the current limit (the limit is ignored).
 - `victron-mk2.0.control.grid_mode`: `0 = Grid` (max limit, On),
-  `1 = Zero grid / Invert` (0 A, On), `2 = Inverter only` (switch state 2).
+  `1 = Zero grid / Invert` (0 A, On), `2 = Inverter only` (switch state 2 + 0 A;
+  on this model the 0-A write is what forces Invert with AC present).
   Use this instead of writing `set_assist = 0` from automation if you want an
   explicit, documented mode.
 - `victron-mk2.0.control.force_state`: charge-state force
