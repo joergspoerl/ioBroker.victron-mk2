@@ -150,6 +150,7 @@ export class FakeMk2Connection {
 	currentSubState = 0;
 	bfFactor = 1;
 	dcMarker = 0xB5;
+	dcPhase = 0x0c;
 	ledDataLength = 6;
 	dcInverterCurrent = 0;
 	dcChargeCurrent = 0;
@@ -231,7 +232,7 @@ export class FakeMk2Connection {
 				if (frameType == 0x00) {
 					// DC info: marker, ubat 1302, configurable currents and period
 					return [veBusFrame(0x20, [
-						this.dcMarker, 0x9A, 0x22, 0x46, 0x0C, 0x16, 0x05,
+						this.dcMarker, 0x9A, 0x22, 0x46, this.dcPhase, 0x16, 0x05,
 						this.dcInverterCurrent & 0xFF, (this.dcInverterCurrent >> 8) & 0xFF, (this.dcInverterCurrent >> 16) & 0xFF,
 						this.dcChargeCurrent & 0xFF, (this.dcChargeCurrent >> 8) & 0xFF, (this.dcChargeCurrent >> 16) & 0xFF,
 						this.inverterPeriod,

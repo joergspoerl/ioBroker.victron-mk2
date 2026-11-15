@@ -110,7 +110,7 @@ export class Mk2Protocol {
 
 		} catch (Exception) {
 			this.mk2Model["info.connection"].value = false
-			this.log.error("Exception in poll " + Exception)
+			this.log.error("Exception in poll " + (Exception instanceof Error ? Exception.message : JSON.stringify(Exception)))
 		} finally {
 			this.updateDiagnostics()
 		}
@@ -190,7 +190,7 @@ export class Mk2Protocol {
 		return this.conn.communicate(this.create_frame("A", "\x01\x00"), async (response: Buffer): Promise<void> => {
 
 			if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01 ) {
-				throw ({ error: "no address frame"})
+				throw new Error("no address frame")
 			}
 			// The reply carries the address currently used by the MK2 (§7.1).
 			this.mk2Model["info.address"].value = response[4];
@@ -206,7 +206,7 @@ export class Mk2Protocol {
 			// §4 note b: MK2 >= 1130128 omits the trailing 0x00, so the response can
 			// be as short as 4 (length, marker, on, blink) plus checksum.
 			if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x4c ) {
-				throw ({ error: "no led_status frame"})
+				throw new Error("no led_status frame")
 			}
 
 			const led_status = response[3];
@@ -299,7 +299,7 @@ export class Mk2Protocol {
 		return this.conn.communicate (this.create_frame("F", "\x00"), async (response: Buffer): Promise<void> => {
 
 			if (response[0] < 0x0f || response[1] != 0x20 || response[6] != 0x0c ) {
-				throw ({ error: "no dc_info frame"})
+				throw new Error("no dc_info frame")
 			}
 
 			const ubat = bp.unpack("<H", response, 7)[0];
@@ -340,7 +340,7 @@ export class Mk2Protocol {
 		return this.conn.communicate (this.create_frame("F", "\x01"), async (frame: Buffer):Promise<void> => {
 
 			if (frame[0] < 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B ) {
-				throw ( { error: "no ac_info frame"} )
+				throw new Error("no ac_info frame")
 			}
 
 			const data   = bp.unpack ("<B B B B B H h H h B", frame, 2)
@@ -403,7 +403,7 @@ export class Mk2Protocol {
 			// switch register; only 0x0D and longer include it. Reading data[11]
 			// unconditionally used to return the checksum as the switch register.
 			if (response[0] < 0x0c || response[1] != 0x41) {
-				throw ({ error: "no master_multi_led_info frame"})
+				throw new Error("no master_multi_led_info frame")
 			}
 
 			const data = bp.unpack("<H H H B", response, 7)
