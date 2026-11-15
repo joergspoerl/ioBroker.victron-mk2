@@ -323,26 +323,6 @@ export class Mk2Protocol {
 	}
 
 
-	// async power_output_calc_load (): Promise<void> {
-	// 	this.log.debug("******   power_output_calc_load");
-
-	// 	return this.conn.communicate (this.create_frame("W", "\x36\x11\x00"), async (response: Buffer) => {
-
-	// 		if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
-	// 			throw ({ error: "no power_output_calc_load frame"})
-	// 		}
-
-	// 		const data = bp.unpack("<h B h", response, 4)
-
-	// 		this.calc.power_output_calc = {
-	// 			scale:  data[0],
-	// 			offset: data[2]
-
-	// 		}
-	// 	});
-	// }
-
-
 	async  loadScalingsIfNeeded() :Promise<void> {
 		this.log.debug("******   loadScalingsIfNeeded");
 
@@ -481,57 +461,6 @@ export class Mk2Protocol {
 	}
 
 
-	// its not supported with my firmware !!!!
-
-	// async get_power_charger () : Promise<void> {
-	// 	this.log.debug("******   get_power_charger");
-
-	// 	return this.conn.communicate (this.create_frame("W", "\x30\x0F\x00"), async (response: Buffer) => {
-
-	// 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
-	// 			throw ({ error: "no get_power_charger frame"})
-	// 		}
-
-	// 		const data = bp.unpack("<h", response, 4)
-	// 		this.log.debug("******   get_power_charger unpack", data);
-
-	// 		this.mk2Model["power.charger"].value = data[0]
-	// 	})
-	// }
-
-	// async get_power_inverter () : Promise<void> {
-	// 	this.log.debug("******   get_power_inverter");
-
-	// 	return this.conn.communicate (this.create_frame("W", "\x30\x10\x00"), async (response: Buffer) => {
-
-	// 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
-	// 			throw ({ error: "no get_power_inverter frame"})
-	// 		}
-
-	// 		const data = bp.unpack("<h", response, 4)
-	// 		this.log.debug("******   get_power_inverter unpack", data);
-
-	// 		this.mk2Model["power.inverter"].value = data[0]
-	// 	})
-	// }
-
-	// async get_power_output () : Promise<void> {
-	// 	this.log.debug("******   get_power_output");
-
-	// 	return this.conn.communicate (this.create_frame("W", "\x30\x0d"), async (response: Buffer) => {
-
-	// 		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
-	// 			throw ({ error: "no get_power_output frame"})
-	// 		}
-
-	// 		const data = bp.unpack("<H", response, 4)
-	// 		this.log.debug("******   get_power_output unpack", data);
-	// 		//			this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
-	// 		// this.mk2Model["power.output"].value = data[0]
-	// 	})
-	// }
-
-
 	// Set the ampere level for PowerAssist.
 	async set_assist (ampere:number) : Promise<void> {
 		if (!Number.isFinite(ampere) || ampere < 0) {
@@ -608,207 +537,87 @@ export class Mk2Protocol {
 		}
 	}
 
-	async get_flags () : Promise<void> {
+	/** Read Flags0 (setting 0) as a signed 16-bit value. */
+	async readFlags0(): Promise<number> {
+		let value = 0;
+		await this.conn.communicate(this.create_frame("W", "\x31\x00\x00"), async (response: Buffer) => {
+			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
+				throw new Error("readFlags0: no valid response");
+			}
+			const data = bp.unpack("<h", response, 4);
+			value = data[0];
+		});
+		return value;
+	}
+
+	/** Write Flags0 with CommandWriteSetting + CommandWriteData. */
+	async writeFlags0(flags: number): Promise<void> {
+		const first_cmd = Buffer.from([0x33, 0x00, 0x00]);
+		const second_cmd = Buffer.from([0x34, flags & 0xFF, (flags >> 8) & 0xFF]);
+		const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
+		return this.conn.communicate(frames, async (response: Buffer) => {
+			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
+				throw new Error("writeFlags0: no valid write response");
+			}
+		});
+	}
+
+	async get_flags(): Promise<void> {
 		this.log.debug("******   get_flags");
+		const flags = await this.readFlags0();
 
-		return this.conn.communicate (this.create_frame("W", "\x31\x00\x00"), async (response: Buffer) => {
+		const flagMap: { [key: number]: string } = {
+			0: "MultiPhaseSystem",
+			1: "MultiPhaseLeader",
+			2: "60Hz",
+			3: "Disable Wave Check (fast input voltage detection).IMPORTANT: Keep flags[7] consistent. ",
+			4: "DoNotStopAfter10HrBulk",
+			5: "AssistEnabled",
+			6: "DisableCharge",
+			7: "IMPORTANT: Must have inverted value of flags[3]",
+			8: "DisableAES",
+			9: "Not promoted option",
+			10: "Not promoted option",
+			11: "EnableReducedFloat",
+			12: "Not promoted option ",
+			13: "Disable ground relay",
+			14: "Weak AC input",
+			15: "Remote overrules AC2",
+		};
 
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-				throw ({ error: "no get_flags frame"})
-			}
+		Object.keys(flagMap).forEach((key) => {
+			const keyNumber = parseInt(key);
+			const bitmask = Math.pow(2, keyNumber);
+			const b = (bitmask & flags) > 0;
 
-			const data = bp.unpack("<h", response, 4)
-
-			const flags : { [key: number]: string } = {
-				0: "MultiPhaseSystem",
-				1: "MultiPhaseLeader",
-				2: "60Hz",
-				3: "Disable Wave Check (fast input voltage detection).IMPORTANT: Keep flags[7] consistent. ",
-				4: "DoNotStopAfter10HrBulk",
-				5: "AssistEnabled",
-				6: "DisableCharge",
-				7: "IMPORTANT: Must have inverted value of flags[3]",
-				8: "DisableAES",
-				9: "Not promoted option",
-				10: "Not promoted option",
-				11: "EnableReducedFloat",
-				12: "Not promoted option ",
-				13: "Disable ground relay",
-				14: "Weak AC input",
-				15: "Remote overrules AC2",
-			}
-
-			Object.keys(flags).forEach( (key)=>{
-				const keyNumber = parseInt( key )
-				const bitmask = Math.pow(2, keyNumber);
-				const b = (bitmask & data[0]) > 0
-				// console.log( b, key, flags[keyNumber ])
-
-				if (keyNumber ==  0) this.mk2Model["setting.flag.MultiPhaseSystem"].value  = b
-				if (keyNumber ==  1) this.mk2Model["setting.flag.MultiPhaseLeader"].value  = b
-				if (keyNumber ==  2) this.mk2Model["setting.flag.Freq60Hz"].value  = b
-				if (keyNumber ==  4) this.mk2Model["setting.flag.DoNotStopAfter10HrBulk"].value  = b
-				if (keyNumber ==  5) this.mk2Model["setting.flag.AssistEnabled"].value  = b
-				if (keyNumber ==  6) this.mk2Model["setting.flag.DisableCharge"].value  = b
-				if (keyNumber ==  8) this.mk2Model["setting.flag.DisableAES"].value  = b
-				if (keyNumber == 11) this.mk2Model["setting.flag.EnableReducedFloat"].value  = b
-				if (keyNumber == 13) this.mk2Model["setting.flag.DisableGroundRelay"].value  = b
-				if (keyNumber == 14) this.mk2Model["setting.flag.WeakACInput"].value  = b
-				if (keyNumber == 15) this.mk2Model["setting.flag.RemoteOverrulesAC2"].value  = b
-			})
-		})
+			if (keyNumber == 0) this.mk2Model["setting.flag.MultiPhaseSystem"].value = b;
+			if (keyNumber == 1) this.mk2Model["setting.flag.MultiPhaseLeader"].value = b;
+			if (keyNumber == 2) this.mk2Model["setting.flag.Freq60Hz"].value = b;
+			if (keyNumber == 4) this.mk2Model["setting.flag.DoNotStopAfter10HrBulk"].value = b;
+			if (keyNumber == 5) this.mk2Model["setting.flag.AssistEnabled"].value = b;
+			if (keyNumber == 6) this.mk2Model["setting.flag.DisableCharge"].value = b;
+			if (keyNumber == 8) this.mk2Model["setting.flag.DisableAES"].value = b;
+			if (keyNumber == 11) this.mk2Model["setting.flag.EnableReducedFloat"].value = b;
+			if (keyNumber == 13) this.mk2Model["setting.flag.DisableGroundRelay"].value = b;
+			if (keyNumber == 14) this.mk2Model["setting.flag.WeakACInput"].value = b;
+			if (keyNumber == 15) this.mk2Model["setting.flag.RemoteOverrulesAC2"].value = b;
+		});
 	}
 
-	async set_flagDisableCharge(value: number) : Promise<void> {
-		this.log.debug("set_flagDisableCharge newValue " +  value)
-
-		// function dec2bin(dec:number) : string {
-		// 	return (dec >>> 0).toString(2);
-		// }
-
-		return this.conn.communicate (this.create_frame("W", "\x31\x00\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-				throw ({ error: "no get_flags frame"})
-			}
-
-			// this.log.debug("response first  byte: " + dec2bin(response[4]))
-			// this.log.debug("response second byte: " + dec2bin(response[5]))
-
-			let flagBytes = bp.unpack("<h", response, 4)[0]
-			// this.log.debug("old " + dec2bin(flagBytes))
-			// this.log.debug("oldFlagsByte + " + JSON.stringify(flagBytes))
-
-			const mask = 1 << 6; // gets the 6th bit
-			// let newFlagBytes: number
-			// this.log.debug("mask: " + dec2bin(mask))
-
-			if (value == 1) {
-				flagBytes |= mask
-			}
-			if (value == 0) {
-				flagBytes &= ~mask
-			}
-
-			// this.log.debug("new " + dec2bin(flagBytes))
-
-
-			// const flags : { [key: number]: string } = {
-			// 	0: "MultiPhaseSystem",
-			// 	1: "MultiPhaseLeader",
-			// 	2: "60Hz",
-			// 	3: "Disable Wave Check (fast input voltage detection).IMPORTANT: Keep flags[7] consistent. ",
-			// 	4: "DoNotStopAfter10HrBulk",
-			// 	5: "AssistEnabled",
-			// 	6: "DisableCharge",
-			// 	7: "IMPORTANT: Must have inverted value of flags[3]",
-			// 	8: "DisableAES",
-			// 	9: "Not promoted option",
-			// 	10: "Not promoted option",
-			// 	11: "EnableReducedFloat",
-			// 	12: "Not promoted option ",
-			// 	13: "Disable ground relay",
-			// 	14: "Weak AC input",
-			// 	15: "Remote overrules AC2",
-			// }
-
-			// Object.keys(flags).forEach( (key)=>{
-			// 	const keyNumber = parseInt( key )
-			// 	const bitmask = Math.pow(2, keyNumber);
-			// 	const b = (bitmask & flagBytes) > 0
-
-			// 	console.log( b, key, flags[keyNumber ])
-			// })
-
-			const newDataBytes = bp.pack("<h", [flagBytes])
-			// this.log.debug("oldFlagsByte + " + JSON.stringify(newDataBytes))
-			// console.log(newDataBytes)
-
-			// const flagBytetest = bp.unpack("<h", newDataBytes, 0)
-			// this.log.debug("flagBytetest " + dec2bin(flagBytetest))
-			// console.log(flagBytetest)
-
-			const first_cmd  = Buffer.from([0x33, 0x00, 0x00])
-			let  second_cmd = Buffer.from([0x34])
-			second_cmd = Buffer.concat([second_cmd, newDataBytes])
-			// console.log("second_cmd", second_cmd)
-			const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)])
-
-			// this.conn.frame_debug("check frame", frames)
-
-			return this.conn.communicate (frames, async (response: Buffer) => {
-				if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
-					throw ({ error: "set_flagDisableCharge: no valid write response" })
-				}
-				this.conn.frame_debug("response", response)
-			})
-
-		})
+	async set_flagDisableCharge(value: number): Promise<void> {
+		this.log.debug("set_flagDisableCharge newValue " + value);
+		const flags = await this.readFlags0();
+		const mask = 1 << 6; // DisableCharge
+		const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
+		await this.writeFlags0(newFlags);
 	}
 
-
-
-	async set_flagWeakACInput(value: number) : Promise<void> {
-		this.log.debug("set_flagWeakACInput newValue " +  value)
-
-		// function dec2bin(dec:number) : string {
-		// 	return (dec >>> 0).toString(2);
-		// }
-
-		return this.conn.communicate (this.create_frame("W", "\x31\x00\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-				throw ({ error: "no get_flags frame"})
-			}
-
-			// this.log.debug("response first  byte: " + dec2bin(response[4]))
-			// this.log.debug("response second byte: " + dec2bin(response[5]))
-
-			let flagBytes = bp.unpack("<h", response, 4)[0]
-			// this.log.debug("old " + dec2bin(flagBytes))
-			// this.log.debug("oldFlagsByte + " + JSON.stringify(flagBytes))
-
-			const mask = 1 << 14; // gets the 6th bit
-			// let newFlagBytes: number
-			// this.log.debug("mask: " + dec2bin(mask))
-
-			if (value == 1) {
-				flagBytes |= mask
-			}
-			if (value == 0) {
-				flagBytes &= ~mask
-			}
-
-			// this.log.debug("new " + dec2bin(flagBytes))
-
-
-			// Debug output intentionally removed: it was an unconditional
-			// console.log on every flag write.
-
-			const newDataBytes = bp.pack("<h", [flagBytes])
-			// this.log.debug("oldFlagsByte + " + JSON.stringify(newDataBytes))
-			// console.log(newDataBytes)
-
-			// const flagBytetest = bp.unpack("<h", newDataBytes, 0)
-			// this.log.debug("flagBytetest " + dec2bin(flagBytetest))
-			// console.log(flagBytetest)
-
-			const first_cmd  = Buffer.from([0x33, 0x00, 0x00])
-			let  second_cmd = Buffer.from([0x34])
-			second_cmd = Buffer.concat([second_cmd, newDataBytes])
-			// console.log("second_cmd", second_cmd)
-			const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)])
-
-			// this.conn.frame_debug("check frame", frames)
-
-			return this.conn.communicate (frames, async (response: Buffer) => {
-				if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
-					throw ({ error: "set_flagDisableCharge: no valid write response" })
-				}
-				this.conn.frame_debug("response", response)
-			})
-
-		})
+	async set_flagWeakACInput(value: number): Promise<void> {
+		this.log.debug("set_flagWeakACInput newValue " + value);
+		const flags = await this.readFlags0();
+		const mask = 1 << 14; // Weak AC input
+		const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
+		await this.writeFlags0(newFlags);
 	}
 
 	async get_setting_IBatBulk () : Promise<void> {
