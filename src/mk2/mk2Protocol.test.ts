@@ -218,6 +218,16 @@ describe("Mk2Protocol control writes", () => {
 		await p.set_grid_mode(0);
 		expect(fake.limit).to.equal(16);
 	});
+
+	it("set_grid_mode grid keeps the current limit when nothing is configured (issue #70)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_assist(5);
+		p.mk2Model["setting.IMainsLimitAC1"].value = null;
+		await p.master_multi_led_info(); // actual limit is now 5 A
+		await p.set_grid_mode(0);
+		expect(fake.limit).to.equal(5);
+	});
 });
 
 describe("Mk2Protocol protocol validation", () => {
