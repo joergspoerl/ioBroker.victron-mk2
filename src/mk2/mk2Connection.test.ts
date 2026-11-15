@@ -53,8 +53,19 @@ describe("Mk2Connection", () => {
 		});
 	});
 
-	describe("communicate", () => {
-		it("decodes a valid response and records the request", async () => {
+	describe("sync", () => {
+		it("captures the MK2 version and mode from the version frame", async () => {
+			const fake = new FakeMk2Serial();
+			fake.push(versionFrame());
+			const conn = connWith(fake);
+			await conn.sync();
+			expect(conn.synced).to.equal(true);
+			expect(conn.mk2Version).to.equal(0x00113e98);
+			expect(conn.mk2Mode).to.equal(0x57);
+		});
+	});
+
+	describe("communicate", () => {		it("decodes a valid response and records the request", async () => {
 			const response = mk2Frame(0x41, [0x01, 0x00]);
 			const fake = new FakeMk2Serial(() => response);
 			fake.push(versionFrame());

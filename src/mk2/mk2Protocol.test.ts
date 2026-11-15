@@ -144,9 +144,9 @@ describe("Mk2Protocol control writes", () => {
 	it("set_setting_IBatBulk rejects invalid values", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
-		await expect(p.set_setting_IBatBulk(-1)).to.be.rejectedWith("integer between 0 and 120");
-		await expect(p.set_setting_IBatBulk(121)).to.be.rejectedWith("integer between 0 and 120");
-		await expect(p.set_setting_IBatBulk(1.5)).to.be.rejectedWith("integer between 0 and 120");
+		await expect(p.set_setting_IBatBulk(-1)).to.be.rejectedWith("between 0 and 120");
+		await expect(p.set_setting_IBatBulk(121)).to.be.rejectedWith("between 0 and 120");
+		await expect(p.set_setting_IBatBulk(1.5)).to.be.rejectedWith("must be an integer");
 	});
 
 	it("set_flagDisableCharge and set_flagWeakACInput accept 0/1", async () => {

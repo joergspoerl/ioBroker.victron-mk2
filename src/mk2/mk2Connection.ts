@@ -29,6 +29,9 @@ export class Mk2Connection {
 	busy = false;
 	synced = false;
 	log: ioBroker.Logger;
+	/** MK2 firmware version and mode byte from the last version frame (§3.4). */
+	mk2Version: number | null = null;
+	mk2Mode: number | null = null;
 
 	constructor(portPath: string, log: ioBroker.Logger, port?: Mk2Serial) {
 		this.portPath = portPath;
@@ -64,6 +67,12 @@ export class Mk2Connection {
 		while (Date.now() < deadline) {
 			const frame = await this.receiveFrame(1000);
 			if (frame[1] == mk2SpezialFrame.normal && frame[2] == 0x56) {
+				// 'V' <Version0..3> <Mode>; the mode byte also tells VE 9-bit from
+				// VE.Bus and carries the current address (§3.4).
+				if (frame.length >= 8) {
+					this.mk2Version = (frame[3] | (frame[4] << 8) | (frame[5] << 16) | (frame[6] << 24)) >>> 0;
+					this.mk2Mode = frame[7];
+				}
 				this.synced = true;
 				this.log.debug("sync: version frame received");
 				return;
@@ -81,8 +90,30 @@ export class Mk2Connection {
 	 * caller so that failed writes never look successful.
 	 */
 	async communicate(request: Buffer, decode: (response: Buffer) => Promise<void>): Promise<void> {
+		return this.communicateMulti(request, async (response: Buffer) => {
+			await decode(response);
+			return true;
+		});
+	}
+
+	/**
+	 * Send a request and decode as many response frames as the device sends.
+	 *
+	 * The MK2 packs up to three 3-byte Winmon frames into one MK2 frame, so a
+	 * command like CommandGetSettingInfo (five responses) arrives as several MK2
+	 * frames. `decode` returns true once the answer is complete. With
+	 * `allowQuietEnd` a read timeout after at least one decoded frame ends the
+	 * exchange instead of failing, because older firmware legitimately sends
+	 * fewer responses than the current protocol describes.
+	 */
+	async communicateMulti(
+		request: Buffer,
+		decode: (response: Buffer) => Promise<boolean>,
+		options: { allowQuietEnd?: boolean; readTimeoutMs?: number } = {},
+	): Promise<void> {
 		await this.waitForFreeLine();
 		this.busy = true;
+		let decoded = 0;
 
 		try {
 			await this.ensureSynced();
@@ -93,7 +124,16 @@ export class Mk2Connection {
 
 			const deadline = Date.now() + 2000;
 			while (Date.now() < deadline) {
-				const frame = await this.receiveFrame(1000);
+				let frame: Buffer;
+				try {
+					frame = await this.receiveFrame(options.readTimeoutMs ?? 1000);
+				} catch (error) {
+					if (options.allowQuietEnd && decoded > 0) {
+						this.log.debug("communicateMulti: quiet end after " + decoded + " frame(s)");
+						return;
+					}
+					throw error;
+				}
 				const spezial = frame[1] as number;
 				const frameType = frame[2] as number;
 
@@ -111,8 +151,10 @@ export class Mk2Connection {
 					spezial == mk2SpezialFrame.masterMultiLed ||
 					spezial == mk2SpezialFrame.ramReadOk
 				) {
-					await decode(frame);
-					return;
+					decoded++;
+					if (await decode(frame)) {
+						return;
+					}
 				}
 			}
 			throw new Error("Timeout waiting for response from MK2");
