@@ -1,4 +1,5 @@
 import { Mk2Protocol } from "./mk2Protocol";
+import { FLAGS1, READONLY_SETTINGS } from "./mk2Settings";
 
 export interface Mk2DataEntry {
 	descr: string,
@@ -32,6 +33,93 @@ const led_states = {
 }
 export class Mk2Model {
 	[key: string]: Mk2DataEntry
+
+	constructor() {
+		// Read-only settings and Flags1 are declared in mk2Settings.ts so the
+		// protocol table and the ioBroker objects cannot drift apart.
+		for (const def of READONLY_SETTINGS) {
+			this[def.key] = {
+				descr: def.descr + " (read-only)",
+				unit: def.unit,
+				role: def.role,
+				type: "number",
+				value: null,
+			};
+		}
+		for (const def of FLAGS1) {
+			this[def.key] = {
+				descr: def.descr + " (Flags1)",
+				unit: "",
+				role: "state",
+				type: "boolean",
+				value: null,
+			};
+		}
+	}
+
+	"info.mk2_version":    Mk2DataEntry = {
+		descr: "MK2 firmware version (from the version frame)",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
+
+	"info.mk2_mode":    Mk2DataEntry = {
+		descr: "MK2 mode byte: 'W' (87) = VE 9-bit, otherwise the VE.Bus address",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
+
+	"info.address":    Mk2DataEntry = {
+		descr: "VE.Bus device address currently used by the MK2",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
+
+	"info.device_sw_version":    Mk2DataEntry = {
+		descr: "MultiPlus firmware version, raw 32-bit integer",
+		unit:  "",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
+
+	"info.device_sw_version_text":    Mk2DataEntry = {
+		descr: "MultiPlus firmware version as AA BB CCC (product, model, revision)",
+		unit:  "",
+		role:  "state",
+		type: "string",
+		value: null,
+	};
+
+	"power.inverter":    Mk2DataEntry = {
+		descr: "Inverter power, filtered (positive = AC to DC/charging, negative = inverting)",
+		unit:  "W",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
+
+	"power.output":    Mk2DataEntry = {
+		descr: "AC output power, filtered (positive = towards the loads)",
+		unit:  "W",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
+
+	"battery.soc":    Mk2DataEntry = {
+		descr: "State of charge from the MultiPlus internal battery monitor",
+		unit:  "%",
+		role:  "value",
+		type: "number",
+		value: null,
+	};
 
  	"dc_info.ubat":    Mk2DataEntry = {
 		descr: "Battery voltage",

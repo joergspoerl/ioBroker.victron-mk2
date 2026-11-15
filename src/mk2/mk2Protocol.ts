@@ -1,5 +1,21 @@
 import { Mk2Connection } from "./mk2Connection";
 import { led, Mk2Model } from "./mk2Model";
+import {
+	FLAGS1,
+	flags1Bit,
+	READONLY_SETTINGS,
+	SettingInfo,
+	SettingInfoCollector,
+	settingDisplayValue,
+	settingRawValue,
+} from "./mk2Settings";
+import {
+	formatDeviceVersion,
+	makeRamInfo,
+	ramDisplayValue,
+	RamInfo,
+	ramScale,
+} from "./mk2Ram";
 import * as bp from "bufferpack";
 
 export interface IscaleEntry {
@@ -20,10 +36,7 @@ export class Calc {
 }
 
 function scale (factor: number): number {
-	const s = Math.abs(factor)
-	if (s >= 0x4000)
-		return 1.0/(0x8000 - s)
-	return s
+	return ramScale(factor)
 }
 function round(number: number, decimal: number): number {
 	const e = Math.pow(10, decimal)
@@ -39,6 +52,12 @@ export class Mk2Protocol {
 	log: ioBroker.Logger;
 	/** Current VE.Bus switch state used for S commands (default: On). */
 	currentSwitchState = 3;
+	/** Cached CommandGetSettingInfo answers, keyed by setting id. */
+	settingInfoCache = new Map<number, SettingInfo>();
+	private extendedSettingsLoaded = false;
+	private ramInfoCache = new Map<number, RamInfo>();
+	private unsupportedRam = new Set<number>();
+	private deviceInfoLoaded = false;
 
 	constructor(portPath: string, log: ioBroker.Logger, conn?: Mk2Connection) {
 		this.portPath = portPath;
@@ -51,13 +70,17 @@ export class Mk2Protocol {
 			await this.conn.ensureSynced()
 			await this.address()
 			await this.loadScalingsIfNeeded()
+			await this.loadDeviceInfo()
 			await this.led_status()
 			await this.get_state()
 			await this.master_multi_led_info()
 			await this.dc_info()
 			await this.ac_info()
+			await this.readRamTelemetry()
 			await this.get_setting_IBatBulk()
 			await this.get_flags()
+			await this.get_flags1()
+			await this.loadExtendedSettings()
 
 		} catch (Exception) {
 			this.log.error("Exception in poll " + Exception)
@@ -115,6 +138,8 @@ export class Mk2Protocol {
 			if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01 ) {
 				throw ({ error: "no address frame"})
 			}
+			// The reply carries the address currently used by the MK2 (§7.1).
+			this.mk2Model["info.address"].value = response[4];
 		})
 	}
 
@@ -557,27 +582,216 @@ export class Mk2Protocol {
 
 	/** Read Flags0 (setting 0) as a signed 16-bit value. */
 	async readFlags0(): Promise<number> {
-		let value = 0;
-		await this.conn.communicate(this.create_frame("W", "\x31\x00\x00"), async (response: Buffer) => {
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-				throw new Error("readFlags0: no valid response");
+		const raw = await this.readSetting(0);
+		if (raw === null) {
+			throw new Error("readFlags0: Flags0 not supported by this device");
+		}
+		return raw >= 0x8000 ? raw - 0x10000 : raw;
+	}
+
+	/**
+	 * Read a setting (CommandReadSetting, protocol §7.3.4).
+	 * Returns null when the device answers 0x91 (setting not supported).
+	 */
+	async readSetting(id: number): Promise<number | null> {
+		let value: number | null = null;
+		await this.conn.communicate(this.create_frame("W", Buffer.from([0x31, id & 0xFF, (id >> 8) & 0xFF])), async (response: Buffer) => {
+			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+				throw new Error("readSetting: no valid response");
 			}
-			const data = bp.unpack("<h", response, 4);
-			value = data[0];
+			if (response[3] == 0x91) {
+				value = null;
+				return;
+			}
+			if (response[3] != 0x86) {
+				throw new Error("readSetting: unexpected response 0x" + response[3].toString(16));
+			}
+			value = bp.unpack("<H", response, 4)[0];
 		});
 		return value;
 	}
 
-	/** Write Flags0 with CommandWriteSetting + CommandWriteData. */
-	async writeFlags0(flags: number): Promise<void> {
-		const first_cmd = Buffer.from([0x33, 0x00, 0x00]);
-		const second_cmd = Buffer.from([0x34, flags & 0xFF, (flags >> 8) & 0xFF]);
+	/** Write a setting with CommandWriteSetting + CommandWriteData (§7.3.6/7.3.7). */
+	async writeSetting(id: number, raw: number): Promise<void> {
+		const first_cmd = Buffer.from([0x33, id & 0xFF, (id >> 8) & 0xFF]);
+		const second_cmd = Buffer.from([0x34, raw & 0xFF, (raw >> 8) & 0xFF]);
 		const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
 		return this.conn.communicate(frames, async (response: Buffer) => {
 			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
-				throw new Error("writeFlags0: no valid write response");
+				throw new Error(`writeSetting(${id}): no valid write response`);
 			}
 		});
+	}
+
+	/** Write Flags0 with CommandWriteSetting + CommandWriteData. */
+	async writeFlags0(flags: number): Promise<void> {
+		return this.writeSetting(0, flags & 0xFFFF);
+	}
+
+	/**
+	 * CommandGetSettingInfo (protocol §7.3.8): scale, offset, default, min, max.
+	 * Answers are cached per connection; unsupported settings are reported with
+	 * `supported = false` instead of throwing.
+	 */
+	async getSettingInfo(id: number, force = false): Promise<SettingInfo> {
+		const cached = this.settingInfoCache.get(id);
+		if (cached && !force) {
+			return cached;
+		}
+		const collector = new SettingInfoCollector(id);
+		await this.conn.communicateMulti(
+			this.create_frame("W", Buffer.from([0x35, id & 0xFF, (id >> 8) & 0xFF])),
+			async (frame: Buffer) => collector.addFrame(frame),
+			{ allowQuietEnd: true },
+		);
+		this.settingInfoCache.set(id, collector.info);
+		return collector.info;
+	}
+
+	/**
+	 * Protocol §7.3.13.3: for flag settings the Maximum value is the bitmask of
+	 * supported flags. Never write a bit the device does not advertise.
+	 */
+	private async assertFlagSupported(flagBit: number): Promise<void> {
+		const info = await this.getSettingInfo(0);
+		if (!info.supported) {
+			throw new Error("Flags0 is not supported by this device");
+		}
+		if (info.max !== null && (info.max & (1 << flagBit)) === 0) {
+			throw new Error(`flag ${flagBit} is not supported by this device (mask 0x${info.max.toString(16)})`);
+		}
+	}
+
+	/** Read Flags1 (setting 1) and expose the documented bits 27-31. */
+	async get_flags1(): Promise<void> {
+		const raw = await this.readSetting(1);
+		for (const def of FLAGS1) {
+			this.mk2Model[def.key].value = raw === null ? null : (raw & (1 << flags1Bit(def.flag))) !== 0;
+		}
+	}
+
+	/**
+	 * Read the extended, read-only settings once per connection. They are
+	 * configuration values, not telemetry, so they do not belong in the 2 s loop.
+	 */
+	async loadExtendedSettings(force = false): Promise<void> {
+		if (this.extendedSettingsLoaded && !force) {
+			return;
+		}
+		for (const def of READONLY_SETTINGS) {
+			const info = await this.getSettingInfo(def.id);
+			if (!info.supported) {
+				this.mk2Model[def.key].value = null;
+				continue;
+			}
+			const raw = await this.readSetting(def.id);
+			this.mk2Model[def.key].value = raw === null ? null : round(settingDisplayValue(info, raw), 3);
+		}
+		this.extendedSettingsLoaded = true;
+	}
+
+	/**
+	 * CommandGetRAMVarInfo (protocol §7.3.9) for an arbitrary RAM id, cached per
+	 * connection. Sc = 0 means the variable is not supported by this firmware.
+	 */
+	async getRamInfo(id: number): Promise<RamInfo> {
+		const cached = this.ramInfoCache.get(id);
+		if (cached) {
+			return cached;
+		}
+		let sc = 0;
+		let offset = 0;
+		await this.conn.communicate(this.create_frame("W", Buffer.from([0x36, id & 0xFF, (id >> 8) & 0xFF])), async (response: Buffer) => {
+			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
+				throw new Error("getRamInfo: no valid response");
+			}
+			const data = bp.unpack("<h B h", response, 4);
+			sc = data[0];
+			offset = data[2];
+		});
+		const info = makeRamInfo(id, sc, offset);
+		this.ramInfoCache.set(id, info);
+		return info;
+	}
+
+	/**
+	 * CommandReadRAMVar (protocol §7.3.3), one id per request. Returns null when
+	 * the firmware does not offer the variable; such ids are not polled again.
+	 */
+	async readRamVar(id: number): Promise<number | null> {
+		if (this.unsupportedRam.has(id)) {
+			return null;
+		}
+		const info = await this.getRamInfo(id);
+		if (!info.supported) {
+			this.unsupportedRam.add(id);
+			return null;
+		}
+		let raw: number | null = null;
+		let unsupported = false;
+		await this.conn.communicate(this.create_frame("W", Buffer.from([0x30, id & 0xFF])), async (response: Buffer) => {
+			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+				throw new Error("readRamVar: no valid response");
+			}
+			if (response[3] == 0x90) {
+				unsupported = true;
+				return;
+			}
+			if (response[3] != 0x85) {
+				throw new Error("readRamVar: unexpected response 0x" + response[3].toString(16));
+			}
+			raw = bp.unpack("<H", response, 4)[0];
+		});
+		if (unsupported || raw === null) {
+			this.unsupportedRam.add(id);
+			return null;
+		}
+		return round(ramDisplayValue(info, raw), 3);
+	}
+
+	/** Filtered power values and the internal battery monitor SOC (§7.3.13.1). */
+	async readRamTelemetry(): Promise<void> {
+		const telemetry = [
+			{ id: 14, key: "power.inverter" },
+			{ id: 16, key: "power.output" },
+			{ id: 13, key: "battery.soc" },
+		];
+		for (const def of telemetry) {
+			this.mk2Model[def.key].value = await this.readRamVar(def.id);
+		}
+	}
+
+	/**
+	 * Device identification: MK2 version/mode come from the version frame, the
+	 * MultiPlus firmware from CommandSendSoftwareVersion (§7.3.1). Read once per
+	 * connection; these values do not change while the device is running.
+	 */
+	async loadDeviceInfo(force = false): Promise<void> {
+		if (this.deviceInfoLoaded && !force) {
+			return;
+		}
+		this.mk2Model["info.mk2_version"].value = this.conn.mk2Version;
+		this.mk2Model["info.mk2_mode"].value = this.conn.mk2Mode;
+
+		const part0 = await this.readDeviceVersionPart(0x05, 0x82);
+		const part1 = await this.readDeviceVersionPart(0x06, 0x83);
+		if (part0 !== null && part1 !== null) {
+			const version = ((part1 << 16) | part0) >>> 0;
+			this.mk2Model["info.device_sw_version"].value = version;
+			this.mk2Model["info.device_sw_version_text"].value = formatDeviceVersion(version);
+		}
+		this.deviceInfoLoaded = true;
+	}
+
+	private async readDeviceVersionPart(command: number, expected: number): Promise<number | null> {
+		let part: number | null = null;
+		await this.conn.communicate(this.create_frame("W", Buffer.from([command, 0x00, 0x00])), async (response: Buffer) => {
+			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
+				throw new Error(`readDeviceVersionPart 0x${command.toString(16)}: no valid response`);
+			}
+			part = bp.unpack("<H", response, 4)[0];
+		});
+		return part;
 	}
 
 	async get_flags(): Promise<void> {
@@ -615,6 +829,7 @@ export class Mk2Protocol {
 
 	async set_flagDisableCharge(value: number): Promise<void> {
 		this.log.debug("set_flagDisableCharge newValue " + value);
+		await this.assertFlagSupported(6);
 		const flags = await this.readFlags0();
 		const mask = 1 << 6; // DisableCharge
 		const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
@@ -623,6 +838,7 @@ export class Mk2Protocol {
 
 	async set_flagWeakACInput(value: number): Promise<void> {
 		this.log.debug("set_flagWeakACInput newValue " + value);
+		await this.assertFlagSupported(14);
 		const flags = await this.readFlags0();
 		const mask = 1 << 14; // Weak AC input
 		const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
@@ -631,43 +847,32 @@ export class Mk2Protocol {
 
 	async get_setting_IBatBulk () : Promise<void> {
 		this.log.debug("******   get_setting_IBatBulk");
-
-		return this.conn.communicate (this.create_frame("W", "\x31\x04\x00"), async (response: Buffer) => {
-
-			// this.conn.frame_debug("get_setting_IBatBulk response", response)
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-				throw ({ error: "no get_setting_IBatBulk frame"})
-			}
-
-			const data = bp.unpack("<h", response, 4)
-
-			this.mk2Model["setting.IBatBulk"].value  = data[0]
-		})
+		const info = await this.getSettingInfo(4);
+		const raw = await this.readSetting(4);
+		this.mk2Model["setting.IBatBulk"].value =
+			raw === null ? null : info.supported ? round(settingDisplayValue(info, raw), 2) : raw;
 	}
 
 
 	async set_setting_IBatBulk (value: number) : Promise<void> {
 		this.log.debug("******   set_setting_IBatBulk value: " + value);
 
-		if (!Number.isInteger(value) || value < 0 || value > 120 ) {
-			throw new Error(`IBatBulk must be an integer between 0 and 120 (got ${value})`)
+		if (!Number.isInteger(value)) {
+			throw new Error(`IBatBulk must be an integer (got ${value})`)
 		}
-
-		const first_cmd  = Buffer.from([0x33, 0x04, 0x00])
-		const second_cmd = Buffer.from([0x34, value & 0xFF, (value >> 8) & 0xFF])
-		const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)])
-
-		return this.conn.communicate (frames, async (response: Buffer) => {
-
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
-				throw ({ error: "no set_setting_IBatBulk frame"})
-			}
-
-			// const data = bp.unpack("<h", response, 4)
-			// console.log("r:", response, "data1: ", data)
-
-			// this.mk2Model["setting.IBatBulk"].value  = data[0]
-		})
+		const info = await this.getSettingInfo(4);
+		if (!info.supported) {
+			throw new Error("IBatBulk is not supported by this device")
+		}
+		// Device limits come from GetSettingInfo; 0-120 A is only the fallback for
+		// firmware that does not report them.
+		const raw = settingRawValue(info, value);
+		const min = info.min ?? 0;
+		const max = info.max ?? 120;
+		if (raw < min || raw > max) {
+			throw new Error(`IBatBulk must be between ${min} and ${max} (got ${value})`)
+		}
+		await this.writeSetting(4, raw);
 	}
 
 }
