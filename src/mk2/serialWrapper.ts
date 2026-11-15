@@ -18,14 +18,16 @@ export class Mk2Serial {
 		return this.port?.isOpen ?? false;
 	}
 
-	open(): Promise<void> {
-		return new Promise(async (resolve, reject) => {
-			// Load the native serialport binding only when a real port is opened.
-			// This keeps unit tests independent of the native dependency.
-			const mod: any = await import("serialport");
-			const SerialPortImpl = mod.SerialPort ?? mod.default ?? mod;
-			this.log?.debug?.("open: " + this.portPath);
+	async open(): Promise<void> {
+		// Load the native serialport binding only when a real port is opened.
+		// This keeps unit tests independent of the native dependency.
+		// The import must be awaited *outside* the Promise executor: a rejection
+		// inside an async executor would leave open() pending forever (review T3).
+		const mod: any = await import("serialport");
+		const SerialPortImpl = mod.SerialPort ?? mod.default ?? mod;
+		this.log?.debug?.("open: " + this.portPath);
 
+		await new Promise<void>((resolve, reject) => {
 			const onOpen = (err1: any): void => {
 				if (err1) {
 					reject(err1);
