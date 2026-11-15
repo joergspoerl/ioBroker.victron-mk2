@@ -195,6 +195,10 @@ export class FakeMk2Connection {
 		this.synced = true;
 	}
 
+	frame_debug(): void {
+		// no-op for tests
+	}
+
 	async sync(): Promise<void> {
 		this.synced = true;
 	}

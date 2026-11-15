@@ -64,3 +64,103 @@ describe("Mk2Protocol", () => {
 		expect(p.mk2Model["setting.IBatBulk"].value).to.equal(120);
 	});
 });
+
+describe("Mk2Protocol control writes", () => {
+	it("set_assist uses the current switch state and updates the limit", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_assist(10);
+		expect(fake.switchState).to.equal(3);
+		expect(fake.limit).to.equal(10);
+	});
+
+	it("set_assist preserves an explicitly selected switch state", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_switch_state(2);
+		await p.set_assist(10);
+		expect(fake.switchState).to.equal(2);
+		expect(fake.limit).to.equal(10);
+	});
+
+	it("set_assist rejects invalid values", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await expect(p.set_assist(-1)).to.be.rejectedWith("invalid");
+		await expect(p.set_assist(NaN)).to.be.rejectedWith("invalid");
+	});
+
+	it("set_assist clamps to the device maximum", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.poll();
+		await p.set_assist(20);
+		expect(fake.limit).to.equal(16);
+	});
+
+	it("set_switch_state rejects invalid states", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await expect(p.set_switch_state(0)).to.be.rejectedWith("invalid");
+		await expect(p.set_switch_state(5)).to.be.rejectedWith("invalid");
+	});
+
+	it("set_grid_mode grid uses max limit and On", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_grid_mode(0);
+		expect(fake.switchState).to.equal(3);
+		expect(fake.limit).to.equal(16);
+	});
+
+	it("set_grid_mode zero_grid writes 0 A and keeps On", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_grid_mode(1);
+		expect(fake.switchState).to.equal(3);
+		expect(fake.limit).to.equal(0);
+	});
+
+	it("set_grid_mode inverter_only selects switch state 2", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_grid_mode(2);
+		expect(fake.switchState).to.equal(2);
+	});
+
+	it("set_grid_mode rejects invalid modes", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await expect(p.set_grid_mode(3)).to.be.rejectedWith("invalid");
+	});
+
+	it("set_setting_IBatBulk accepts a valid value", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_setting_IBatBulk(100);
+		expect(fake.requests.some((r) => r.includes(0x34))).to.equal(true);
+	});
+
+	it("set_setting_IBatBulk rejects invalid values", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await expect(p.set_setting_IBatBulk(-1)).to.be.rejectedWith("integer between 0 and 120");
+		await expect(p.set_setting_IBatBulk(121)).to.be.rejectedWith("integer between 0 and 120");
+		await expect(p.set_setting_IBatBulk(1.5)).to.be.rejectedWith("integer between 0 and 120");
+	});
+
+	it("set_flagDisableCharge and set_flagWeakACInput accept 0/1", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_flagDisableCharge(1);
+		await p.set_flagWeakACInput(0);
+		expect(fake.requests.length).to.be.greaterThan(1);
+	});
+
+	it("force_state validates the 0x94 response", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.force_state(3);
+		expect(fake.requests.some((r) => r[3] == 0x0E)).to.equal(true);
+	});
+});

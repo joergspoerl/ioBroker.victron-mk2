@@ -53,6 +53,8 @@ function round(number, decimal) {
 class Mk2Protocol {
     constructor(portPath, log, conn) {
         this.mk2Model = new mk2Model_1.Mk2Model();
+        /** Current VE.Bus switch state used for S commands (default: On). */
+        this.currentSwitchState = 3;
         this.portPath = portPath;
         this.conn = conn !== null && conn !== void 0 ? conn : new mk2Connection_1.Mk2Connection(portPath, log);
         this.calc = new Calc();
@@ -375,7 +377,7 @@ class Mk2Protocol {
     async get_state() {
         this.log.debug("******   get_state");
         return this.conn.communicate(this.create_frame("W", "\x0E\x00\x00"), async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
                 throw ({ error: "no get_state frame" });
             }
             const data = bp.unpack("<B B", response, 4);
@@ -420,20 +422,68 @@ class Mk2Protocol {
     // }
     // Set the ampere level for PowerAssist.
     async set_assist(ampere) {
-        const a = ampere * 10;
+        if (!Number.isFinite(ampere) || ampere < 0) {
+            throw new Error(`set_assist: invalid value ${ampere}`);
+        }
+        const max = this.mk2Model["assist.maxlimit"].value;
+        if (typeof max == "number" && max > 0 && ampere > max) {
+            this.log.warn(`set_assist: clamping ${ampere} A to ${max} A`);
+            ampere = max;
+        }
+        const a = Math.round(ampere * 10);
         const lo = a & 0xFF;
-        const hi = a >> 8;
-        const data = Buffer.from([0x03, lo, hi, 0x01, 0x80]);
+        const hi = (a >> 8) & 0xFF;
+        // Preserve the current switch state; do not hardcode "On".
+        const data = Buffer.from([this.currentSwitchState, lo, hi, 0x01, 0x80]);
         this.log.debug("******   set_assist");
         return this.conn.communicate(this.create_frame("S", data), async (response) => {
+            if (response[0] != 0x02 || response[1] != 0xff || response[2] != 0x53) {
+                throw new Error("set_assist: no valid S response");
+            }
             this.log.debug("set_assist ->" + JSON.stringify(response));
         });
+    }
+    /** Set the VE.Bus switch state without changing the input current limit. */
+    async set_switch_state(state) {
+        if (![1, 2, 3, 4].includes(state)) {
+            throw new Error(`set_switch_state: invalid state ${state}`);
+        }
+        this.currentSwitchState = state;
+        // Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
+        const data = Buffer.from([state, 0xFF, 0xFF, 0x01, 0x80]);
+        return this.conn.communicate(this.create_frame("S", data), async (response) => {
+            if (response[0] != 0x02 || response[1] != 0xff || response[2] != 0x53) {
+                throw new Error("set_switch_state: no valid S response");
+            }
+        });
+    }
+    /**
+     * Explicit grid/solar mode.
+     * 0 = grid (max input current, switch On)
+     * 1 = zero grid / solar inverter (0 A, switch On; PowerAssist an => Invert)
+     * 2 = inverter only (switch state 2, limit ignored)
+     */
+    async set_grid_mode(mode) {
+        if (![0, 1, 2].includes(mode)) {
+            throw new Error(`set_grid_mode: invalid mode ${mode}`);
+        }
+        if (mode == 2) {
+            await this.set_switch_state(2);
+            return;
+        }
+        this.currentSwitchState = 3;
+        const max = this.mk2Model["assist.maxlimit"].value;
+        const limit = mode == 0 ? (typeof max == "number" && max > 0 ? max : 16) : 0;
+        await this.set_assist(limit);
     }
     async force_state(state) {
         this.log.debug("force_state ->" + state);
         if (state == 1 || state == 2 || state == 3) {
             const data = Buffer.from([0x0E, state, 0x00]);
             return this.conn.communicate(this.create_frame("W", data), async (response) => {
+                if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
+                    throw new Error("force_state: no valid response");
+                }
                 this.log.debug("force_state ->" + response);
             });
         }
@@ -504,7 +554,7 @@ class Mk2Protocol {
             }
             // this.log.debug("response first  byte: " + dec2bin(response[4]))
             // this.log.debug("response second byte: " + dec2bin(response[5]))
-            let flagBytes = bp.unpack("<h", response, 4);
+            let flagBytes = bp.unpack("<h", response, 4)[0];
             // this.log.debug("old " + dec2bin(flagBytes))
             // this.log.debug("oldFlagsByte + " + JSON.stringify(flagBytes))
             const mask = 1 << 6; // gets the 6th bit
@@ -554,6 +604,9 @@ class Mk2Protocol {
             const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
             // this.conn.frame_debug("check frame", frames)
             return this.conn.communicate(frames, async (response) => {
+                if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
+                    throw ({ error: "set_flagDisableCharge: no valid write response" });
+                }
                 this.conn.frame_debug("response", response);
             });
         });
@@ -569,7 +622,7 @@ class Mk2Protocol {
             }
             // this.log.debug("response first  byte: " + dec2bin(response[4]))
             // this.log.debug("response second byte: " + dec2bin(response[5]))
-            let flagBytes = bp.unpack("<h", response, 4);
+            let flagBytes = bp.unpack("<h", response, 4)[0];
             // this.log.debug("old " + dec2bin(flagBytes))
             // this.log.debug("oldFlagsByte + " + JSON.stringify(flagBytes))
             const mask = 1 << 14; // gets the 6th bit
@@ -582,30 +635,8 @@ class Mk2Protocol {
                 flagBytes &= ~mask;
             }
             // this.log.debug("new " + dec2bin(flagBytes))
-            const flags = {
-                0: "MultiPhaseSystem",
-                1: "MultiPhaseLeader",
-                2: "60Hz",
-                3: "Disable Wave Check (fast input voltage detection).IMPORTANT: Keep flags[7] consistent. ",
-                4: "DoNotStopAfter10HrBulk",
-                5: "AssistEnabled",
-                6: "DisableCharge",
-                7: "IMPORTANT: Must have inverted value of flags[3]",
-                8: "DisableAES",
-                9: "Not promoted option",
-                10: "Not promoted option",
-                11: "EnableReducedFloat",
-                12: "Not promoted option ",
-                13: "Disable ground relay",
-                14: "Weak AC input",
-                15: "Remote overrules AC2",
-            };
-            Object.keys(flags).forEach((key) => {
-                const keyNumber = parseInt(key);
-                const bitmask = Math.pow(2, keyNumber);
-                const b = (bitmask & flagBytes) > 0;
-                console.log(b, key, flags[keyNumber]);
-            });
+            // Debug output intentionally removed: it was an unconditional
+            // console.log on every flag write.
             const newDataBytes = bp.pack("<h", [flagBytes]);
             // this.log.debug("oldFlagsByte + " + JSON.stringify(newDataBytes))
             // console.log(newDataBytes)
@@ -619,6 +650,9 @@ class Mk2Protocol {
             const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
             // this.conn.frame_debug("check frame", frames)
             return this.conn.communicate(frames, async (response) => {
+                if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
+                    throw ({ error: "set_flagDisableCharge: no valid write response" });
+                }
                 this.conn.frame_debug("response", response);
             });
         });
@@ -636,12 +670,11 @@ class Mk2Protocol {
     }
     async set_setting_IBatBulk(value) {
         this.log.debug("******   set_setting_IBatBulk value: " + value);
-        if (value < 0 && value > 120) {
-            this.log.error("value out of range");
-            throw "value out of range";
+        if (!Number.isInteger(value) || value < 0 || value > 120) {
+            throw new Error(`IBatBulk must be an integer between 0 and 120 (got ${value})`);
         }
         const first_cmd = Buffer.from([0x33, 0x04, 0x00]);
-        const second_cmd = Buffer.from([0x34, value, 0x00]);
+        const second_cmd = Buffer.from([0x34, value & 0xFF, (value >> 8) & 0xFF]);
         const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
         return this.conn.communicate(frames, async (response) => {
             if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
