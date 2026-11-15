@@ -59,6 +59,9 @@ export class Mk2Connection {
 		}
 	}
 
+	/** Serialises every exchange; the tail continues even after a failure. */
+	private queueTail: Promise<unknown> = Promise.resolve();
+
 	/** Open the port and synchronise once; resynchronise after a reconnect. */
 	async ensureSynced(): Promise<void> {
 		if (!this.port.isOpen()) {
@@ -181,7 +184,19 @@ export class Mk2Connection {
 		decode: (response: Buffer) => Promise<boolean>,
 		options: { allowQuietEnd?: boolean; readTimeoutMs?: number } = {},
 	): Promise<void> {
-		await this.waitForFreeLine();
+		// A busy flag plus an await is not a mutex (review T13). Queue every
+		// exchange on a promise tail instead: concurrent callers are strictly
+		// serialised and a failure does not break the chain.
+		const run = this.queueTail.then(() => this.performExchange(request, decode, options));
+		this.queueTail = run.catch(() => undefined);
+		return run;
+	}
+
+	private async performExchange(
+		request: Buffer,
+		decode: (response: Buffer) => Promise<boolean>,
+		options: { allowQuietEnd?: boolean; readTimeoutMs?: number } = {},
+	): Promise<void> {
 		this.busy = true;
 		let decoded = 0;
 
