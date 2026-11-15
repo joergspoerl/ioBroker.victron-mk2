@@ -332,3 +332,22 @@ describe("diagnostic counters (issues #65, #66)", () => {
 		expect(conn.protocolErrors).to.equal(1);
 	});
 });
+
+describe("appended LED status (issue #67)", () => {
+	it("does not decode the appended LED block as the next response", async () => {
+		const main = mk2Frame(0x41, [0x01, 0x00]);
+		main[0] |= 0x80; // LED status appended (length bit 7)
+		main[main.length - 1] = 0;
+		let sum = 0;
+		for (const b of main) sum += b;
+		main[main.length - 1] = (256 - (sum % 256)) & 0xFF;
+
+		const fake = new FakeMk2Serial();
+		fake.push(Buffer.concat([main, Buffer.from([0x4c, 0x01, 0x00]), mk2Frame(0x41, [0x01, 0x00])]));
+		const conn = connWith(fake);
+		const first = await conn.receiveFrame(200);
+		expect(first[2]).to.equal(0x41);
+		const second = await conn.receiveFrame(200);
+		expect(second[2]).to.equal(0x41); // the LED block must not be a response
+	});
+});

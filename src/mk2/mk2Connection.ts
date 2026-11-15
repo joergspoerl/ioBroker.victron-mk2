@@ -296,6 +296,7 @@ export class Mk2Connection {
 			// Bit 7 of the length byte means an LED status frame is appended;
 			// it must not be counted as part of the frame length.
 			const len = this.rxBuffer[0] & 0x7F;
+			const ledAppended = (this.rxBuffer[0] & 0x80) !== 0;
 			if (len == 0) {
 				await this.fail("protocol", "Invalid MK2 frame length 0");
 			}
@@ -321,11 +322,23 @@ export class Mk2Connection {
 				await this.fail("checksum", "MK2 frame checksum error");
 			}
 			this.rxBuffer = this.rxBuffer.slice(needed);
+			if (ledAppended) {
+				// The appended LED block is not a response to the next command (N12).
+				this.discardAppendedLedStatus();
+			}
 			this.frame_debug("RECV <-", frame);
 			return frame;
 		}
 		await this.fail("timeout", "Timeout waiting for MK2 frame");
 		throw new Error("unreachable");
+	}
+
+	/** Drop an appended 'L' <on> <blink> block after a frame with the LED bit. */
+	private discardAppendedLedStatus(): void {
+		if (this.rxBuffer.length >= 3 && this.rxBuffer[0] == 0x4c) {
+			this.log.debug("discarding appended LED status frame");
+			this.rxBuffer = this.rxBuffer.slice(3);
+		}
 	}
 
 	/**
