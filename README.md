@@ -96,6 +96,15 @@ without the MK2 and attach/start the adapter afterwards.
 All reads/writes use length-prefixed frames with checksum validation and
 timeouts; failed control writes are retried on a later poll cycle.
 
+### Configuration
+
+- `portPath`: serial device of the MK2 (for example `/dev/ttyUSB-Serial-1`).
+- `interval`: poll interval in seconds (default 2). The loop is sequential, so a
+  shorter value than one full poll simply means continuous polling.
+- `responseTimeout`: response budget per MK2 frame in ms (default 1500). The
+  protocol recommends 500 ms, but a busy host may need more; the MasterMultiLED
+  request always gets a longer budget.
+
 ## Developer manual
 This section is intended for the developer. It can be deleted later
 
