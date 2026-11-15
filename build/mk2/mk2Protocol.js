@@ -36,15 +36,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mk2Protocol = exports.Calc = void 0;
 const mk2Connection_1 = require("./mk2Connection");
 const mk2Model_1 = require("./mk2Model");
+const mk2Settings_1 = require("./mk2Settings");
+const mk2Ram_1 = require("./mk2Ram");
+const mk2Switch_1 = require("./mk2Switch");
 const bp = __importStar(require("bufferpack"));
 class Calc {
 }
 exports.Calc = Calc;
 function scale(factor) {
-    const s = Math.abs(factor);
-    if (s >= 0x4000)
-        return 1.0 / (0x8000 - s);
-    return s;
+    return (0, mk2Ram_1.ramScale)(factor);
 }
 function round(number, decimal) {
     const e = Math.pow(10, decimal);
@@ -55,6 +55,12 @@ class Mk2Protocol {
         this.mk2Model = new mk2Model_1.Mk2Model();
         /** Current VE.Bus switch state used for S commands (default: On). */
         this.currentSwitchState = 3;
+        /** Cached CommandGetSettingInfo answers, keyed by setting id. */
+        this.settingInfoCache = new Map();
+        this.extendedSettingsLoaded = false;
+        this.ramInfoCache = new Map();
+        this.unsupportedRam = new Set();
+        this.deviceInfoLoaded = false;
         this.portPath = portPath;
         this.conn = conn !== null && conn !== void 0 ? conn : new mk2Connection_1.Mk2Connection(portPath, log);
         this.calc = new Calc();
@@ -65,20 +71,33 @@ class Mk2Protocol {
             await this.conn.ensureSynced();
             await this.address();
             await this.loadScalingsIfNeeded();
+            await this.loadDeviceInfo();
             await this.led_status();
             await this.get_state();
             await this.master_multi_led_info();
             await this.dc_info();
             await this.ac_info();
-            // await this.get_power_charger()
-            // await this.get_power_inverter()
-            // await this.get_power_output()
+            await this.readRamTelemetry();
             await this.get_setting_IBatBulk();
             await this.get_flags();
+            await this.get_flags1();
+            await this.loadExtendedSettings();
+            this.mk2Model["info.connection"].value = true;
         }
         catch (Exception) {
+            this.mk2Model["info.connection"].value = false;
             this.log.error("Exception in poll " + Exception);
         }
+        finally {
+            this.updateDiagnostics();
+        }
+    }
+    /** Mirror the connection health counters into the model (issue #8). */
+    updateDiagnostics() {
+        var _a, _b, _c;
+        this.mk2Model["diag.timeouts"].value = (_a = this.conn.timeouts) !== null && _a !== void 0 ? _a : 0;
+        this.mk2Model["diag.checksum_errors"].value = (_b = this.conn.checksumErrors) !== null && _b !== void 0 ? _b : 0;
+        this.mk2Model["diag.last_error"].value = (_c = this.conn.lastError) !== null && _c !== void 0 ? _c : "";
     }
     /**
      * Minimal, read-only poll used to determine whether the MultiPlus has
@@ -119,6 +138,8 @@ class Mk2Protocol {
             if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x41 || response[3] != 0x01) {
                 throw ({ error: "no address frame" });
             }
+            // The reply carries the address currently used by the MK2 (§7.1).
+            this.mk2Model["info.address"].value = response[4];
         });
     }
     async led_status() {
@@ -228,7 +249,10 @@ class Mk2Protocol {
     }
     async ibat_calc_load() {
         this.log.debug("******   ibat_calc_load");
-        return this.conn.communicate(this.create_frame("W", "\x36\x06\x00"), async (response) => {
+        // RAM ID 5 = IBat (protocol §7.3.13.1). ID 6 is UBatRMS and was used here
+        // by mistake; both happen to scale by 0.01 on the current firmware, but
+        // ID 5 is the signed one (appendix 2).
+        return this.conn.communicate(this.create_frame("W", "\x36\x05\x00"), async (response) => {
             if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
                 throw ({ error: "no ibat_calc_load frame" });
             }
@@ -298,12 +322,22 @@ class Mk2Protocol {
             // DC current fields are unsigned 24-bit values (protocol §6.1).
             const ibat = response[9] | (response[10] << 8) | (response[11] << 16);
             const cbat = response[12] | (response[13] << 8) | (response[14] << 16);
-            // const finv = bp.unpack("<B", response, 15);
-            if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
+            // Inverter period, single byte like the mains period on this firmware.
+            const finv = response[15];
+            if (this.calc.ubat_calc && this.calc.ibat_calc) {
+                const inverterCurrent = round(((ibat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)), 2);
+                const chargeCurrent = round(((cbat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)), 2);
                 this.mk2Model["dc_info.ubat"].value = round(((ubat + this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale)), 2);
-                this.mk2Model["dc_info.ibat"].value = round(((ibat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)), 2);
-                this.mk2Model["dc_info.icharge"].value = round(((cbat + this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)), 2);
-                // this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
+                this.mk2Model["dc_info.ibat"].value = inverterCurrent;
+                this.mk2Model["dc_info.icharge"].value = chargeCurrent;
+                // Net battery current (appendix 2): charging devices minus inverting
+                // devices. Positive means charging, like the BMV sign convention.
+                this.mk2Model["dc_info.ibat_net"].value = round(chargeCurrent - inverterCurrent, 2);
+            }
+            if (this.calc.finv_calc) {
+                const period = (finv + this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale);
+                // A period of 0 means "no inverter output", not a division by zero.
+                this.mk2Model["dc_info.finv"].value = period > 0 ? round(10 / period, 2) : 0;
             }
         });
     }
@@ -364,18 +398,37 @@ class Mk2Protocol {
             this.mk2Model["switch.SwitchInvert"].value = (switch_register & 0b00100000) > 0 ? 1 : 0;
             this.mk2Model["switch.OnboardRemoteInvertSwitch"].value = (switch_register & 0b01000000) > 0 ? 1 : 0;
             this.mk2Model["switch.RemoteGeneratorSelected"].value = (switch_register & 0b10000000) > 0 ? 1 : 0;
-        });
+            // The device is authoritative for the panel switch state (issue #7):
+            // a front switch or remote panel change must not be overwritten by a
+            // stale local cache on the next limit write.
+            const derived = (0, mk2Switch_1.switchStateFromRegister)(switch_register);
+            this.mk2Model["switch.state"].value = derived;
+            if (derived !== this.currentSwitchState) {
+                this.log.info(`switch state changed on the device: ${this.currentSwitchState} -> ${derived}; adopting it`);
+                this.currentSwitchState = derived;
+            }
+        }, { readTimeoutMs: 1200 }); // protocol §3.3: the F5 response may take >750 ms
     }
     async get_state() {
         this.log.debug("******   get_state");
         return this.conn.communicate(this.create_frame("W", "\x0E\x00\x00"), async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
-                throw ({ error: "no get_state frame" });
-            }
-            const data = bp.unpack("<B B", response, 4);
-            const state = parseInt("" + data[0] + data[1]);
-            this.mk2Model["state.state"].value = state;
+            this.decodeStateResponse(response, "get_state");
         });
+    }
+    /**
+     * 0x94 <State> <Sub-state> (protocol §7.3.2). The historical state.state
+     * encoding is mainState*10 + subState; the sub-state is also exposed on its
+     * own so charge phases do not have to be decoded from a two-digit number.
+     */
+    decodeStateResponse(response, context) {
+        if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
+            throw new Error(`${context}: no valid state response`);
+        }
+        const data = bp.unpack("<B B", response, 4);
+        const mainState = data[0];
+        const subState = data[1];
+        this.mk2Model["state.state"].value = mainState * 10 + subState;
+        this.mk2Model["state.substate"].value = subState;
     }
     // Set the ampere level for PowerAssist.
     async set_assist(ampere) {
@@ -390,7 +443,11 @@ class Mk2Protocol {
         const a = Math.round(ampere * 10);
         const lo = a & 0xFF;
         const hi = (a >> 8) & 0xFF;
-        // Preserve the current switch state; do not hardcode "On".
+        if (this.currentSwitchState == 4) {
+            // A limit write always carries a panel state. Do not switch a device
+            // on that the operator switched off (issue #7).
+            throw new Error("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly");
+        }
         const data = Buffer.from([this.currentSwitchState, lo, hi, 0x01, 0x80]);
         this.log.debug("******   set_assist");
         return this.conn.communicate(this.create_frame("S", data), async (response) => {
@@ -436,90 +493,244 @@ class Mk2Protocol {
     }
     async force_state(state) {
         this.log.debug("force_state ->" + state);
-        if (state == 1 || state == 2 || state == 3) {
-            const data = Buffer.from([0x0E, state, 0x00]);
-            return this.conn.communicate(this.create_frame("W", data), async (response) => {
-                if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
-                    throw new Error("force_state: no valid response");
-                }
-                this.log.debug("force_state ->" + response);
-            });
+        if (![1, 2, 3].includes(state)) {
+            throw new Error(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`);
         }
+        const data = Buffer.from([0x0E, state, 0x00]);
+        return this.conn.communicate(this.create_frame("W", data), async (response) => {
+            // Decode the answer like a state read, so the forced charge state is
+            // visible in the model instead of only acknowledged.
+            this.decodeStateResponse(response, "force_state");
+        });
     }
     /** Read Flags0 (setting 0) as a signed 16-bit value. */
     async readFlags0() {
-        let value = 0;
-        await this.conn.communicate(this.create_frame("W", "\x31\x00\x00"), async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-                throw new Error("readFlags0: no valid response");
+        const raw = await this.readSetting(0);
+        if (raw === null) {
+            throw new Error("readFlags0: Flags0 not supported by this device");
+        }
+        return raw >= 0x8000 ? raw - 0x10000 : raw;
+    }
+    /**
+     * Read a setting (CommandReadSetting, protocol §7.3.4).
+     * Returns null when the device answers 0x91 (setting not supported).
+     */
+    async readSetting(id) {
+        let value = null;
+        await this.conn.communicate(this.create_frame("W", Buffer.from([0x31, id & 0xFF, (id >> 8) & 0xFF])), async (response) => {
+            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+                throw new Error("readSetting: no valid response");
             }
-            const data = bp.unpack("<h", response, 4);
-            value = data[0];
+            if (response[3] == 0x91) {
+                value = null;
+                return;
+            }
+            if (response[3] != 0x86) {
+                throw new Error("readSetting: unexpected response 0x" + response[3].toString(16));
+            }
+            value = bp.unpack("<H", response, 4)[0];
         });
         return value;
     }
-    /** Write Flags0 with CommandWriteSetting + CommandWriteData. */
-    async writeFlags0(flags) {
-        const first_cmd = Buffer.from([0x33, 0x00, 0x00]);
-        const second_cmd = Buffer.from([0x34, flags & 0xFF, (flags >> 8) & 0xFF]);
+    /** Write a setting with CommandWriteSetting + CommandWriteData (§7.3.6/7.3.7). */
+    async writeSetting(id, raw) {
+        const first_cmd = Buffer.from([0x33, id & 0xFF, (id >> 8) & 0xFF]);
+        const second_cmd = Buffer.from([0x34, raw & 0xFF, (raw >> 8) & 0xFF]);
         const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
         return this.conn.communicate(frames, async (response) => {
             if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
-                throw new Error("writeFlags0: no valid write response");
+                throw new Error(`writeSetting(${id}): no valid write response`);
             }
         });
+    }
+    /** Write Flags0 with CommandWriteSetting + CommandWriteData. */
+    async writeFlags0(flags) {
+        return this.writeSetting(0, flags & 0xFFFF);
+    }
+    /**
+     * CommandGetSettingInfo (protocol §7.3.8): scale, offset, default, min, max.
+     * Answers are cached per connection; unsupported settings are reported with
+     * `supported = false` instead of throwing.
+     */
+    async getSettingInfo(id, force = false) {
+        const cached = this.settingInfoCache.get(id);
+        if (cached && !force) {
+            return cached;
+        }
+        const collector = new mk2Settings_1.SettingInfoCollector(id);
+        await this.conn.communicateMulti(this.create_frame("W", Buffer.from([0x35, id & 0xFF, (id >> 8) & 0xFF])), async (frame) => collector.addFrame(frame), { allowQuietEnd: true });
+        this.settingInfoCache.set(id, collector.info);
+        return collector.info;
+    }
+    /**
+     * Protocol §7.3.13.3: for flag settings the Maximum value is the bitmask of
+     * supported flags. Never write a bit the device does not advertise.
+     */
+    async assertFlagSupported(flagBit) {
+        const info = await this.getSettingInfo(0);
+        if (!info.supported) {
+            throw new Error("Flags0 is not supported by this device");
+        }
+        if (info.max !== null && (info.max & (1 << flagBit)) === 0) {
+            throw new Error(`flag ${flagBit} is not supported by this device (mask 0x${info.max.toString(16)})`);
+        }
+    }
+    /** Read Flags1 (setting 1) and expose the documented bits 27-31. */
+    async get_flags1() {
+        const raw = await this.readSetting(1);
+        for (const def of mk2Settings_1.FLAGS1) {
+            this.mk2Model[def.key].value = raw === null ? null : (raw & (1 << (0, mk2Settings_1.flags1Bit)(def.flag))) !== 0;
+        }
+    }
+    /**
+     * Read the extended, read-only settings once per connection. They are
+     * configuration values, not telemetry, so they do not belong in the 2 s loop.
+     */
+    async loadExtendedSettings(force = false) {
+        if (this.extendedSettingsLoaded && !force) {
+            return;
+        }
+        for (const def of mk2Settings_1.READONLY_SETTINGS) {
+            const info = await this.getSettingInfo(def.id);
+            if (!info.supported) {
+                this.mk2Model[def.key].value = null;
+                continue;
+            }
+            const raw = await this.readSetting(def.id);
+            this.mk2Model[def.key].value = raw === null ? null : round((0, mk2Settings_1.settingDisplayValue)(info, raw), 3);
+        }
+        this.extendedSettingsLoaded = true;
+    }
+    /**
+     * CommandGetRAMVarInfo (protocol §7.3.9) for an arbitrary RAM id, cached per
+     * connection. Sc = 0 means the variable is not supported by this firmware.
+     */
+    async getRamInfo(id) {
+        const cached = this.ramInfoCache.get(id);
+        if (cached) {
+            return cached;
+        }
+        let sc = 0;
+        let offset = 0;
+        await this.conn.communicate(this.create_frame("W", Buffer.from([0x36, id & 0xFF, (id >> 8) & 0xFF])), async (response) => {
+            if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
+                throw new Error("getRamInfo: no valid response");
+            }
+            const data = bp.unpack("<h B h", response, 4);
+            sc = data[0];
+            offset = data[2];
+        });
+        const info = (0, mk2Ram_1.makeRamInfo)(id, sc, offset);
+        this.ramInfoCache.set(id, info);
+        return info;
+    }
+    /**
+     * CommandReadRAMVar (protocol §7.3.3), one id per request. Returns null when
+     * the firmware does not offer the variable; such ids are not polled again.
+     */
+    async readRamVar(id) {
+        if (this.unsupportedRam.has(id)) {
+            return null;
+        }
+        const info = await this.getRamInfo(id);
+        if (!info.supported) {
+            this.unsupportedRam.add(id);
+            return null;
+        }
+        let raw = null;
+        let unsupported = false;
+        await this.conn.communicate(this.create_frame("W", Buffer.from([0x30, id & 0xFF])), async (response) => {
+            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+                throw new Error("readRamVar: no valid response");
+            }
+            if (response[3] == 0x90) {
+                unsupported = true;
+                return;
+            }
+            if (response[3] != 0x85) {
+                throw new Error("readRamVar: unexpected response 0x" + response[3].toString(16));
+            }
+            raw = bp.unpack("<H", response, 4)[0];
+        });
+        if (unsupported || raw === null) {
+            this.unsupportedRam.add(id);
+            return null;
+        }
+        return round((0, mk2Ram_1.ramDisplayValue)(info, raw), 3);
+    }
+    /** Filtered power values and the internal battery monitor SOC (§7.3.13.1). */
+    async readRamTelemetry() {
+        const telemetry = [
+            { id: 14, key: "power.inverter" },
+            { id: 16, key: "power.output" },
+            { id: 13, key: "battery.soc" },
+        ];
+        for (const def of telemetry) {
+            this.mk2Model[def.key].value = await this.readRamVar(def.id);
+        }
+    }
+    /**
+     * Device identification: MK2 version/mode come from the version frame, the
+     * MultiPlus firmware from CommandSendSoftwareVersion (§7.3.1). Read once per
+     * connection; these values do not change while the device is running.
+     */
+    async loadDeviceInfo(force = false) {
+        if (this.deviceInfoLoaded && !force) {
+            return;
+        }
+        this.mk2Model["info.mk2_version"].value = this.conn.mk2Version;
+        this.mk2Model["info.mk2_mode"].value = this.conn.mk2Mode;
+        const part0 = await this.readDeviceVersionPart(0x05, 0x82);
+        const part1 = await this.readDeviceVersionPart(0x06, 0x83);
+        if (part0 !== null && part1 !== null) {
+            const version = ((part1 << 16) | part0) >>> 0;
+            this.mk2Model["info.device_sw_version"].value = version;
+            this.mk2Model["info.device_sw_version_text"].value = (0, mk2Ram_1.formatDeviceVersion)(version);
+        }
+        this.deviceInfoLoaded = true;
+    }
+    async readDeviceVersionPart(command, expected) {
+        let part = null;
+        await this.conn.communicate(this.create_frame("W", Buffer.from([command, 0x00, 0x00])), async (response) => {
+            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
+                throw new Error(`readDeviceVersionPart 0x${command.toString(16)}: no valid response`);
+            }
+            part = bp.unpack("<H", response, 4)[0];
+        });
+        return part;
     }
     async get_flags() {
         this.log.debug("******   get_flags");
         const flags = await this.readFlags0();
         const flagMap = {
-            0: "MultiPhaseSystem",
-            1: "MultiPhaseLeader",
-            2: "60Hz",
-            3: "Disable Wave Check (fast input voltage detection).IMPORTANT: Keep flags[7] consistent. ",
-            4: "DoNotStopAfter10HrBulk",
-            5: "AssistEnabled",
-            6: "DisableCharge",
-            7: "IMPORTANT: Must have inverted value of flags[3]",
-            8: "DisableAES",
-            9: "Not promoted option",
-            10: "Not promoted option",
-            11: "EnableReducedFloat",
-            12: "Not promoted option ",
-            13: "Disable ground relay",
-            14: "Weak AC input",
-            15: "Remote overrules AC2",
+            0: "setting.flag.MultiPhaseSystem",
+            1: "setting.flag.MultiPhaseLeader",
+            2: "setting.flag.Freq60Hz",
+            3: "setting.flag.DisableWaveCheck",
+            4: "setting.flag.DoNotStopAfter10HrBulk",
+            5: "setting.flag.AssistEnabled",
+            6: "setting.flag.DisableCharge",
+            7: "setting.flag.WaveCheckInverted",
+            8: "setting.flag.DisableAES",
+            11: "setting.flag.EnableReducedFloat",
+            13: "setting.flag.DisableGroundRelay",
+            14: "setting.flag.WeakACInput",
+            15: "setting.flag.RemoteOverrulesAC2",
         };
-        Object.keys(flagMap).forEach((key) => {
-            const keyNumber = parseInt(key);
-            const bitmask = Math.pow(2, keyNumber);
-            const b = (bitmask & flags) > 0;
-            if (keyNumber == 0)
-                this.mk2Model["setting.flag.MultiPhaseSystem"].value = b;
-            if (keyNumber == 1)
-                this.mk2Model["setting.flag.MultiPhaseLeader"].value = b;
-            if (keyNumber == 2)
-                this.mk2Model["setting.flag.Freq60Hz"].value = b;
-            if (keyNumber == 4)
-                this.mk2Model["setting.flag.DoNotStopAfter10HrBulk"].value = b;
-            if (keyNumber == 5)
-                this.mk2Model["setting.flag.AssistEnabled"].value = b;
-            if (keyNumber == 6)
-                this.mk2Model["setting.flag.DisableCharge"].value = b;
-            if (keyNumber == 8)
-                this.mk2Model["setting.flag.DisableAES"].value = b;
-            if (keyNumber == 11)
-                this.mk2Model["setting.flag.EnableReducedFloat"].value = b;
-            if (keyNumber == 13)
-                this.mk2Model["setting.flag.DisableGroundRelay"].value = b;
-            if (keyNumber == 14)
-                this.mk2Model["setting.flag.WeakACInput"].value = b;
-            if (keyNumber == 15)
-                this.mk2Model["setting.flag.RemoteOverrulesAC2"].value = b;
-        });
+        // Bits 9, 10 and 12 are "not promoted options" and stay untouched.
+        for (const [bit, key] of Object.entries(flagMap)) {
+            this.mk2Model[key].value = (flags & (1 << parseInt(bit))) !== 0;
+        }
+        // Protocol §7.3.13.3: flags[7] must be the inverse of flags[3].
+        const waveCheck = (flags & (1 << 3)) !== 0;
+        const waveCheckInverted = (flags & (1 << 7)) !== 0;
+        if (waveCheck === waveCheckInverted) {
+            this.log.warn("Flags0 bit 3 and bit 7 are not inverted (wave check); device configuration is inconsistent");
+        }
     }
     async set_flagDisableCharge(value) {
         this.log.debug("set_flagDisableCharge newValue " + value);
+        await this.assertFlagSupported(6);
         const flags = await this.readFlags0();
         const mask = 1 << 6; // DisableCharge
         const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
@@ -527,6 +738,7 @@ class Mk2Protocol {
     }
     async set_flagWeakACInput(value) {
         this.log.debug("set_flagWeakACInput newValue " + value);
+        await this.assertFlagSupported(14);
         const flags = await this.readFlags0();
         const mask = 1 << 14; // Weak AC input
         const newFlags = value == 1 ? (flags | mask) : (flags & ~mask);
@@ -534,31 +746,30 @@ class Mk2Protocol {
     }
     async get_setting_IBatBulk() {
         this.log.debug("******   get_setting_IBatBulk");
-        return this.conn.communicate(this.create_frame("W", "\x31\x04\x00"), async (response) => {
-            // this.conn.frame_debug("get_setting_IBatBulk response", response)
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x86) {
-                throw ({ error: "no get_setting_IBatBulk frame" });
-            }
-            const data = bp.unpack("<h", response, 4);
-            this.mk2Model["setting.IBatBulk"].value = data[0];
-        });
+        const info = await this.getSettingInfo(4);
+        const raw = await this.readSetting(4);
+        this.mk2Model["setting.IBatBulk"].value =
+            raw === null ? null : info.supported ? round((0, mk2Settings_1.settingDisplayValue)(info, raw), 2) : raw;
     }
     async set_setting_IBatBulk(value) {
+        var _a, _b;
         this.log.debug("******   set_setting_IBatBulk value: " + value);
-        if (!Number.isInteger(value) || value < 0 || value > 120) {
-            throw new Error(`IBatBulk must be an integer between 0 and 120 (got ${value})`);
+        if (!Number.isInteger(value)) {
+            throw new Error(`IBatBulk must be an integer (got ${value})`);
         }
-        const first_cmd = Buffer.from([0x33, 0x04, 0x00]);
-        const second_cmd = Buffer.from([0x34, value & 0xFF, (value >> 8) & 0xFF]);
-        const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
-        return this.conn.communicate(frames, async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
-                throw ({ error: "no set_setting_IBatBulk frame" });
-            }
-            // const data = bp.unpack("<h", response, 4)
-            // console.log("r:", response, "data1: ", data)
-            // this.mk2Model["setting.IBatBulk"].value  = data[0]
-        });
+        const info = await this.getSettingInfo(4);
+        if (!info.supported) {
+            throw new Error("IBatBulk is not supported by this device");
+        }
+        // Device limits come from GetSettingInfo; 0-120 A is only the fallback for
+        // firmware that does not report them.
+        const raw = (0, mk2Settings_1.settingRawValue)(info, value);
+        const min = (_a = info.min) !== null && _a !== void 0 ? _a : 0;
+        const max = (_b = info.max) !== null && _b !== void 0 ? _b : 120;
+        if (raw < min || raw > max) {
+            throw new Error(`IBatBulk must be between ${min} and ${max} (got ${value})`);
+        }
+        await this.writeSetting(4, raw);
     }
 }
 exports.Mk2Protocol = Mk2Protocol;

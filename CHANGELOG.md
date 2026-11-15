@@ -3,6 +3,73 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.0 (2026-11-15)
+
+Protocol coverage release, implementing issues #1–#9 from the full audit against
+*MK2 Protocol 3.14* (`docs/protocol-coverage-2026-11-15.md`). All additions are
+covered by unit tests (93 TS tests + 37 package tests, `tsc`/`eslint` clean).
+
+### Fixed
+
+- **IBat scaling (#1)**: `ibat_calc_load()` now queries **RAM ID 5 (IBat)**
+  instead of ID 6 (UBatRMS). Both coincidentally scale by 0.01 on the current
+  firmware, but ID 5 is the signed one (protocol appendix 2).
+- **Reconnect after stream errors (#8)**: a timeout or checksum error now closes
+  the port and invalidates the sync state; the next poll reopens and
+  resynchronises instead of continuing on a desynchronised MK2.
+- **Implicit power-on prevented (#7)**: `set_assist` refuses to write when the
+  device switch is Off, instead of switching it on as a side effect.
+
+### Added
+
+- **Setting metadata (#2)**: `CommandGetSettingInfo` (`W 35`) with the multi-frame
+  response handling this needs (up to three W frames per MK2 frame, quiet-end
+  tolerance for older firmware). Scale, offset, default, min, max are cached per
+  connection. Flag writes are rejected when the device support mask
+  (§7.3.13.3) does not advertise the bit; `IBatBulk` writes use the device
+  min/max and scaling instead of a hardcoded range.
+- **Read-only settings (#4)**: charge voltages (absorption/float), inverter
+  setpoint, AC1/AC2 input current limits, DC low limit + hysteresis + pre-alarm
+  offset, lowest/highest acceptable mains voltage with hysteresis, PowerAssist
+  boost factor, AES current limit + hysteresis. Loaded once per connection;
+  unsupported settings stay `null`. **Flags1** exposes dynamic current limiter,
+  accept wide input frequency, remote overrules AC1, tubular-plate curve and
+  low-power-shutdown AES.
+- **RAM telemetry (#6)**: generic `CommandReadRAMVar` with per-id support check;
+  `power.inverter` and `power.output` (filtered, signed W) and `battery.soc`
+  (internal battery monitor).
+- **Device identification (#3)**: `info.device_sw_version` and
+  `info.device_sw_version_text` (AA BB CCC) via `CommandSendSoftwareVersion`,
+  `info.mk2_version`/`info.mk2_mode` from the version frame, `info.address` from
+  the address response.
+- **Telemetry (#5)**: `dc_info.ibat_net` (net battery current, positive =
+  charging) and `dc_info.finv` (inverter frequency, 0 when the inverter is off).
+- **State detail (#9)**: `state.substate` with charge-phase names; the
+  `force_state` response is now decoded into the model instead of only
+  acknowledged; Flags0 wave-check bits 3/7 are exposed and a warning is logged
+  when they are not inverted as required.
+- **Switch state visibility (#7)**: `switch.state` derived from the device switch
+  register; the device is authoritative and a change is logged.
+
+### Changed
+
+- `dc_info.ibat`/`dc_info.icharge` descriptions now say what the F0 fields really
+  are (inverter/charger DC currents); the net battery current is `ibat_net`.
+- Serial timeouts follow protocol §3.3: 500 ms default, 1200 ms for the
+  MasterMultiLED request (`F 5`).
+- Read-only settings and Flags1 model entries are generated from the protocol
+  tables in `mk2Settings.ts`, so objects and protocol cannot drift apart.
+
+### Validation
+
+- 93 TypeScript unit tests + 37 package tests, `npm run check`, `lint`, `build`:
+  green. New tests cover the IBat RAM id, net current sign, frequency zero
+  handling, sub-state decoding, setting info packing/scaling/caching, support
+  masks, extended settings, RAM power/SOC, version assembly, switch-state
+  derivation and the reconnect path.
+- **Not yet run on hardware.** The new read paths (setting info, RAM power/SOC,
+  firmware version) need a read-only live verification before deployment.
+
 ## 0.1.0 (2026-11-15)
 
 Hardening release after the incident of 2026-11-15, in which a MultiPlus on this

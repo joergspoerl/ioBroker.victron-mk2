@@ -185,3 +185,8 @@ Rein statisch: Protokoll 3.14 Volltext gegen `src/mk2/*`, `src/main.ts`,
 `src/lib/*` (Stand `master` 1124da5). Keine neuen Hardware-Zugriffe. Für die
 Punkte 3, 4 und 8 ist jeweils ein kurzer Live-Readback am MultiPlus nötig
 (Adapter gestoppt, exklusiver Port), bevor sie als „funktioniert“ gelten.
+
+**Umsetzung (2026-11-15):** Issues #1–#9 sind in **v0.2.0** implementiert
+(Branch `feat/protocol-coverage`, Commits `fbe1170`, `52373a9`, `8feb1de` +
+Release). Die Befunde B1–B6 sind damit adressiert; ausstehend bleibt die
+read-only Live-Verifikation der neuen Lese pfade vor dem Deployment.
