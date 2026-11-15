@@ -124,6 +124,16 @@ describe("Mk2Protocol device identification (issue #3)", () => {
 		expect(p.mk2Model["info.address"].value).to.equal(0);
 	});
 
+	it("loads each scaling only once per connection", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.loadScalingsIfNeeded();
+		const count = fake.requests.filter((r) => r[3] == 0x36).length;
+		expect(count).to.equal(8);
+		await p.loadScalingsIfNeeded();
+		expect(fake.requests.filter((r) => r[3] == 0x36).length).to.equal(count);
+	});
+
 	it("resets cached metadata after a resync (issue #25)", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
