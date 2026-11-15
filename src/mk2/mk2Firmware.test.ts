@@ -53,4 +53,22 @@ describe("firmware-dependent behaviour (live findings 2026-11-15)", () => {
 		await p.poll();
 		expect(p.mk2Model["ac_info.state"].value).to.equal(70);
 	});
+
+	it("publishes null instead of 0 when a scaling is unsupported (issue #41)", async () => {
+		const fake = new FakeMk2Connection();
+		fake.ramInfoOverrides.set(4, { sc: 0, offset: 0 }); // UBat not supported
+		const p = protocolWith(fake);
+		await p.poll();
+		expect(p.mk2Model["dc_info.ubat"].value).to.equal(null);
+		expect(p.mk2Model["dc_info.ibat_net"].value).to.equal(null);
+		expect(p.mk2Model["info.connection"].value).to.equal(true);
+	});
+
+	it("publishes null AC values when their scalings are unsupported", async () => {
+		const fake = new FakeMk2Connection();
+		fake.ramInfoOverrides.set(0, { sc: 0, offset: 0 }); // UMains
+		const p = protocolWith(fake);
+		await p.poll();
+		expect(p.mk2Model["ac_info.umains"].value).to.equal(null);
+	});
 });
