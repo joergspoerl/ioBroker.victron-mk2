@@ -60,6 +60,26 @@ export class Mk2Protocol {
 	private ramInfoCache = new Map<number, RamInfo>();
 	private unsupportedRam = new Set<number>();
 	private deviceInfoLoaded = false;
+	private connectionGeneration = -1;
+
+	/**
+	 * Drop all connection-derived caches when the MK2 resynchronised (review
+	 * T15): after a reconnect or a device replacement, scalings, setting ranges,
+	 * RAM support and the device identification may all be different.
+	 */
+	private checkConnectionGeneration(): void {
+		if (this.conn.generation === this.connectionGeneration) {
+			return;
+		}
+		this.connectionGeneration = this.conn.generation;
+		this.calc = new Calc();
+		this.settingInfoCache.clear();
+		this.ramInfoCache.clear();
+		this.unsupportedRam.clear();
+		this.deviceInfoLoaded = false;
+		this.extendedSettingsLoaded = false;
+		this.log.debug("new MK2 sync generation, cached metadata reset");
+	}
 
 	constructor(portPath: string, log: ioBroker.Logger, conn?: Mk2Connection) {
 		this.portPath = portPath;
@@ -70,6 +90,7 @@ export class Mk2Protocol {
 	async poll(): Promise<void> {
 		try {
 			await this.conn.ensureSynced()
+			this.checkConnectionGeneration()
 			await this.address()
 			await this.loadScalingsIfNeeded()
 			await this.loadDeviceInfo()
@@ -124,6 +145,7 @@ export class Mk2Protocol {
 	 */
 	async pollStateOnly(): Promise<void> {
 		await this.conn.ensureSynced()
+		this.checkConnectionGeneration()
 		await this.address()
 		await this.get_state()
 	}

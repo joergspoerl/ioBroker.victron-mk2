@@ -123,4 +123,19 @@ describe("Mk2Protocol device identification (issue #3)", () => {
 		await p.address();
 		expect(p.mk2Model["info.address"].value).to.equal(0);
 	});
+
+	it("resets cached metadata after a resync (issue #25)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.poll();
+		const infoReads = fake.requests.filter((r) => r[3] == 0x35).length;
+		expect(infoReads).to.be.greaterThan(0);
+		const isVersionRead = (r: Buffer) => r[2] == 0x57 && r[3] == 0x05;
+		expect(fake.requests.filter(isVersionRead).length).to.equal(1);
+
+		fake.generation = 2; // a new sync generation means a new connection/device
+		await p.poll();
+		expect(fake.requests.filter((r) => r[3] == 0x35).length).to.be.greaterThan(infoReads);
+		expect(fake.requests.filter(isVersionRead).length).to.equal(2);
+	});
 });

@@ -169,6 +169,7 @@ export class FakeMk2Connection {
 	ramValues = new Map<number, number>([[13, 16000], [14, 250], [16, 65236]]);
 	unsupportedRam = new Set<number>();
 	ramInfoOverrides = new Map<number, { sc: number; offset: number }>();
+	generation = 1;
 	/** Applied setting writes, for readback assertions. */
 	writes: { id: number; value: number }[] = [];
 	/** Simulate a device that acknowledges but does not apply writes. */
