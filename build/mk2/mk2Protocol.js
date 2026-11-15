@@ -102,6 +102,11 @@ class Mk2Protocol {
             await fn();
         }
         catch (error) {
+            // Only feature-level failures are optional. A transport error means the
+            // connection is gone and must reach poll()'s failure path (review T6).
+            if (error instanceof errors_1.Mk2TransportError) {
+                throw error;
+            }
             this.log.warn(`optional step "${name}" failed: ${error instanceof Error ? error.message : error}`);
         }
     }
@@ -466,6 +471,11 @@ class Mk2Protocol {
             ampere = max;
         }
         const a = Math.round(ampere * 10);
+        // Protocol §5 variant 2: Limit/10 Ampere; values >= 0x8000 mean "ignore
+        // the limit". Never let the bitwise conversion wrap around to 0 A.
+        if (a > 0x7fff) {
+            throw new errors_1.Mk2ValidationError(`set_assist: ${ampere} A exceeds the protocol range (max 3276.7 A)`);
+        }
         const lo = a & 0xFF;
         const hi = (a >> 8) & 0xFF;
         if (this.currentSwitchState == 4) {
@@ -584,6 +594,12 @@ class Mk2Protocol {
         }
         const collector = new mk2Settings_1.SettingInfoCollector(id);
         await this.conn.communicateMulti(this.create_frame("W", Buffer.from([0x35, id & 0xFF, (id >> 8) & 0xFF])), async (frame) => collector.addFrame(frame), { allowQuietEnd: true });
+        if (!collector.isComplete()) {
+            // A quiet end after the first frame is only acceptable for the explicit
+            // "not supported" answer. Anything else would leave min/max unknown and
+            // could later authorize a write with made-up limits (review T2).
+            throw new Error(`getSettingInfo(${id}): incomplete response, refusing to use it`);
+        }
         this.settingInfoCache.set(id, collector.info);
         return collector.info;
     }
@@ -795,12 +811,11 @@ class Mk2Protocol {
         await this.writeFlags0(value == 1 ? flags | mask : flags & ~mask);
         const readback = await this.readFlags0();
         if (((readback & mask) !== 0) !== (value == 1)) {
-            this.log.warn(`${name}: readback mismatch after write (wanted ${value})`);
+            throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
         }
     }
     /** Same pattern for Flags1 (global flag numbers 16-31, setting id 1). */
     async setFlags1Bit(flag, value, name) {
-        var _a, _b;
         if (value !== 0 && value !== 1) {
             throw new errors_1.Mk2ValidationError(`${name}: value must be 0 or 1 (got ${value})`);
         }
@@ -813,11 +828,19 @@ class Mk2Protocol {
             throw new errors_1.Mk2ValidationError(`${name}: flag ${flag} is not supported by this device`);
         }
         const mask = 1 << bit;
-        const flags = (_a = (await this.readSetting(1))) !== null && _a !== void 0 ? _a : 0;
+        const flags = await this.readSetting(1);
+        if (flags === null) {
+            // Never read-modify-write from an assumed zero: that would clear every
+            // unrelated Flags1 option on the device (review T11).
+            throw new errors_1.Mk2ValidationError(`${name}: Flags1 register could not be read, refusing to write`);
+        }
         await this.writeSetting(1, value == 1 ? flags | mask : flags & ~mask);
-        const readback = (_b = (await this.readSetting(1))) !== null && _b !== void 0 ? _b : 0;
+        const readback = await this.readSetting(1);
+        if (readback === null) {
+            throw new Error(`${name}: no Flags1 readback after write`);
+        }
         if (((readback & mask) !== 0) !== (value == 1)) {
-            this.log.warn(`${name}: readback mismatch after write (wanted ${value})`);
+            throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
         }
     }
     async set_flagDynamicCurrentLimiter(value) {
@@ -850,7 +873,7 @@ class Mk2Protocol {
             return;
         }
         if (readback !== raw) {
-            this.log.warn(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+            throw new Error(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
         }
         const def = mk2Settings_1.READONLY_SETTINGS.find((d) => d.id === id);
         if (def) {
@@ -894,7 +917,7 @@ class Mk2Protocol {
         await this.writeSetting(4, raw);
         const readback = await this.readSetting(4);
         if (readback !== null && readback !== raw) {
-            this.log.warn(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+            throw new Error(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
         }
         if (readback !== null) {
             this.mk2Model["setting.IBatBulk"].value = round((0, mk2Settings_1.settingDisplayValue)(info, readback), 2);

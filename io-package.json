@@ -123,7 +123,7 @@
         "main": "build/main.js",
         "icon": "victron-mk2.png",
         "enabled": true,
-        "extIcon": "https://raw.githubusercontent.com/joergspoerl/ioBroker.victron-mk2/main/admin/victron-mk2.png",
+        "extIcon": "https://raw.githubusercontent.com/joergspoerl/ioBroker.victron-mk2/master/admin/victron-mk2.png",
         "readme": "https://github.com/joergspoerl/ioBroker.victron-mk2/blob/main/README.md",
         "loglevel": "info",
         "mode": "daemon",

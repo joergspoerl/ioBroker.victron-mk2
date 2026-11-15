@@ -40,9 +40,8 @@ const state_gate_1 = require("./lib/state-gate");
 const control_rules_1 = require("./lib/control-rules");
 const send_queue_1 = require("./lib/send-queue");
 const state_objects_1 = require("./lib/state-objects");
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const publish_1 = require("./lib/publish");
+const poll_loop_1 = require("./lib/poll-loop");
 function splitIdFromAdapter(str) {
     const delimiter = ".";
     const start = 2;
@@ -55,8 +54,8 @@ class VictronMk2 extends utils.Adapter {
             ...options,
             name: "victron-mk2",
         });
-        this.mainLoopRunning = true;
         this.toSendQueue = [];
+        this.assistLimitObjectMax = null;
         this.on("ready", this.onReady.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
         this.on("unload", this.onUnload.bind(this));
@@ -82,7 +81,11 @@ class VictronMk2 extends utils.Adapter {
     }
     async onUnload(callback) {
         var _a;
-        this.mainLoopRunning = false;
+        // Wait for the running poll/control iteration before closing the port,
+        // otherwise a write can still be in flight during shutdown (review T12).
+        if (this.pollLoop) {
+            await this.pollLoop.stop(3000);
+        }
         try {
             await ((_a = this.mk2) === null || _a === void 0 ? void 0 : _a.conn.port.close());
         }
@@ -95,16 +98,33 @@ class VictronMk2 extends utils.Adapter {
         if (!this.mk2)
             return;
         for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
-            await this.setObjectNotExistsAsync(key, (0, state_objects_1.buildStateObject)(key, value));
+            const object = (0, state_objects_1.buildStateObject)(key, value);
+            const existing = await this.getObjectAsync(key);
+            if (!existing) {
+                await this.setObjectNotExistsAsync(key, object);
+            }
+            else if ((0, state_objects_1.objectDefinitionChanged)(existing, object)) {
+                // Upgrade roles/descriptions/units/state maps on existing objects;
+                // extendObject keeps user customisation such as InfluxDB history.
+                await this.extendObjectAsync(key, object);
+            }
         }
     }
-    async mainLoop() {
-        this.setTimeout(async () => {
-            while (this.mainLoopRunning) {
-                await this.updateStates();
-                await sleep(this.config.interval * 1000);
-            }
-        }, 10 * 1000);
+    /** Keep control.set_assist's limits in sync with the discovered device. */
+    async updateAssistLimitObject() {
+        if (!this.mk2)
+            return;
+        const max = this.mk2.mk2Model["assist.maxlimit"].value;
+        if (typeof max != "number" || max <= 0 || max === this.assistLimitObjectMax)
+            return;
+        this.assistLimitObjectMax = max;
+        await this.extendObjectAsync("control.set_assist", {
+            common: { min: 0, max, def: max },
+        });
+    }
+    mainLoop() {
+        this.pollLoop = new poll_loop_1.PollLoop(() => this.updateStates(), this.config.interval * 1000);
+        this.pollLoop.start(10 * 1000);
     }
     async updateStates() {
         var _a;
@@ -114,6 +134,10 @@ class VictronMk2 extends utils.Adapter {
             // Read-only state poll first. While the MultiPlus is booting or off
             // (state 10/20) no control command and no full poll is sent.
             await this.mk2.pollStateOnly();
+            // Publish the state poll as well: an Off or a boot loop must be visible
+            // in ioBroker and to the watchdog, not just the last stable state.
+            await this.publishStates(["state.state", "state.substate", "info.address"]);
+            await this.setStateAsync("info.connection", { val: true, ack: true });
             const state = this.mk2.mk2Model["state.state"].value;
             if (!(0, state_gate_1.isStableState)(state)) {
                 this.log.debug("MultiPlus not stable yet (state " + state + "), deferring control writes");
@@ -121,15 +145,8 @@ class VictronMk2 extends utils.Adapter {
             }
             await this.processToSendQueue();
             await this.mk2.poll();
-            for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
-                const v = value;
-                if (v.value !== v.valueOld && !v.setFunc) {
-                    await this.setStateAsync(key, {
-                        val: v.value,
-                        ack: true,
-                    });
-                }
-            }
+            await this.publishStates();
+            await this.updateAssistLimitObject();
         }
         catch (Exception) {
             // JSON.stringify(Error) yields "{}", so log the message and stack.
@@ -138,16 +155,33 @@ class VictronMk2 extends utils.Adapter {
             // Publish the lost connection as a state, not only as a log line.
             try {
                 await this.setStateAsync("info.connection", { val: false, ack: true });
+                if (this.mk2) {
+                    await this.setStateAsync("diag.timeouts", { val: this.mk2.conn.timeouts, ack: true });
+                    await this.setStateAsync("diag.checksum_errors", { val: this.mk2.conn.checksumErrors, ack: true });
+                    await this.setStateAsync("diag.last_error", { val: this.mk2.conn.lastError, ack: true });
+                }
             }
             catch (_b) {
                 // ignore secondary state errors while handling a failure
             }
         }
     }
+    async publishStates(only) {
+        if (!this.mk2)
+            return;
+        await (0, publish_1.publishModel)(this.mk2.mk2Model, async (key, value) => {
+            await this.setStateAsync(key, { val: value, ack: true });
+        }, only);
+    }
     async processToSendQueue() {
         if (!this.mk2)
             return;
-        await (0, send_queue_1.processToSendQueue)(this.mk2, this.toSendQueue, this.log);
+        const completed = await (0, send_queue_1.processControlWrites)(this.mk2, this.toSendQueue, this.log);
+        for (const item of completed) {
+            // Acknowledge successful writes; ack=true is never forwarded again, so
+            // this cannot retrigger the control path (review T7).
+            await this.setStateAsync(item.name, { val: item.value, ack: true });
+        }
     }
     onStateChange(id, state) {
         if (!state) {

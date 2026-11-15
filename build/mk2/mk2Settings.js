@@ -81,6 +81,10 @@ class SettingInfoCollector {
         }
         return this.complete();
     }
+    /** True once the answer is complete (or explicitly unsupported). */
+    isComplete() {
+        return this.complete();
+    }
     complete() {
         if (!this.seen.has(0x89))
             return false;
