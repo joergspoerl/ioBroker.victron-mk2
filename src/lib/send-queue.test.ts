@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { processToSendQueue, processControlWrites, QueueItem } from "./send-queue";
-import { Mk2ValidationError } from "./errors";
+import { Mk2ReadbackError, Mk2ValidationError } from "./errors";
 import { Mk2Protocol } from "../mk2/mk2Protocol";
 import { asConnection, FakeMk2Connection } from "../test-utils/fake-mk2";
 
@@ -98,6 +98,25 @@ describe("send queue", () => {
 		const fresh: QueueItem[] = [{ name: "control.test", value: 1, attempts: 0, ts: Date.now() }];
 		await processToSendQueue(mk2 as any, fresh, log as any);
 		expect(calls).to.equal(1);
+	});
+
+	it("does not retry readback failures, to avoid repeated EEPROM writes (issue #46)", async () => {
+		let attempts = 0;
+		const mk2 = {
+			mk2Model: {
+				"control.test": {
+					value: 0,
+					setFunc: async () => {
+						attempts++;
+						throw new Mk2ReadbackError("mismatch");
+					},
+				},
+			},
+		};
+		const queue: QueueItem[] = [{ name: "control.test", value: 500, attempts: 0 }];
+		await processToSendQueue(mk2 as any, queue, log as any);
+		expect(attempts).to.equal(1);
+		expect(queue).to.have.length(0);
 	});
 
 	it("reports unknown control states without throwing", async () => {

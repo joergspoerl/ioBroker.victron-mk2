@@ -20,3 +20,15 @@ export class Mk2TransportError extends Error {
 		this.name = "Mk2TransportError";
 	}
 }
+
+/**
+ * The device did not confirm a write (missing or mismatching readback).
+ * Retrying would repeat the same EEPROM write, so the send queue drops it
+ * immediately, exactly like a validation error (review M6).
+ */
+export class Mk2ReadbackError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "Mk2ReadbackError";
+	}
+}
