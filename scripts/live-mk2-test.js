@@ -14,6 +14,7 @@
  *
  * The MultiPlus AC output must be isolated from the house for these tests.
  * A failed/looping zero-grid test is reverted to 10 A automatically.
+ * Without a write flag the script is strictly read-only (no S command at all).
  */
 const path = require("path");
 const { Mk2Protocol } = require(path.join(__dirname, "../build/mk2/mk2Protocol"));
@@ -121,10 +122,15 @@ async function main() {
 			await pollAndPrint(p, "safe same-value writes");
 		}
 
-		// Leave the MultiPlus in a defined safe state.
-		await p.set_assist(10);
-		await sleep(1000);
-		await pollAndPrint(p, "restored 10 A");
+		// Only restore/define a state after an actual write test. A read-only run
+		// must not send any S command at all (review N8).
+		const writeModes = ["--write", "--zero-grid", "--inverter-only", "--grid", "--switch", "--safe-writes"];
+		if (writeModes.some((m) => args.includes(m))) {
+			// Leave the MultiPlus in a defined safe state.
+			await p.set_assist(10);
+			await sleep(1000);
+			await pollAndPrint(p, "restored 10 A");
+		}
 	} finally {
 		await p.conn.port.close().catch(() => undefined);
 	}
