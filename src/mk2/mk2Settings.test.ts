@@ -157,6 +157,18 @@ describe("Mk2Protocol extended read-only settings (issue #4)", () => {
 		expect(p.mk2Model["setting.UBatAbsorption"].value).to.be.closeTo(14.2, 1e-9);
 		expect(p.mk2Model["setting.flag.DynamicCurrentLimiter"].value).to.equal(false);
 	});
+
+	it("a broken setting does not block or endlessly reload the others (issue #55)", async () => {
+		const fake = new FakeMk2Connection();
+		fake.settingInfoPartial.add(11); // UBatLowLimit answers incompletely
+		const p = protocolWith(fake);
+		await p.loadExtendedSettings();
+		expect(p.mk2Model["setting.UBatLowLimit"].value).to.equal(null);
+		expect(p.mk2Model["setting.UBatAbsorption"].value).to.be.closeTo(14.2, 1e-9);
+		const requests = fake.requests.length;
+		await p.loadExtendedSettings();
+		expect(fake.requests.length).to.equal(requests);
+	});
 });
 
 describe("incomplete setting metadata (issue #12)", () => {
