@@ -107,9 +107,15 @@ export class FakeMk2Connection {
 	limit = 16;
 	switchState = 3;
 	currentState = 8;
+	currentSubState = 0;
 	bfFactor = 1;
 	dcMarker = 0xB5;
 	ledDataLength = 6;
+	dcInverterCurrent = 0;
+	dcChargeCurrent = 0;
+	inverterPeriod = 20; // 20 * 0.01 = 0.2 s -> 50 Hz
+	switchRegister = 0b00110000; // SwitchCharge + SwitchInvert -> On
+	flags0 = (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 11);
 	failNext?: string;
 
 	private respond(request: Buffer): Buffer {
@@ -130,10 +136,12 @@ export class FakeMk2Connection {
 			case 0x46: { // F
 				const frameType = request[3];
 				if (frameType == 0x00) {
-					// DC info: marker, ubat 1302, ibat/cbat 0
+					// DC info: marker, ubat 1302, configurable currents and period
 					return veBusFrame(0x20, [
 						this.dcMarker, 0x9A, 0x22, 0x46, 0x0C, 0x16, 0x05,
-						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x89,
+						this.dcInverterCurrent & 0xFF, (this.dcInverterCurrent >> 8) & 0xFF, (this.dcInverterCurrent >> 16) & 0xFF,
+						this.dcChargeCurrent & 0xFF, (this.dcChargeCurrent >> 8) & 0xFF, (this.dcChargeCurrent >> 16) & 0xFF,
+						this.inverterPeriod,
 					], 0x0F);
 				}
 				if (frameType == 0x01) {
@@ -150,7 +158,7 @@ export class FakeMk2Connection {
 						0x10, 0x00, 0x00, 0x00, 0x04,
 						0x1F, 0x00, 0xA0, 0x00,
 						Math.round(this.limit * 10) & 0xFF, Math.round(this.limit * 10) >> 8,
-						0x00,
+						this.switchRegister,
 					], 0x0C);
 				}
 				break;
@@ -160,15 +168,18 @@ export class FakeMk2Connection {
 				if (sub == 0x0E) {
 					const state = request[4];
 					if (state == 0) {
-						return mk2Frame(0x57, [0x94, this.currentState, 0x00]);
+						return mk2Frame(0x57, [0x94, this.currentState, this.currentSubState]);
 					}
-					this.currentState = state;
-					return mk2Frame(0x57, [0x94, state, 0x00]);
+					// force_state: 1 equalise, 2 absorption, 3 float -> charge state 9
+					const forced: { [key: number]: number } = { 1: 7, 2: 2, 3: 3 };
+					this.currentState = 9;
+					this.currentSubState = forced[state] ?? 0;
+					return mk2Frame(0x57, [0x94, this.currentState, this.currentSubState]);
 				}
 				if (sub == 0x31) {
 					const settingId = request[4];
 					if (settingId == 0x00) {
-						const flags = (1 << 5) | (1 << 6) | (1 << 8) | (1 << 11);
+						const flags = this.flags0;
 						return mk2Frame(0x57, [0x86, flags & 0xFF, flags >> 8]);
 					}
 					if (settingId == 0x04) {
@@ -183,6 +194,9 @@ export class FakeMk2Connection {
 					const ramId = request[4];
 					let sc = 0x7F9C; // scale 0.01
 					let offset = 0;
+					if (ramId == 0x05) { // IBat is signed (protocol appendix 2)
+						sc = 0x8064;
+					}
 					if (ramId == 0x08) { // fmains: 10/((195+205)*0.0005) = 50
 						sc = 0x7830;
 						offset = 205;
