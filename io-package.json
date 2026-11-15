@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.0.6",
+        "version": "0.1.0",
         "news": {
+            "0.1.0": {
+                "en": "Robust MK2 serial I/O (timeouts, complete frames, checksum validation), startup gate, explicit switch/grid modes (zero grid / inverter only), validated and retried writes, generic protocol validation, model roles and DC scaling fixes, unit tests",
+                "de": "Robuste MK2-Serial-I/O (Timeouts, vollständige Frames, Checksummenprüfung), Startup-Gate, explizite Switch-/Grid-Modi (Zero Grid / Inverter only), validierte und wiederholte Writes, generische Protokollvalidierung, Modellrollen und DC-Skalierung korrigiert, Unit-Tests"
+            },
             "0.0.6": {
                 "en": "state changes -> mk2 queueing",
                 "de": "zustandsänderungen -> mk2 warteschlangen",

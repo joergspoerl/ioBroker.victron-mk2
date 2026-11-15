@@ -125,23 +125,11 @@ export class Mk2Model {
 	};
 
 	"ac_info.state":    Mk2DataEntry = {
-		descr: "Indicates the Multi main state",
+		descr: "AC info state (raw; use state.state for the main state)",
 		unit:  "",
 		role:  "state",
 		type: "number",
 		value: 0,
-		states: {
-			"0": "Down",
-			"1": "Startup",
-			"2": "Off",
-			"3": "Slave",
-			"4": "InvertFull",
-			"5": "InvertHalf",
-			"6": "InvertAES",
-			"7": "PowerAssist",
-			"8": "Bypass",
-			"9": "StateCharge",
-		}
 	};
 
 	"assist.minlimit":    Mk2DataEntry = {
@@ -380,12 +368,41 @@ export class Mk2Model {
 	// };
 
 	"control.set_assist":    Mk2DataEntry = {
-		descr: "Set input current limit",
+		descr: "Set input current limit (A; 0 = Inverter/Zero grid when PowerAssist enabled)",
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
 		value: 0,
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_assist(value)
+	};
+
+	"control.switch_state":    Mk2DataEntry = {
+		descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off)",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 3,
+		states: {
+			"1": "Charger only",
+			"2": "Inverter only",
+			"3": "On",
+			"4": "Off"
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_switch_state(value)
+	};
+
+	"control.grid_mode":    Mk2DataEntry = {
+		descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A, 2=Inverter only)",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: 0,
+		states: {
+			"0": "Grid",
+			"1": "Zero grid / Invert",
+			"2": "Inverter only"
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_grid_mode(value)
 	};
 
 	"control.force_state":    Mk2DataEntry = {
