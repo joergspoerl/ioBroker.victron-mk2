@@ -1,7 +1,7 @@
 import * as utils from "@iobroker/adapter-core";
 import { Mk2DataEntry } from "./mk2/mk2Model";
 import { Mk2Protocol } from "./mk2/mk2Protocol";
-import { isStableState } from "./lib/state-gate";
+import { isStableState, controlAllowedWhileOff } from "./lib/state-gate";
 import { shouldHandleControlState } from "./lib/control-rules";
 import { processControlWrites, QueueItem } from "./lib/send-queue";
 import { buildStateObject, objectDefinitionChanged } from "./lib/state-objects";
@@ -114,6 +114,16 @@ class VictronMk2 extends utils.Adapter {
 				return;
 			}
 
+			if (state === 20) {
+				// Off must not become a one-way state (review H2): only the explicit
+				// power-on controls are forwarded, everything else is dropped.
+				const before = this.toSendQueue.length;
+				this.toSendQueue = this.toSendQueue.filter((item) => controlAllowedWhileOff(item.name));
+				if (this.toSendQueue.length !== before) {
+					this.log.warn("device is Off: only switch_state/grid_mode writes are allowed, other control writes dropped");
+				}
+			}
+
 			await this.processToSendQueue();
 			await this.mk2.poll();
 			await this.publishStates();
@@ -166,6 +176,7 @@ class VictronMk2 extends utils.Adapter {
 				name: idShort,
 				value: state.val as number,
 				attempts: 0,
+				ts: Date.now(),
 			});
 		}
 	}
