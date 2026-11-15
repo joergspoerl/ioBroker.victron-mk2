@@ -15,3 +15,23 @@ export function selectStatesToPublish(model: Record<string, Mk2DataEntry>, only?
 	}
 	return out;
 }
+
+/**
+ * Publish the selected states and remember what was actually published.
+ * `valueOld` is only updated after a successful write, so a failed publication
+ * is retried on the next cycle instead of being marked as done (review T8).
+ */
+export async function publishModel(
+	model: Record<string, Mk2DataEntry>,
+	setState: (key: string, value: Mk2DataEntry["value"]) => Promise<void>,
+	only?: string[],
+): Promise<number> {
+	let published = 0;
+	for (const key of selectStatesToPublish(model, only)) {
+		const entry = model[key];
+		await setState(key, entry.value);
+		entry.valueOld = entry.value;
+		published++;
+	}
+	return published;
+}
