@@ -503,6 +503,66 @@ class Mk2Model {
             },
             setFunc: (mk2, value) => mk2.set_flagWeakACInput(value)
         };
+        this["control.DisableAES"] = {
+            descr: "Disable AES (Automatic Economy Switch); Flags0 bit 8",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: null,
+            states: {
+                "0": "AES enabled",
+                "1": "AES disabled",
+            },
+            setFunc: (mk2, value) => mk2.set_flagDisableAES(value)
+        };
+        this["control.AssistEnabled"] = {
+            descr: "PowerAssist enabled; Flags0 bit 5",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: null,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            },
+            setFunc: (mk2, value) => mk2.set_flagAssistEnabled(value)
+        };
+        this["control.DynamicCurrentLimiter"] = {
+            descr: "Dynamic current limiter; Flags1 bit 12 (flag 28)",
+            unit: "",
+            role: "state",
+            type: "number",
+            value: null,
+            states: {
+                "0": "OFF",
+                "1": "ON",
+            },
+            setFunc: (mk2, value) => mk2.set_flagDynamicCurrentLimiter(value)
+        };
+        this["control.UBatAbsorption"] = {
+            descr: "Absorption voltage (device range from GetSettingInfo)",
+            unit: "V",
+            role: "value.voltage",
+            type: "number",
+            value: null,
+            setFunc: (mk2, value) => mk2.set_UBatAbsorption(value)
+        };
+        this["control.UBatFloat"] = {
+            descr: "Float voltage (device range from GetSettingInfo)",
+            unit: "V",
+            role: "value.voltage",
+            type: "number",
+            value: null,
+            setFunc: (mk2, value) => mk2.set_UBatFloat(value)
+        };
+        this["control.IMainsLimitAC1"] = {
+            descr: "Configured AC1 input current limit (device range from GetSettingInfo)",
+            unit: "A",
+            role: "value.current",
+            type: "number",
+            value: null,
+            setFunc: (mk2, value) => mk2.set_IMainsLimitAC1(value)
+        };
         this["setting.flag.MultiPhaseSystem"] = {
             descr: "MultiPhaseSystem",
             unit: "",

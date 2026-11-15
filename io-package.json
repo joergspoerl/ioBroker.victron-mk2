@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "news": {
+            "0.3.0": {
+                "en": "More validated controls: DisableAES, AssistEnabled, DynamicCurrentLimiter (Flags1), absorption/float voltage and AC1 input current limit with device range checks and readback",
+                "de": "Weitere validierte Controls: DisableAES, AssistEnabled, DynamicCurrentLimiter (Flags1), Absorption-/Float-Spannung und AC1-Eingangslimit mit Geräte-Bereichsprüfung und Readback"
+            },
             "0.2.0": {
                 "en": "Protocol coverage release: setting metadata (GetSettingInfo) with support/range validation, read-only settings and Flags1, RAM power/SOC telemetry, device firmware identification, net battery current, charge sub-state, device-authoritative switch state, connection health states and reconnect hardening",
                 "de": "Protokoll-Vollabdeckung: Setting-Metadaten (GetSettingInfo) mit Support-/Bereichsvalidierung, read-only Settings und Flags1, RAM-Leistung/SOC, Firmware-Identifikation, Netto-Batteriestrom, Lade-Sub-State, geräteseitiger Switch-State, Verbindungszustand und Reconnect-Härtung"

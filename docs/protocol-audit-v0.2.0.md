@@ -8,6 +8,12 @@ Dieses Dokument ist die Fortsetzung von `protocol-coverage-2026-11-15.md`
 (Audit von v0.1.0) und beantwortet zwei Fragen: **Was kann damit konfiguriert
 werden?** und **Ist das Protokoll vollständig abgedeckt?**
 
+> **Nachtrag v0.3.0 (15.11.2026):** Mit Issue #10 sind zusätzlich
+> `control.DisableAES`, `control.AssistEnabled`, `control.DynamicCurrentLimiter`,
+> `control.UBatAbsorption`, `control.UBatFloat` und `control.IMainsLimitAC1`
+> schreibbar – jeweils mit Geräte-Validierung und Readback, am MultiPlus live
+> verifiziert (Details: `CHANGELOG.md`).
+
 ## Kurzfassung
 
 - **Schreiben ist möglich, aber bewusst kuratiert:** Betriebsmodus,
@@ -87,7 +93,7 @@ Wenn einzelne davon schreibbar werden sollen, gehören sie als eigener
 
 | Prio | Thema | Bemerkung |
 |---|---|---|
-| 1 | **Weitere Settings schreibbar machen** (`DisableAES`, `AssistEnabled`, `UBatAbsorption/Float`, `IMainsLimit AC1`, `DynamicCurrentLimiter`) | Infrastruktur liegt vor; pro Setting ein eigener `control.*` mit `GetSettingInfo`-Validierung. Issue #10 |
+| 1 | **Weitere Settings schreibbar machen** (`DisableAES`, `AssistEnabled`, `UBatAbsorption/Float`, `IMainsLimit AC1`, `DynamicCurrentLimiter`) | Infrastruktur liegt vor; pro Setting ein eigener `control.*` mit `GetSettingInfo`-Validierung. Issue #10 – **umgesetzt in v0.3.0, live verifiziert** |
 | 2 | **Startup-Gate live beweisen** | MultiPlus-Boot bei laufendem Adapter; bisher nur Unit-getestet |
 | 3 | **Physischer Reconnect-Test** | MK2 ab-/anstecken; Unit-Test + Timeout-Pfad existieren (Issue #8 bleibt dafür offen) |
 | 4 | `force_state` auf Hardware | nur mit ausdrücklicher Batterie-Absicht |

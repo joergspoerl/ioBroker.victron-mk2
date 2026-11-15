@@ -7,6 +7,12 @@ export const CONTROL_STATE_IDS = new Set([
 	"control.IBatBulk",
 	"control.switch_state",
 	"control.grid_mode",
+	"control.DisableAES",
+	"control.AssistEnabled",
+	"control.DynamicCurrentLimiter",
+	"control.UBatAbsorption",
+	"control.UBatFloat",
+	"control.IMainsLimitAC1",
 ]);
 
 /**

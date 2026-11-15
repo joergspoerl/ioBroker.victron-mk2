@@ -33,6 +33,16 @@ Victron Multiplus
   (1 = Equalise, 2 = Absorption, 3 = Float) — not an on/off mode.
 - `victron-mk2.0.control.DisableCharge`, `control.WeakACInput`,
   `control.IBatBulk`: charger/weak-AC/bulk-current settings with validated writes.
+- `victron-mk2.0.control.DisableAES`, `control.AssistEnabled` (Flags0) and
+  `control.DynamicCurrentLimiter` (Flags1): feature switches with device
+  support-mask validation.
+- `victron-mk2.0.control.UBatAbsorption`, `control.UBatFloat`,
+  `control.IMainsLimitAC1`: charge voltages and the configured AC1 input current
+  limit. Values are converted with the device scale and rejected when they fall
+  outside the range the device reports via `GetSettingInfo`.
+
+Every setting/flag write is read back from the device; a mismatch logs a warning
+and the corresponding read-only `setting.*` state is refreshed.
 
 ### Telemetry and diagnostics
 

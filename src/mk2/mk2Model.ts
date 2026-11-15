@@ -585,6 +585,72 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagWeakACInput(value)
 	};
 
+	"control.DisableAES":    Mk2DataEntry = {
+		descr: "Disable AES (Automatic Economy Switch); Flags0 bit 8",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: null,
+		states: {
+			"0": "AES enabled",
+			"1": "AES disabled",
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagDisableAES(value)
+	};
+
+	"control.AssistEnabled":    Mk2DataEntry = {
+		descr: "PowerAssist enabled; Flags0 bit 5",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: null,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagAssistEnabled(value)
+	};
+
+	"control.DynamicCurrentLimiter":    Mk2DataEntry = {
+		descr: "Dynamic current limiter; Flags1 bit 12 (flag 28)",
+		unit:  "",
+		role:  "state",
+		type: "number",
+		value: null,
+		states: {
+			"0": "OFF",
+			"1": "ON",
+		},
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagDynamicCurrentLimiter(value)
+	};
+
+	"control.UBatAbsorption":    Mk2DataEntry = {
+		descr: "Absorption voltage (device range from GetSettingInfo)",
+		unit:  "V",
+		role:  "value.voltage",
+		type: "number",
+		value: null,
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_UBatAbsorption(value)
+	};
+
+	"control.UBatFloat":    Mk2DataEntry = {
+		descr: "Float voltage (device range from GetSettingInfo)",
+		unit:  "V",
+		role:  "value.voltage",
+		type: "number",
+		value: null,
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_UBatFloat(value)
+	};
+
+	"control.IMainsLimitAC1":    Mk2DataEntry = {
+		descr: "Configured AC1 input current limit (device range from GetSettingInfo)",
+		unit:  "A",
+		role:  "value.current",
+		type: "number",
+		value: null,
+		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_IMainsLimitAC1(value)
+	};
+
 	"setting.flag.MultiPhaseSystem":    Mk2DataEntry = {
 		descr: "MultiPhaseSystem",
 		unit:  "",

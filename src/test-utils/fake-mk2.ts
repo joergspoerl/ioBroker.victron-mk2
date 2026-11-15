@@ -147,6 +147,10 @@ export class FakeMk2Connection {
 	ramValues = new Map<number, number>([[13, 16000], [14, 250], [16, 65236]]);
 	unsupportedRam = new Set<number>();
 	ramInfoOverrides = new Map<number, { sc: number; offset: number }>();
+	/** Applied setting writes, for readback assertions. */
+	writes: { id: number; value: number }[] = [];
+	/** Simulate a device that acknowledges but does not apply writes. */
+	ignoreWrites = false;
 	timeouts = 0;
 	checksumErrors = 0;
 	lastError = "";
@@ -273,7 +277,22 @@ export class FakeMk2Connection {
 						[0x8D, info.max & 0xFF, (info.max >> 8) & 0xFF],
 					]);
 				}
-				if (sub == 0x33 || sub == 0x34 || request.includes(0x34)) {
+				if (sub == 0x33) {
+					// CommandWriteSetting + CommandWriteData arrive as two frames in
+					// one serial write; apply the value so readbacks are meaningful.
+					const settingId = request[4] | (request[5] << 8);
+					const second = request[0] + 2;
+					const value = request[second + 4] | (request[second + 5] << 8);
+					this.writes.push({ id: settingId, value });
+					if (!this.ignoreWrites) {
+						if (settingId == 0) this.flags0 = value;
+						else if (settingId == 1) this.flags1 = value;
+						else if (settingId == 4) this.ibatBulk = value;
+						else this.settingValues.set(settingId, value);
+					}
+					return [mk2Frame(0x57, [0x88, 0x00, 0x00])];
+				}
+				if (sub == 0x34 || request.includes(0x34)) {
 					return [mk2Frame(0x57, [0x88, 0x00, 0x00])];
 				}
 				if (sub == 0x36) {
