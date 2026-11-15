@@ -148,8 +148,7 @@ describe("Mk2Connection", () => {
 			expect(next[2]).to.equal(0x41);
 		});
 
-		it("finds a valid frame behind an incomplete false candidate (issue #20)", async () => {
-			const fake = new FakeMk2Serial();
+		it("finds a valid frame behind an incomplete false candidate (issue #20)", async () => {			const fake = new FakeMk2Serial();
 			// 7f ff 56 looks like a long version frame but is incomplete; the real
 			// version frame follows immediately in the same buffer.
 			fake.push(Buffer.from([0x7f, 0xff, 0x56]));
@@ -280,5 +279,22 @@ describe("concurrency (issue #23)", () => {
 		conn.responseTimeoutMs = 3000;
 		await conn.communicate(mk2Frame(0x41, [0x01, 0x00]), async () => undefined);
 		expect(conn.timeouts).to.equal(0);
+	});
+});
+
+describe("sync split robustness (issue #56)", () => {
+	it("synchronises with a split at every byte offset", async () => {
+		for (let split = 1; split < 9; split++) {
+			const fake = new FakeMk2Serial();
+			const frame = versionFrame();
+			fake.push(frame.slice(0, split));
+			const conn = connWith(fake);
+			const pending = conn.sync();
+			// let the scanner see the partial frame before the rest arrives
+			await new Promise((resolve) => setTimeout(resolve, 25));
+			fake.push(frame.slice(split));
+			await pending;
+			expect(conn.synced, `split at byte ${split}`).to.equal(true);
+		}
 	});
 });
