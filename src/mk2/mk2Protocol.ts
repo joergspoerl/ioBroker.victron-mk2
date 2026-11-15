@@ -512,13 +512,16 @@ export class Mk2Protocol {
 		if (![1,2,3,4].includes(state)) {
 			throw new Mk2ValidationError(`set_switch_state: invalid state ${state}`)
 		}
-		this.currentSwitchState = state
 		// Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
 		const data = Buffer.from([state, 0xFF, 0xFF, 0x01, 0x80])
 		return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
 			if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
 				throw new Error("set_switch_state: no valid S response")
 			}
+			// Only after the device confirmed: otherwise a failed write would leave
+			// the cache wrong and the next set_assist would use it (review N1).
+			this.currentSwitchState = state
+			this.mk2Model["switch.state"].value = state
 		})
 	}
 

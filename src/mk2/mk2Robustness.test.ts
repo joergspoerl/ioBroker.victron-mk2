@@ -77,6 +77,15 @@ describe("switch state derivation (issue #7)", () => {
 		await p.master_multi_led_info();
 		expect(p.mk2Model["switch.state"].value).to.equal(1);
 	});
+
+	it("keeps the cached switch state when the write fails (issue #47)", async () => {
+		const fake = new FakeMk2Connection();
+		fake.failNext = "ff53"; // the S command fails at the transport level
+		const p = protocolWith(fake);
+		await expect(p.set_switch_state(2)).to.be.rejected;
+		expect(p.currentSwitchState).to.equal(3);
+		expect(p.mk2Model["switch.state"].value).to.equal(3);
+	});
 });
 
 describe("connection diagnostics (issue #8)", () => {
