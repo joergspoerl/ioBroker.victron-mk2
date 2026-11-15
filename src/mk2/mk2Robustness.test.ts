@@ -87,4 +87,13 @@ describe("connection diagnostics (issue #8)", () => {
 		expect(p.mk2Model["diag.checksum_errors"].value).to.equal(1);
 		expect(p.mk2Model["diag.last_error"].value).to.equal("MK2 frame checksum error");
 	});
+
+	it("propagates a transport failure inside an optional block (issue #16)", async () => {
+		const fake = new FakeMk2Connection();
+		// the RAM info request for the internal SOC fails at the transport level
+		fake.failNext = "05ff57360d0062";
+		const p = protocolWith(fake);
+		await p.poll();
+		expect(p.mk2Model["info.connection"].value).to.equal(false);
+	});
 });

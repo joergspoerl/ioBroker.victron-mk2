@@ -18,7 +18,7 @@ import {
 } from "./mk2Ram";
 import { switchStateFromRegister } from "./mk2Switch";
 import * as bp from "bufferpack";
-import { Mk2ValidationError } from "../lib/errors";
+import { Mk2TransportError, Mk2ValidationError } from "../lib/errors";
 
 export interface IscaleEntry {
 	scale: number
@@ -102,6 +102,11 @@ export class Mk2Protocol {
 		try {
 			await fn()
 		} catch (error) {
+			// Only feature-level failures are optional. A transport error means the
+			// connection is gone and must reach poll()'s failure path (review T6).
+			if (error instanceof Mk2TransportError) {
+				throw error
+			}
 			this.log.warn(`optional step "${name}" failed: ${error instanceof Error ? error.message : error}`)
 		}
 	}

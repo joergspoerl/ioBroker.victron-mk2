@@ -9,3 +9,14 @@ export class Mk2ValidationError extends Error {
 		this.name = "Mk2ValidationError";
 	}
 }
+
+/**
+ * A serial/transport failure (timeout, checksum, desync, closed port). Optional
+ * feature blocks must never swallow these: they mean the connection is gone.
+ */
+export class Mk2TransportError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "Mk2TransportError";
+	}
+}
