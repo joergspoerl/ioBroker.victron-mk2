@@ -134,13 +134,13 @@ describe("scaled setting writes (issue #10)", () => {
 		expect(fake.writes.length).to.equal(0);
 	});
 
-	it("warns when the device does not apply the write", async () => {
+	it("fails when the device does not apply the write", async () => {
 		const fake = new FakeMk2Connection();
 		fake.ignoreWrites = true;
-		const log = makeLog();
-		const p = protocolWith(fake, log.logger);
-		await p.set_UBatAbsorption(14.3);
-		expect(log.warnings.some((m) => m.includes("readback mismatch"))).to.equal(true);
+		const p = protocolWith(fake);
+		// A readback mismatch is an error, not a warning: the queue must be able
+		// to retry or report it instead of pretending success (issue #17).
+		await expect(p.set_UBatAbsorption(14.3)).to.be.rejectedWith("readback mismatch");
 	});
 
 	it("IBatBulk writes are read back as well", async () => {

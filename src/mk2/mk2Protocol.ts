@@ -940,7 +940,7 @@ export class Mk2Protocol {
 		await this.writeFlags0(value == 1 ? flags | mask : flags & ~mask);
 		const readback = await this.readFlags0();
 		if (((readback & mask) !== 0) !== (value == 1)) {
-			this.log.warn(`${name}: readback mismatch after write (wanted ${value})`);
+			throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
 		}
 	}
 
@@ -962,7 +962,7 @@ export class Mk2Protocol {
 		await this.writeSetting(1, value == 1 ? flags | mask : flags & ~mask);
 		const readback = (await this.readSetting(1)) ?? 0;
 		if (((readback & mask) !== 0) !== (value == 1)) {
-			this.log.warn(`${name}: readback mismatch after write (wanted ${value})`);
+			throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
 		}
 	}
 
@@ -996,7 +996,7 @@ export class Mk2Protocol {
 			return;
 		}
 		if (readback !== raw) {
-			this.log.warn(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+			throw new Error(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
 		}
 		const def = READONLY_SETTINGS.find((d) => d.id === id);
 		if (def) {
@@ -1047,7 +1047,7 @@ export class Mk2Protocol {
 		await this.writeSetting(4, raw);
 		const readback = await this.readSetting(4);
 		if (readback !== null && readback !== raw) {
-			this.log.warn(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+			throw new Error(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
 		}
 		if (readback !== null) {
 			this.mk2Model["setting.IBatBulk"].value = round(settingDisplayValue(info, readback), 2);
