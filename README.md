@@ -21,6 +21,9 @@ Victron Multiplus
   valid zero-grid/solar mode: with PowerAssist enabled the MultiPlus switches
   to Invert; with PowerAssist disabled it stays in Bypass with the charger off.
   The value is clamped to the device maximum (`assist.maxlimit`).
+  **Readback note:** after writing 0 A, `assist.limit` reports the device minimum
+  (e.g. 3.1 A) instead of 0 – that is the hardware clamping, the inverter mode is
+  still entered.
 - `victron-mk2.0.control.switch_state`: VE.Bus switch state
   (1 = Charger only, 2 = Inverter only, 3 = On, 4 = Off). Changing it does not
   change the current limit (the limit is ignored).

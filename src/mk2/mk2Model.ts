@@ -277,7 +277,7 @@ export class Mk2Model {
 	};
 
 	"assist.limit":    Mk2DataEntry = {
-		descr: "Actual input current limit",
+		descr: "Actual input current limit; after a 0 A write it shows the device minimum (e.g. 3.1 A) although Invert mode is active",
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
