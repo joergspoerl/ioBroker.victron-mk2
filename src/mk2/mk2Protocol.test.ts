@@ -163,6 +163,22 @@ describe("Mk2Protocol control writes", () => {
 		await p.force_state(3);
 		expect(fake.requests.some((r) => r[3] == 0x0E)).to.equal(true);
 	});
+
+	it("set_grid_mode grid uses the configured AC1 limit when available (issue #44)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		p.mk2Model["setting.IMainsLimitAC1"].value = 10;
+		await p.set_grid_mode(0);
+		expect(fake.limit).to.equal(10);
+	});
+
+	it("set_grid_mode grid falls back to the device maximum without a configured limit", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		p.mk2Model["setting.IMainsLimitAC1"].value = null;
+		await p.set_grid_mode(0);
+		expect(fake.limit).to.equal(16);
+	});
 });
 
 describe("Mk2Protocol protocol validation", () => {

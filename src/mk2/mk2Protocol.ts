@@ -532,14 +532,23 @@ export class Mk2Protocol {
 		if (![0,1,2].includes(mode)) {
 			throw new Mk2ValidationError(`set_grid_mode: invalid mode ${mode}`)
 		}
+		if (this.currentSwitchState == 4) {
+			// An explicit mode command may switch the unit on, but say so (review M4).
+			this.log.warn("device switch is Off; grid_mode switches it on explicitly")
+		}
 		if (mode == 2) {
 			this.currentSwitchState = 2;
 			await this.set_assist(0);
 			return
 		}
 		this.currentSwitchState = 3
+		const configured = this.mk2Model["setting.IMainsLimitAC1"].value
 		const max = this.mk2Model["assist.maxlimit"].value
-		const limit = mode == 0 ? (typeof max == "number" && max > 0 ? max : 16) : 0
+		// Grid mode must not silently replace the configured shore-current limit
+		// with the device rating (review M4).
+		const limit = mode == 0
+			? (typeof configured == "number" && configured > 0 ? configured : (typeof max == "number" && max > 0 ? max : 16))
+			: 0
 		await this.set_assist(limit)
 	}
 
