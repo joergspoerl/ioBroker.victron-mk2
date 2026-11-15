@@ -40,6 +40,7 @@ const mk2Settings_1 = require("./mk2Settings");
 const mk2Ram_1 = require("./mk2Ram");
 const mk2Switch_1 = require("./mk2Switch");
 const bp = __importStar(require("bufferpack"));
+const errors_1 = require("../lib/errors");
 class Calc {
 }
 exports.Calc = Calc;
@@ -77,11 +78,11 @@ class Mk2Protocol {
             await this.master_multi_led_info();
             await this.dc_info();
             await this.ac_info();
-            await this.readRamTelemetry();
+            await this.optionalStep("RAM telemetry", () => this.readRamTelemetry());
             await this.get_setting_IBatBulk();
             await this.get_flags();
             await this.get_flags1();
-            await this.loadExtendedSettings();
+            await this.optionalStep("extended settings", () => this.loadExtendedSettings());
             this.mk2Model["info.connection"].value = true;
         }
         catch (Exception) {
@@ -90,6 +91,18 @@ class Mk2Protocol {
         }
         finally {
             this.updateDiagnostics();
+        }
+    }
+    /**
+     * Optional feature blocks must not abort the whole poll: firmware without a
+     * given RAM variable or setting is normal, not a connection failure.
+     */
+    async optionalStep(name, fn) {
+        try {
+            await fn();
+        }
+        catch (error) {
+            this.log.warn(`optional step "${name}" failed: ${error instanceof Error ? error.message : error}`);
         }
     }
     /** Mirror the connection health counters into the model (issue #8). */
@@ -366,7 +379,7 @@ class Mk2Protocol {
                 && this.calc.uinv_calc
                 && this.calc.iinv_calc
                 && this.calc.fmains_calc) {
-                this.mk2Model["ac_info.state"].value = state;
+                this.mk2Model["ac_info.state"].value = this.acStateFieldValid() ? state : null;
                 this.mk2Model["ac_info.phase_info"].value = phase_info;
                 this.mk2Model["ac_info.umains"].value = round(((umains + this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)), 0);
                 this.mk2Model["ac_info.imains"].value = round(((imains + this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale) * bf_factor), 2);
@@ -378,6 +391,18 @@ class Mk2Protocol {
                 this.log.debug("ac_info scaling not ready");
             }
         });
+    }
+    /**
+     * Protocol §6.1: the AC info <State> field exists only on Multi firmware
+     * >= 207. On older units the byte carries something else, so publishing it
+     * as a state would be misleading (measured on firmware 1909140: raw 70).
+     */
+    acStateFieldValid() {
+        const version = this.mk2Model["info.device_sw_version"].value;
+        if (typeof version != "number" || version <= 0) {
+            return true; // unknown firmware: keep the raw value
+        }
+        return version % 1000 >= 207;
     }
     async master_multi_led_info() {
         this.log.debug("******   master_multi_led_info");
@@ -407,7 +432,7 @@ class Mk2Protocol {
                 this.log.info(`switch state changed on the device: ${this.currentSwitchState} -> ${derived}; adopting it`);
                 this.currentSwitchState = derived;
             }
-        }, { readTimeoutMs: 1200 }); // protocol §3.3: the F5 response may take >750 ms
+        }, { readTimeoutMs: 2000 }); // protocol §3.3: the F5 response may take >750 ms
     }
     async get_state() {
         this.log.debug("******   get_state");
@@ -433,7 +458,7 @@ class Mk2Protocol {
     // Set the ampere level for PowerAssist.
     async set_assist(ampere) {
         if (!Number.isFinite(ampere) || ampere < 0) {
-            throw new Error(`set_assist: invalid value ${ampere}`);
+            throw new errors_1.Mk2ValidationError(`set_assist: invalid value ${ampere}`);
         }
         const max = this.mk2Model["assist.maxlimit"].value;
         if (typeof max == "number" && max > 0 && ampere > max) {
@@ -446,7 +471,7 @@ class Mk2Protocol {
         if (this.currentSwitchState == 4) {
             // A limit write always carries a panel state. Do not switch a device
             // on that the operator switched off (issue #7).
-            throw new Error("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly");
+            throw new errors_1.Mk2ValidationError("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly");
         }
         const data = Buffer.from([this.currentSwitchState, lo, hi, 0x01, 0x80]);
         this.log.debug("******   set_assist");
@@ -460,7 +485,7 @@ class Mk2Protocol {
     /** Set the VE.Bus switch state without changing the input current limit. */
     async set_switch_state(state) {
         if (![1, 2, 3, 4].includes(state)) {
-            throw new Error(`set_switch_state: invalid state ${state}`);
+            throw new errors_1.Mk2ValidationError(`set_switch_state: invalid state ${state}`);
         }
         this.currentSwitchState = state;
         // Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
@@ -479,7 +504,7 @@ class Mk2Protocol {
      */
     async set_grid_mode(mode) {
         if (![0, 1, 2].includes(mode)) {
-            throw new Error(`set_grid_mode: invalid mode ${mode}`);
+            throw new errors_1.Mk2ValidationError(`set_grid_mode: invalid mode ${mode}`);
         }
         if (mode == 2) {
             this.currentSwitchState = 2;
@@ -494,7 +519,7 @@ class Mk2Protocol {
     async force_state(state) {
         this.log.debug("force_state ->" + state);
         if (![1, 2, 3].includes(state)) {
-            throw new Error(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`);
+            throw new errors_1.Mk2ValidationError(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`);
         }
         const data = Buffer.from([0x0E, state, 0x00]);
         return this.conn.communicate(this.create_frame("W", data), async (response) => {
@@ -572,7 +597,7 @@ class Mk2Protocol {
             throw new Error("Flags0 is not supported by this device");
         }
         if (info.max !== null && (info.max & (1 << flagBit)) === 0) {
-            throw new Error(`flag ${flagBit} is not supported by this device (mask 0x${info.max.toString(16)})`);
+            throw new errors_1.Mk2ValidationError(`flag ${flagBit} is not supported by this device (mask 0x${info.max.toString(16)})`);
         }
     }
     /** Read Flags1 (setting 1) and expose the documented bits 27-31. */
@@ -613,12 +638,28 @@ class Mk2Protocol {
         let sc = 0;
         let offset = 0;
         await this.conn.communicate(this.create_frame("W", Buffer.from([0x36, id & 0xFF, (id >> 8) & 0xFF])), async (response) => {
-            if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57) {
-                throw new Error("getRamInfo: no valid response");
+            if (response[1] != 0xff || response[2] != 0x57) {
+                throw new Error("getRamInfo: not a Winmon response frame");
             }
-            const data = bp.unpack("<h B h", response, 4);
-            sc = data[0];
-            offset = data[2];
+            // Unsupported variables answer with only 0x8E <Sc=0> and no 0x8F
+            // offset (§7.3.9), so the frame is shorter than the usual 0x08.
+            // Parse by W frame content instead of by a fixed length.
+            let seenScale = false;
+            for (let i = 3; i + 2 < response.length; i += 3) {
+                const cmd = response[i];
+                const value = response[i + 1] | (response[i + 2] << 8);
+                const signed = value >= 0x8000 ? value - 0x10000 : value;
+                if (cmd == 0x8e) {
+                    sc = signed;
+                    seenScale = true;
+                }
+                else if (cmd == 0x8f) {
+                    offset = signed;
+                }
+            }
+            if (!seenScale) {
+                throw new Error("getRamInfo: response carries no scale");
+            }
         });
         const info = (0, mk2Ram_1.makeRamInfo)(id, sc, offset);
         this.ramInfoCache.set(id, info);
@@ -755,11 +796,11 @@ class Mk2Protocol {
         var _a, _b;
         this.log.debug("******   set_setting_IBatBulk value: " + value);
         if (!Number.isInteger(value)) {
-            throw new Error(`IBatBulk must be an integer (got ${value})`);
+            throw new errors_1.Mk2ValidationError(`IBatBulk must be an integer (got ${value})`);
         }
         const info = await this.getSettingInfo(4);
         if (!info.supported) {
-            throw new Error("IBatBulk is not supported by this device");
+            throw new errors_1.Mk2ValidationError("IBatBulk is not supported by this device");
         }
         // Device limits come from GetSettingInfo; 0-120 A is only the fallback for
         // firmware that does not report them.
@@ -767,7 +808,7 @@ class Mk2Protocol {
         const min = (_a = info.min) !== null && _a !== void 0 ? _a : 0;
         const max = (_b = info.max) !== null && _b !== void 0 ? _b : 120;
         if (raw < min || raw > max) {
-            throw new Error(`IBatBulk must be between ${min} and ${max} (got ${value})`);
+            throw new errors_1.Mk2ValidationError(`IBatBulk must be between ${min} and ${max} (got ${value})`);
         }
         await this.writeSetting(4, raw);
     }

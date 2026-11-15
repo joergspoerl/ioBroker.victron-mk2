@@ -55,20 +55,47 @@ covered by unit tests (93 TS tests + 37 package tests, `tsc`/`eslint` clean).
 
 - `dc_info.ibat`/`dc_info.icharge` descriptions now say what the F0 fields really
   are (inverter/charger DC currents); the net battery current is `ibat_net`.
-- Serial timeouts follow protocol §3.3: 500 ms default, 1200 ms for the
-  MasterMultiLED request (`F 5`).
+- Serial response budget is configurable (`responseTimeout` in ms, default
+  **1500**; 2000 ms for `F 5`). The protocol's 500 ms recommendation proved too
+  tight on a loaded Raspberry Pi running ioBroker.
+- Invalid control input raises `Mk2ValidationError` and is dropped immediately
+  instead of being retried three times.
 - Read-only settings and Flags1 model entries are generated from the protocol
   tables in `mk2Settings.ts`, so objects and protocol cannot drift apart.
 
 ### Validation
 
-- 93 TypeScript unit tests + 37 package tests, `npm run check`, `lint`, `build`:
+- 98 TypeScript unit tests + 37 package tests, `npm run check`, `lint`, `build`:
   green. New tests cover the IBat RAM id, net current sign, frequency zero
   handling, sub-state decoding, setting info packing/scaling/caching, support
   masks, extended settings, RAM power/SOC, version assembly, switch-state
-  derivation and the reconnect path.
-- **Not yet run on hardware.** The new read paths (setting info, RAM power/SOC,
-  firmware version) need a read-only live verification before deployment.
+  derivation, the reconnect path and validation errors not being retried.
+- **Live on the MultiPlus (2026-11-15, no load on the AC output):**
+  - Identification: MK2 firmware **1130136**, mode 0, address 0; MultiPlus
+    firmware **1909140** → `19 9 140`. Since revision 140 < 207 the AC info
+    `<State>` field does not exist on this unit, which explains the formerly
+    puzzling raw value 70; `ac_info.state` is therefore `null` here.
+  - Settings read back with device metadata: absorption **14,20 V** (default
+    14,40 V, allowed 12,00–16,00 V), float **13,40 V**, DC low limit **9,30 V**,
+    mains window **180–270 V**, AES low current **0,25 A**, IBatBulk **120 A**.
+    Flags1: dynamic current limiter **on**, remote overrules AC1 **on**.
+  - RAM: SOC of the internal monitor reads **0 %** (the internal monitor is not
+    maintained; the BMV remains authoritative). RAM 14/16 (power) are **not
+    supported** by this firmware and answer with the short Sc = 0 frame; they
+    stay `null` and are not polled again.
+  - Modes: `grid_mode = 1` and `2` → `state.state = 40` (InvertFull),
+    `led.inverter = 1`, `led.mains = 0`, `imains = 0`, `assist.limit = 3,1 A`,
+    `uinv` 230 V, stable; `grid_mode = 0` → back to Bypass (80),
+    `assist.limit = 16 A`. Note: the switch register reports On in both inverter
+    modes, so `switch.state` stays 3.
+  - Writes: `set_assist 12` read back as 12 A; same-value writes for IBatBulk,
+    DisableCharge and WeakACInput succeed without deadlock; invalid values
+    (-1 A, 500 A) are rejected without changing the device and without retries.
+  - Connection: after each adapter start a single partial-frame timeout can
+    occur; the port is then closed and resynchronised, `diag.*` counts it, and
+    the following polls are clean.
+- **Still not tested on hardware**: physical MK2 replug, a MultiPlus boot while
+  the adapter is running, and `force_state` (changes the battery charge state).
 
 ## 0.1.0 (2026-11-15)
 

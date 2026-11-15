@@ -18,6 +18,7 @@ import {
 } from "./mk2Ram";
 import { switchStateFromRegister } from "./mk2Switch";
 import * as bp from "bufferpack";
+import { Mk2ValidationError } from "../lib/errors";
 
 export interface IscaleEntry {
 	scale: number
@@ -521,7 +522,7 @@ export class Mk2Protocol {
 				this.log.info(`switch state changed on the device: ${this.currentSwitchState} -> ${derived}; adopting it`)
 				this.currentSwitchState = derived
 			}
-		}, { readTimeoutMs: 1200 }); // protocol §3.3: the F5 response may take >750 ms
+		}, { readTimeoutMs: 2000 }); // protocol §3.3: the F5 response may take >750 ms
 	}
 
 
@@ -554,7 +555,7 @@ export class Mk2Protocol {
 	// Set the ampere level for PowerAssist.
 	async set_assist (ampere:number) : Promise<void> {
 		if (!Number.isFinite(ampere) || ampere < 0) {
-			throw new Error(`set_assist: invalid value ${ampere}`)
+			throw new Mk2ValidationError(`set_assist: invalid value ${ampere}`)
 		}
 		const max = this.mk2Model["assist.maxlimit"].value
 		if (typeof max == "number" && max > 0 && ampere > max) {
@@ -567,7 +568,7 @@ export class Mk2Protocol {
 		if (this.currentSwitchState == 4) {
 			// A limit write always carries a panel state. Do not switch a device
 			// on that the operator switched off (issue #7).
-			throw new Error("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly")
+			throw new Mk2ValidationError("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly")
 		}
 		const data = Buffer.from([this.currentSwitchState,lo, hi, 0x01, 0x80])
 
@@ -584,7 +585,7 @@ export class Mk2Protocol {
 	/** Set the VE.Bus switch state without changing the input current limit. */
 	async set_switch_state (state:number) : Promise<void> {
 		if (![1,2,3,4].includes(state)) {
-			throw new Error(`set_switch_state: invalid state ${state}`)
+			throw new Mk2ValidationError(`set_switch_state: invalid state ${state}`)
 		}
 		this.currentSwitchState = state
 		// Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
@@ -604,7 +605,7 @@ export class Mk2Protocol {
 	 */
 	async set_grid_mode (mode:number) : Promise<void> {
 		if (![0,1,2].includes(mode)) {
-			throw new Error(`set_grid_mode: invalid mode ${mode}`)
+			throw new Mk2ValidationError(`set_grid_mode: invalid mode ${mode}`)
 		}
 		if (mode == 2) {
 			this.currentSwitchState = 2;
@@ -621,7 +622,7 @@ export class Mk2Protocol {
 		this.log.debug("force_state ->" + state)
 
 		if (![1, 2, 3].includes(state)) {
-			throw new Error(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`)
+			throw new Mk2ValidationError(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`)
 		}
 		const data = Buffer.from([0x0E, state, 0x00])
 		return this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
@@ -709,7 +710,7 @@ export class Mk2Protocol {
 			throw new Error("Flags0 is not supported by this device");
 		}
 		if (info.max !== null && (info.max & (1 << flagBit)) === 0) {
-			throw new Error(`flag ${flagBit} is not supported by this device (mask 0x${info.max.toString(16)})`);
+			throw new Mk2ValidationError(`flag ${flagBit} is not supported by this device (mask 0x${info.max.toString(16)})`);
 		}
 	}
 
@@ -924,11 +925,11 @@ export class Mk2Protocol {
 		this.log.debug("******   set_setting_IBatBulk value: " + value);
 
 		if (!Number.isInteger(value)) {
-			throw new Error(`IBatBulk must be an integer (got ${value})`)
+			throw new Mk2ValidationError(`IBatBulk must be an integer (got ${value})`)
 		}
 		const info = await this.getSettingInfo(4);
 		if (!info.supported) {
-			throw new Error("IBatBulk is not supported by this device")
+			throw new Mk2ValidationError("IBatBulk is not supported by this device")
 		}
 		// Device limits come from GetSettingInfo; 0-120 A is only the fallback for
 		// firmware that does not report them.
@@ -936,7 +937,7 @@ export class Mk2Protocol {
 		const min = info.min ?? 0;
 		const max = info.max ?? 120;
 		if (raw < min || raw > max) {
-			throw new Error(`IBatBulk must be between ${min} and ${max} (got ${value})`)
+			throw new Mk2ValidationError(`IBatBulk must be between ${min} and ${max} (got ${value})`)
 		}
 		await this.writeSetting(4, raw);
 	}
