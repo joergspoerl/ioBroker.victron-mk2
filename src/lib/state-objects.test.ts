@@ -29,7 +29,7 @@ describe("state objects", () => {
 		expect(obj.common.write).to.equal(true);
 	});
 
-	it("sets min/max/def for control.set_assist", () => {
+	it("sets only min for control.set_assist; max/def come from the device (issue #60)", () => {
 		const obj = buildStateObject("control.set_assist", {
 			descr: "Set input current limit",
 			unit: "A",
@@ -39,8 +39,8 @@ describe("state objects", () => {
 			setFunc: async () => undefined,
 		} as any);
 		expect(obj.common.min).to.equal(0);
-		expect(obj.common.max).to.equal(16);
-		expect(obj.common.def).to.equal(16);
+		expect(obj.common.max).to.equal(undefined);
+		expect(obj.common.def).to.equal(undefined);
 	});
 
 	it("detects definition changes for object upgrades (issue #19)", () => {
