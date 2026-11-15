@@ -6,10 +6,7 @@ import { shouldHandleControlState } from "./lib/control-rules";
 import { processControlWrites, QueueItem } from "./lib/send-queue";
 import { buildStateObject, objectDefinitionChanged } from "./lib/state-objects";
 import { publishModel } from "./lib/publish";
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { PollLoop } from "./lib/poll-loop";
 
 export function splitIdFromAdapter(str: string): string {
 	const delimiter = ".";
@@ -20,7 +17,7 @@ export function splitIdFromAdapter(str: string): string {
 
 class VictronMk2 extends utils.Adapter {
 	mk2: Mk2Protocol | undefined;
-	mainLoopRunning = true;
+	private pollLoop: PollLoop | undefined;
 	toSendQueue: QueueItem[] = [];
 	private assistLimitObjectMax: number | null = null;
 
@@ -56,7 +53,11 @@ class VictronMk2 extends utils.Adapter {
 	}
 
 	private async onUnload(callback: () => void): Promise<void> {
-		this.mainLoopRunning = false;
+		// Wait for the running poll/control iteration before closing the port,
+		// otherwise a write can still be in flight during shutdown (review T12).
+		if (this.pollLoop) {
+			await this.pollLoop.stop(3000);
+		}
 		try {
 			await this.mk2?.conn.port.close();
 		} catch {
@@ -91,13 +92,9 @@ class VictronMk2 extends utils.Adapter {
 		});
 	}
 
-	private async mainLoop(): Promise<void> {
-		this.setTimeout(async () => {
-			while (this.mainLoopRunning) {
-				await this.updateStates();
-				await sleep(this.config.interval * 1000);
-			}
-		}, 10 * 1000);
+	private mainLoop(): void {
+		this.pollLoop = new PollLoop(() => this.updateStates(), this.config.interval * 1000);
+		this.pollLoop.start(10 * 1000);
 	}
 
 	private async updateStates(): Promise<void> {
