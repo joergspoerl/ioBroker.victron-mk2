@@ -585,11 +585,17 @@ export class Mk2Protocol {
 		}
 		this.currentSwitchState = 3
 		const configured = this.mk2Model["setting.IMainsLimitAC1"].value
+		const current = this.mk2Model["assist.limit"].value
 		const max = this.mk2Model["assist.maxlimit"].value
-		// Grid mode must not silently replace the configured shore-current limit
-		// with the device rating (review M4).
+		// Grid mode must not silently raise the shore-current limit: prefer the
+		// configured value, then keep the current one, never the device rating
+		// just because the configuration is unknown (review N15).
 		const limit = mode == 0
-			? (typeof configured == "number" && configured > 0 ? configured : (typeof max == "number" && max > 0 ? max : 16))
+			? (typeof configured == "number" && configured > 0
+				? configured
+				: typeof current == "number" && current > 0
+					? current
+					: typeof max == "number" && max > 0 ? max : 16)
 			: 0
 		await this.set_assist(limit)
 	}
