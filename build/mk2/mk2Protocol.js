@@ -184,7 +184,9 @@ class Mk2Protocol {
     async led_status() {
         this.log.debug("******   led_status");
         return this.conn.communicate(this.create_frame("L", ""), async (response) => {
-            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x4c) {
+            // §4 note b: MK2 >= 1130128 omits the trailing 0x00, so the response can
+            // be as short as 4 (length, marker, on, blink) plus checksum.
+            if (response[0] < 0x04 || response[1] != 0xff || response[2] != 0x4c) {
                 throw ({ error: "no led_status frame" });
             }
             const led_status = response[3];
@@ -224,6 +226,12 @@ class Mk2Protocol {
     /** Load one RAM scale/offset pair into the calc cache (table-driven). */
     async loadRamScaling(id, field) {
         const info = await this.getRamInfo(id);
+        if (!info.supported) {
+            // Sc = 0 means "not supported". Caching scale 0 would publish 0 V / 0 A
+            // as if they were measurements (review M1) - leave the field empty.
+            this.log.warn(`RAM variable ${id} is not supported by this firmware; dependent values stay null`);
+            return;
+        }
         this.calc[field] = { scale: info.sc, offset: info.offset };
     }
     // Thin wrappers keep the historical method names used by tests and scripts.
@@ -247,7 +255,7 @@ class Mk2Protocol {
     async dc_info() {
         this.log.debug("******   dc_info");
         return this.conn.communicate(this.create_frame("F", "\x00"), async (response) => {
-            if (response[0] != 0x0f || response[1] != 0x20 || response[6] != 0x0c) {
+            if (response[0] < 0x0f || response[1] != 0x20 || response[6] != 0x0c) {
                 throw ({ error: "no dc_info frame" });
             }
             const ubat = bp.unpack("<H", response, 7)[0];
@@ -266,17 +274,26 @@ class Mk2Protocol {
                 // devices. Positive means charging, like the BMV sign convention.
                 this.mk2Model["dc_info.ibat_net"].value = round(chargeCurrent - inverterCurrent, 2);
             }
+            else {
+                // Missing scalings (unsupported firmware) must not look like 0 V / 0 A.
+                for (const key of ["dc_info.ubat", "dc_info.ibat", "dc_info.icharge", "dc_info.ibat_net"]) {
+                    this.mk2Model[key].value = null;
+                }
+            }
             if (this.calc.finv_calc) {
                 const period = (finv + this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale);
                 // A period of 0 means "no inverter output", not a division by zero.
                 this.mk2Model["dc_info.finv"].value = period > 0 ? round(10 / period, 2) : 0;
+            }
+            else {
+                this.mk2Model["dc_info.finv"].value = null;
             }
         });
     }
     async ac_info() {
         this.log.debug("******   ac_info");
         return this.conn.communicate(this.create_frame("F", "\x01"), async (frame) => {
-            if (frame[0] != 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B) {
+            if (frame[0] < 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B) {
                 throw ({ error: "no ac_info frame" });
             }
             const data = bp.unpack("<B B B B B H h H h B", frame, 2);
@@ -308,6 +325,9 @@ class Mk2Protocol {
             }
             else {
                 this.log.debug("ac_info scaling not ready");
+                for (const key of ["ac_info.state", "ac_info.phase_info", "ac_info.umains", "ac_info.imains", "ac_info.uinv", "ac_info.iinv", "ac_info.fmains"]) {
+                    this.mk2Model[key].value = null;
+                }
             }
         });
     }
@@ -380,7 +400,7 @@ class Mk2Protocol {
      * own so charge phases do not have to be decoded from a two-digit number.
      */
     decodeStateResponse(response, context) {
-        if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
+        if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
             throw new Error(`${context}: no valid state response`);
         }
         const data = bp.unpack("<B B", response, 4);
@@ -399,6 +419,13 @@ class Mk2Protocol {
             this.log.warn(`set_assist: clamping ${ampere} A to ${max} A`);
             ampere = max;
         }
+        const min = this.mk2Model["assist.minlimit"].value;
+        if (ampere > 0 && typeof min == "number" && min > 0 && ampere < min) {
+            // The device would silently clamp up to its minimum (§5 note 2); do it
+            // explicitly instead of acknowledging a value that never took effect.
+            this.log.warn(`set_assist: clamping ${ampere} A up to the device minimum ${min} A`);
+            ampere = min;
+        }
         const a = Math.round(ampere * 10);
         // Protocol §5 variant 2: Limit/10 Ampere; values >= 0x8000 mean "ignore
         // the limit". Never let the bitwise conversion wrap around to 0 A.
@@ -415,7 +442,7 @@ class Mk2Protocol {
         const data = Buffer.from([this.currentSwitchState, lo, hi, 0x01, 0x80]);
         this.log.debug("******   set_assist");
         return this.conn.communicate(this.create_frame("S", data), async (response) => {
-            if (response[0] != 0x02 || response[1] != 0xff || response[2] != 0x53) {
+            if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
                 throw new Error("set_assist: no valid S response");
             }
             this.log.debug("set_assist ->" + JSON.stringify(response));
@@ -426,13 +453,16 @@ class Mk2Protocol {
         if (![1, 2, 3, 4].includes(state)) {
             throw new errors_1.Mk2ValidationError(`set_switch_state: invalid state ${state}`);
         }
-        this.currentSwitchState = state;
         // Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
         const data = Buffer.from([state, 0xFF, 0xFF, 0x01, 0x80]);
         return this.conn.communicate(this.create_frame("S", data), async (response) => {
-            if (response[0] != 0x02 || response[1] != 0xff || response[2] != 0x53) {
+            if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
                 throw new Error("set_switch_state: no valid S response");
             }
+            // Only after the device confirmed: otherwise a failed write would leave
+            // the cache wrong and the next set_assist would use it (review N1).
+            this.currentSwitchState = state;
+            this.mk2Model["switch.state"].value = state;
         });
     }
     /**
@@ -445,14 +475,34 @@ class Mk2Protocol {
         if (![0, 1, 2].includes(mode)) {
             throw new errors_1.Mk2ValidationError(`set_grid_mode: invalid mode ${mode}`);
         }
+        if (this.currentSwitchState == 4) {
+            // An explicit mode command may switch the unit on, but say so (review M4).
+            this.log.warn("device switch is Off; grid_mode switches it on explicitly");
+        }
+        if (mode == 1) {
+            // Protocol §5 note 3: 0 A means Invert only while PowerAssist is on.
+            // With AssistEnabled off it disables the charger and stays in Bypass.
+            const assist = this.mk2Model["setting.flag.AssistEnabled"].value;
+            if (assist === false) {
+                throw new errors_1.Mk2ValidationError("set_grid_mode: zero grid requires PowerAssist; with AssistEnabled=0 a 0 A limit disables the charger and stays in Bypass (§5 note 3)");
+            }
+            if (assist === null) {
+                this.log.warn("set_grid_mode: AssistEnabled is unknown; zero grid assumes PowerAssist is enabled");
+            }
+        }
         if (mode == 2) {
             this.currentSwitchState = 2;
             await this.set_assist(0);
             return;
         }
         this.currentSwitchState = 3;
+        const configured = this.mk2Model["setting.IMainsLimitAC1"].value;
         const max = this.mk2Model["assist.maxlimit"].value;
-        const limit = mode == 0 ? (typeof max == "number" && max > 0 ? max : 16) : 0;
+        // Grid mode must not silently replace the configured shore-current limit
+        // with the device rating (review M4).
+        const limit = mode == 0
+            ? (typeof configured == "number" && configured > 0 ? configured : (typeof max == "number" && max > 0 ? max : 16))
+            : 0;
         await this.set_assist(limit);
     }
     async force_state(state) {
@@ -482,7 +532,7 @@ class Mk2Protocol {
     async readSetting(id) {
         let value = null;
         await this.conn.communicate(this.create_frame("W", Buffer.from([0x31, id & 0xFF, (id >> 8) & 0xFF])), async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57) {
                 throw new Error("readSetting: no valid response");
             }
             if (response[3] == 0x91) {
@@ -502,7 +552,7 @@ class Mk2Protocol {
         const second_cmd = Buffer.from([0x34, raw & 0xFF, (raw >> 8) & 0xFF]);
         const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
         return this.conn.communicate(frames, async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
+            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
                 throw new Error(`writeSetting(${id}): no valid write response`);
             }
         });
@@ -626,7 +676,7 @@ class Mk2Protocol {
         let raw = null;
         let unsupported = false;
         await this.conn.communicate(this.create_frame("W", Buffer.from([0x30, id & 0xFF])), async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57) {
+            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57) {
                 throw new Error("readRamVar: no valid response");
             }
             if (response[3] == 0x90) {
@@ -678,7 +728,7 @@ class Mk2Protocol {
     async readDeviceVersionPart(command, expected) {
         let part = null;
         await this.conn.communicate(this.create_frame("W", Buffer.from([command, 0x00, 0x00])), async (response) => {
-            if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
+            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
                 throw new Error(`readDeviceVersionPart 0x${command.toString(16)}: no valid response`);
             }
             part = bp.unpack("<H", response, 4)[0];
@@ -746,7 +796,7 @@ class Mk2Protocol {
         await this.writeFlags0(next);
         const readback = await this.readFlags0();
         if (((readback & mask) !== 0) !== (value == 1)) {
-            throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
+            throw new errors_1.Mk2ReadbackError(`${name}: readback mismatch after write (wanted ${value})`);
         }
     }
     /** Same pattern for Flags1 (global flag numbers 16-31, setting id 1). */
@@ -777,10 +827,10 @@ class Mk2Protocol {
         await this.writeSetting(1, next);
         const readback = await this.readSetting(1);
         if (readback === null) {
-            throw new Error(`${name}: no Flags1 readback after write`);
+            throw new errors_1.Mk2ReadbackError(`${name}: no Flags1 readback after write`);
         }
         if (((readback & mask) !== 0) !== (value == 1)) {
-            throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
+            throw new errors_1.Mk2ReadbackError(`${name}: readback mismatch after write (wanted ${value})`);
         }
     }
     async set_flagDynamicCurrentLimiter(value) {
@@ -814,11 +864,10 @@ class Mk2Protocol {
         await this.writeSetting(id, raw);
         const readback = await this.readSetting(id);
         if (readback === null) {
-            this.log.warn(`${name}: no readback after write`);
-            return;
+            throw new errors_1.Mk2ReadbackError(`${name}: no readback after write`);
         }
         if (readback !== raw) {
-            throw new Error(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+            throw new errors_1.Mk2ReadbackError(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
         }
         const def = mk2Settings_1.READONLY_SETTINGS.find((d) => d.id === id);
         if (def) {
@@ -867,7 +916,7 @@ class Mk2Protocol {
         await this.writeSetting(4, raw);
         const readback = await this.readSetting(4);
         if (readback !== null && readback !== raw) {
-            throw new Error(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+            throw new errors_1.Mk2ReadbackError(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
         }
         if (readback !== null) {
             this.mk2Model["setting.IBatBulk"].value = round((0, mk2Settings_1.settingDisplayValue)(info, readback), 2);

@@ -63,10 +63,6 @@ class VictronMk2 extends utils.Adapter {
     async onReady() {
         const interval = Number(this.config.interval);
         this.config.interval = Number.isFinite(interval) && interval >= 1 ? interval : 2;
-        if (!this.config.portPath) {
-            this.log.error("config portPath is empty; adapter will not poll until it is configured");
-            return;
-        }
         this.log.info("config interval: " + this.config.interval);
         this.log.info("config portPath: " + this.config.portPath);
         this.mk2 = new mk2Protocol_1.Mk2Protocol(this.config.portPath, this.log);
@@ -75,7 +71,14 @@ class VictronMk2 extends utils.Adapter {
             this.mk2.conn.responseTimeoutMs = responseTimeout;
             this.log.info("config responseTimeout: " + responseTimeout + " ms");
         }
+        // Create the objects even without a configured port and report "not
+        // connected", instead of leaving no state at all (review N6).
         await this.initObjects();
+        if (!this.config.portPath) {
+            this.log.error("config portPath is empty; adapter will not poll until it is configured");
+            await this.setStateAsync("info.connection", { val: false, ack: true });
+            return;
+        }
         this.mainLoop();
         this.subscribeStates("control.*");
     }
@@ -143,6 +146,15 @@ class VictronMk2 extends utils.Adapter {
                 this.log.debug("MultiPlus not stable yet (state " + state + "), deferring control writes");
                 return;
             }
+            if (state === 20) {
+                // Off must not become a one-way state (review H2): only the explicit
+                // power-on controls are forwarded, everything else is dropped.
+                const before = this.toSendQueue.length;
+                this.toSendQueue = this.toSendQueue.filter((item) => (0, state_gate_1.controlAllowedWhileOff)(item.name));
+                if (this.toSendQueue.length !== before) {
+                    this.log.warn("device is Off: only switch_state/grid_mode writes are allowed, other control writes dropped");
+                }
+            }
             await this.processToSendQueue();
             await this.mk2.poll();
             await this.publishStates();
@@ -195,6 +207,7 @@ class VictronMk2 extends utils.Adapter {
                 name: idShort,
                 value: state.val,
                 attempts: 0,
+                ts: Date.now(),
             });
         }
     }

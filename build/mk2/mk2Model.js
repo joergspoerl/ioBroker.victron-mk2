@@ -23,7 +23,7 @@ class Mk2Model {
         this["info.connection"] = {
             descr: "True after a successful poll, false when the MK2/MultiPlus did not answer",
             unit: "",
-            role: "state",
+            role: "indicator.connected",
             type: "boolean",
             value: null,
         };
@@ -108,77 +108,77 @@ class Mk2Model {
             unit: "V",
             role: "value.voltage",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["dc_info.ibat"] = {
             descr: "DC current used by the inverting devices (unsigned, F0 frame)",
             unit: "A",
             role: "value.current",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["dc_info.icharge"] = {
             descr: "DC current provided by the charging devices (unsigned, F0 frame)",
             unit: "A",
             role: "value.current",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["dc_info.ibat_net"] = {
             descr: "Net battery current = icharge - ibat (positive = charging)",
             unit: "A",
             role: "value.current",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["dc_info.finv"] = {
             descr: "Inverter output frequency (0 = inverter off)",
             unit: "Hz",
             role: "value",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["ac_info.umains"] = {
             descr: "Main voltage - shore connection",
             unit: "V",
             role: "value.voltage",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["ac_info.imains"] = {
             descr: "Main current - shore connection",
             unit: "A",
             role: "value.current",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["ac_info.fmains"] = {
             descr: "Main freqency",
             unit: "Hz",
             role: "value",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["ac_info.uinv"] = {
             descr: "Inverter voltage",
             unit: "V",
             role: "value.voltage",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["ac_info.iinv"] = {
             descr: "Inverter current",
             unit: "A",
             role: "value.current",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["ac_info.phase_info"] = {
             descr: "Indicates which phase the received frame describes",
             unit: "",
             role: "state",
             type: "number",
-            value: 0,
+            value: null,
             states: {
                 "5": "This frame describes L4.",
                 "6": "This frame describes L3.",
@@ -195,7 +195,7 @@ class Mk2Model {
             unit: "",
             role: "state",
             type: "number",
-            value: 0,
+            value: null,
         };
         this["assist.minlimit"] = {
             descr: "Minimum input current limit",
@@ -227,7 +227,7 @@ class Mk2Model {
             states: mk2Switch_1.SWITCH_STATE_NAMES,
         };
         this["switch.DirectRemoteSwitchCharge"] = {
-            descr: "Switch states",
+            descr: "Direct remote switch: charge",
             unit: "",
             role: "state",
             type: "number",
@@ -238,7 +238,7 @@ class Mk2Model {
             }
         };
         this["switch.DirectRemoteSwitchInvert"] = {
-            descr: "Switch states",
+            descr: "Direct remote switch: invert",
             unit: "",
             role: "state",
             type: "number",
@@ -249,7 +249,7 @@ class Mk2Model {
             }
         };
         this["switch.FrontSwitchUp"] = {
-            descr: "Switch states",
+            descr: "Front switch up",
             unit: "",
             role: "state",
             type: "number",
@@ -260,7 +260,7 @@ class Mk2Model {
             }
         };
         this["switch.FrontSwitchDown"] = {
-            descr: "Switch states",
+            descr: "Front switch down",
             unit: "",
             role: "state",
             type: "number",
@@ -271,7 +271,7 @@ class Mk2Model {
             }
         };
         this["switch.SwitchCharge"] = {
-            descr: "Switch states",
+            descr: "Switch register: charge enabled",
             unit: "",
             role: "state",
             type: "number",
@@ -282,7 +282,7 @@ class Mk2Model {
             }
         };
         this["switch.SwitchInvert"] = {
-            descr: "Switch states",
+            descr: "Switch register: inverter enabled",
             unit: "",
             role: "state",
             type: "number",
@@ -293,7 +293,7 @@ class Mk2Model {
             }
         };
         this["switch.OnboardRemoteInvertSwitch"] = {
-            descr: "Switch states",
+            descr: "Onboard remote inverter switch",
             unit: "",
             role: "state",
             type: "number",
@@ -304,7 +304,7 @@ class Mk2Model {
             }
         };
         this["switch.RemoteGeneratorSelected"] = {
-            descr: "Switch states",
+            descr: "Remote generator selected",
             unit: "",
             role: "state",
             type: "number",
@@ -321,7 +321,7 @@ class Mk2Model {
             type: "number",
             value: 0,
             states: {
-                "00": "down",
+                "0": "down",
                 "10": "startup",
                 "20": "off",
                 "30": "slave",
@@ -474,7 +474,7 @@ class Mk2Model {
         this["control.IBatBulk"] = {
             descr: "IBatBulk",
             unit: "A",
-            role: "state",
+            role: "value.current",
             type: "number",
             value: 0,
             setFunc: (mk2, value) => mk2.set_setting_IBatBulk(value)
@@ -657,7 +657,7 @@ class Mk2Model {
         this["setting.IBatBulk"] = {
             descr: "IBatBulk",
             unit: "A",
-            role: "state",
+            role: "value.current",
             type: "number",
             value: 0,
             // setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)

@@ -19,10 +19,15 @@ async function processControlWrites(mk2, queue, log, maxAttempts = 3) {
  * later poll cycle (bounded), never silently dropped. Unknown states are
  * reported instead of causing a TypeError.
  */
-async function processToSendQueue(mk2, queue, log, maxAttempts = 3) {
+async function processToSendQueue(mk2, queue, log, maxAttempts = 3, maxAgeMs = 60000) {
     const completed = [];
     while (queue.length > 0) {
         const item = queue.shift();
+        // A queued command must not fire minutes or hours later (review H2).
+        if (item.ts && Date.now() - item.ts > maxAgeMs) {
+            log.warn(`Dropping expired control write ${item.name} (older than ${Math.round(maxAgeMs / 1000)} s)`);
+            continue;
+        }
         const entry = mk2.mk2Model[item.name];
         if (!entry || typeof entry.setFunc !== "function") {
             log.warn(`Dropping unknown control state ${item.name}`);
@@ -34,8 +39,9 @@ async function processToSendQueue(mk2, queue, log, maxAttempts = 3) {
             completed.push(item);
         }
         catch (ex) {
-            if (ex instanceof errors_1.Mk2ValidationError) {
-                // Invalid input can never succeed; retrying only spams the log.
+            if (ex instanceof errors_1.Mk2ValidationError || ex instanceof errors_1.Mk2ReadbackError) {
+                // Invalid input or an unconfirmed write can never succeed by repeating;
+                // retrying would only repeat the same EEPROM write.
                 log.error(`Control write ${item.name} rejected: ${ex.message}`);
                 continue;
             }

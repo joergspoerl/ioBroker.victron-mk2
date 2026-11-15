@@ -194,6 +194,14 @@ Detailed release notes: [CHANGELOG.md](CHANGELOG.md).
 	Placeholder for the next version (at the beginning of the line):
 	### **WORK IN PROGRESS**
 -->
+### 0.3.1 (2026-11-15)
+- Robust MK2 sync on non-aligned byte streams (no startup timeouts)
+
+### 0.3.0 (2026-11-15)
+- More validated controls: DisableAES, AssistEnabled, DynamicCurrentLimiter (Flags1),
+  absorption/float voltage, AC1 input current limit
+- Readback after every setting/flag write; no EEPROM writes for unchanged values
+
 ### 0.2.0 (2026-11-15)
 - Setting metadata (GetSettingInfo) with support/range validation for writes
 - Read-only settings + Flags1, RAM power/SOC telemetry, firmware identification

@@ -221,7 +221,7 @@ class Mk2Connection {
             await this.discardInput();
             this.frame_debug("SEND ->", request);
             await this.port.write(request);
-            const deadline = Date.now() + 2000;
+            const deadline = Date.now() + Math.max(2000, 2 * this.responseTimeoutMs);
             while (Date.now() < deadline) {
                 let frame;
                 try {
@@ -253,7 +253,7 @@ class Mk2Connection {
                     }
                 }
             }
-            throw new Error("Timeout waiting for response from MK2");
+            throw new errors_1.Mk2TransportError("Timeout waiting for response from MK2");
         }
         finally {
             this.busy = false;
@@ -329,7 +329,7 @@ class Mk2Connection {
         catch (_a) {
             // best effort; the reopen path handles a closed or broken port
         }
-        throw new Error(message);
+        throw new errors_1.Mk2TransportError(message);
     }
     checksum(frame) {
         let sum = 0;
