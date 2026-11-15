@@ -16,7 +16,6 @@ export class Calc {
 	ibat_calc: IscaleEntry | undefined
 	finv_calc: IscaleEntry | undefined
 	fmains_calc: IscaleEntry | undefined
-	// power_output_calc: IscaleEntry | undefined
 
 }
 
@@ -57,9 +56,6 @@ export class Mk2Protocol {
 			await this.master_multi_led_info()
 			await this.dc_info()
 			await this.ac_info()
-			// await this.get_power_charger()
-			// await this.get_power_inverter()
-			// await this.get_power_output()
 			await this.get_setting_IBatBulk()
 			await this.get_flags()
 
@@ -269,7 +265,10 @@ export class Mk2Protocol {
 	async ibat_calc_load (): Promise<void> {
 		this.log.debug("******   ibat_calc_load");
 
-		return this.conn.communicate (this.create_frame("W", "\x36\x06\x00"), async (response: Buffer) => {
+		// RAM ID 5 = IBat (protocol §7.3.13.1). ID 6 is UBatRMS and was used here
+		// by mistake; both happen to scale by 0.01 on the current firmware, but
+		// ID 5 is the signed one (appendix 2).
+		return this.conn.communicate (this.create_frame("W", "\x36\x05\x00"), async (response: Buffer) => {
 
 			if (response[0] != 0x08 || response[1] != 0xff || response[2] != 0x57 ) {
 				throw ({ error: "no ibat_calc_load frame"})
@@ -361,13 +360,23 @@ export class Mk2Protocol {
 			// DC current fields are unsigned 24-bit values (protocol §6.1).
 			const ibat = response[9] | (response[10] << 8) | (response[11] << 16);
 			const cbat = response[12] | (response[13] << 8) | (response[14] << 16);
-			// const finv = bp.unpack("<B", response, 15);
+			// Inverter period, single byte like the mains period on this firmware.
+			const finv = response[15];
 
-			if (this.calc.ubat_calc && this.calc.ibat_calc && this.calc.finv_calc) {
+			if (this.calc.ubat_calc && this.calc.ibat_calc) {
+				const inverterCurrent = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)),   2)
+				const chargeCurrent   = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)),   2)
 				this.mk2Model["dc_info.ubat"].value = round (((ubat+this.calc.ubat_calc.offset) * scale(this.calc.ubat_calc.scale)),   2)
-				this.mk2Model["dc_info.ibat"].value = round (((ibat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)),   2)
-				this.mk2Model["dc_info.icharge"].value = round (((cbat+this.calc.ibat_calc.offset) * scale(this.calc.ibat_calc.scale)),   2)
-				// this.mk2Model["dc_info.finv"].value = round ((10 / ((finv+this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale))), 2)
+				this.mk2Model["dc_info.ibat"].value = inverterCurrent
+				this.mk2Model["dc_info.icharge"].value = chargeCurrent
+				// Net battery current (appendix 2): charging devices minus inverting
+				// devices. Positive means charging, like the BMV sign convention.
+				this.mk2Model["dc_info.ibat_net"].value = round(chargeCurrent - inverterCurrent, 2)
+			}
+			if (this.calc.finv_calc) {
+				const period = (finv + this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale)
+				// A period of 0 means "no inverter output", not a division by zero.
+				this.mk2Model["dc_info.finv"].value = period > 0 ? round(10 / period, 2) : 0
 			}
 		});
 	}
@@ -448,16 +457,25 @@ export class Mk2Protocol {
 		this.log.debug("******   get_state");
 
 		return this.conn.communicate (this.create_frame("W", "\x0E\x00\x00"), async (response: Buffer) => {
-
-			if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
-				throw ({ error: "no get_state frame"})
-			}
-
-			const data = bp.unpack("<B B", response, 4)
-			const state : number = parseInt ("" + data[0] + data[1]);
-
-			this.mk2Model["state.state"].value = state
+			this.decodeStateResponse(response, "get_state")
 		})
+	}
+
+	/**
+	 * 0x94 <State> <Sub-state> (protocol §7.3.2). The historical state.state
+	 * encoding is mainState*10 + subState; the sub-state is also exposed on its
+	 * own so charge phases do not have to be decoded from a two-digit number.
+	 */
+	private decodeStateResponse(response: Buffer, context: string): void {
+		if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
+			throw new Error(`${context}: no valid state response`)
+		}
+
+		const data = bp.unpack("<B B", response, 4)
+		const mainState = data[0]
+		const subState = data[1]
+		this.mk2Model["state.state"].value = mainState * 10 + subState
+		this.mk2Model["state.substate"].value = subState
 	}
 
 
@@ -526,15 +544,15 @@ export class Mk2Protocol {
 	async force_state (state:number) : Promise<void> {
 		this.log.debug("force_state ->" + state)
 
-		if (state == 1 || state == 2 || state == 3) {
-			const data = Buffer.from([0x0E, state, 0x00])
-			return this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
-				if (response[0] != 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x94) {
-					throw new Error("force_state: no valid response")
-				}
-				this.log.debug("force_state ->" + response)
-			})
+		if (![1, 2, 3].includes(state)) {
+			throw new Error(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`)
 		}
+		const data = Buffer.from([0x0E, state, 0x00])
+		return this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
+			// Decode the answer like a state read, so the forced charge state is
+			// visible in the model instead of only acknowledged.
+			this.decodeStateResponse(response, "force_state")
+		})
 	}
 
 	/** Read Flags0 (setting 0) as a signed 16-bit value. */
@@ -567,41 +585,32 @@ export class Mk2Protocol {
 		const flags = await this.readFlags0();
 
 		const flagMap: { [key: number]: string } = {
-			0: "MultiPhaseSystem",
-			1: "MultiPhaseLeader",
-			2: "60Hz",
-			3: "Disable Wave Check (fast input voltage detection).IMPORTANT: Keep flags[7] consistent. ",
-			4: "DoNotStopAfter10HrBulk",
-			5: "AssistEnabled",
-			6: "DisableCharge",
-			7: "IMPORTANT: Must have inverted value of flags[3]",
-			8: "DisableAES",
-			9: "Not promoted option",
-			10: "Not promoted option",
-			11: "EnableReducedFloat",
-			12: "Not promoted option ",
-			13: "Disable ground relay",
-			14: "Weak AC input",
-			15: "Remote overrules AC2",
+			0: "setting.flag.MultiPhaseSystem",
+			1: "setting.flag.MultiPhaseLeader",
+			2: "setting.flag.Freq60Hz",
+			3: "setting.flag.DisableWaveCheck",
+			4: "setting.flag.DoNotStopAfter10HrBulk",
+			5: "setting.flag.AssistEnabled",
+			6: "setting.flag.DisableCharge",
+			7: "setting.flag.WaveCheckInverted",
+			8: "setting.flag.DisableAES",
+			11: "setting.flag.EnableReducedFloat",
+			13: "setting.flag.DisableGroundRelay",
+			14: "setting.flag.WeakACInput",
+			15: "setting.flag.RemoteOverrulesAC2",
 		};
+		// Bits 9, 10 and 12 are "not promoted options" and stay untouched.
 
-		Object.keys(flagMap).forEach((key) => {
-			const keyNumber = parseInt(key);
-			const bitmask = Math.pow(2, keyNumber);
-			const b = (bitmask & flags) > 0;
+		for (const [bit, key] of Object.entries(flagMap)) {
+			this.mk2Model[key].value = (flags & (1 << parseInt(bit))) !== 0;
+		}
 
-			if (keyNumber == 0) this.mk2Model["setting.flag.MultiPhaseSystem"].value = b;
-			if (keyNumber == 1) this.mk2Model["setting.flag.MultiPhaseLeader"].value = b;
-			if (keyNumber == 2) this.mk2Model["setting.flag.Freq60Hz"].value = b;
-			if (keyNumber == 4) this.mk2Model["setting.flag.DoNotStopAfter10HrBulk"].value = b;
-			if (keyNumber == 5) this.mk2Model["setting.flag.AssistEnabled"].value = b;
-			if (keyNumber == 6) this.mk2Model["setting.flag.DisableCharge"].value = b;
-			if (keyNumber == 8) this.mk2Model["setting.flag.DisableAES"].value = b;
-			if (keyNumber == 11) this.mk2Model["setting.flag.EnableReducedFloat"].value = b;
-			if (keyNumber == 13) this.mk2Model["setting.flag.DisableGroundRelay"].value = b;
-			if (keyNumber == 14) this.mk2Model["setting.flag.WeakACInput"].value = b;
-			if (keyNumber == 15) this.mk2Model["setting.flag.RemoteOverrulesAC2"].value = b;
-		});
+		// Protocol §7.3.13.3: flags[7] must be the inverse of flags[3].
+		const waveCheck = (flags & (1 << 3)) !== 0;
+		const waveCheckInverted = (flags & (1 << 7)) !== 0;
+		if (waveCheck === waveCheckInverted) {
+			this.log.warn("Flags0 bit 3 and bit 7 are not inverted (wave check); device configuration is inconsistent");
+		}
 	}
 
 	async set_flagDisableCharge(value: number): Promise<void> {
