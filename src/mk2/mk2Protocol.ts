@@ -18,7 +18,7 @@ import {
 } from "./mk2Ram";
 import { switchStateFromRegister } from "./mk2Switch";
 import * as bp from "bufferpack";
-import { Mk2TransportError, Mk2ValidationError } from "../lib/errors";
+import { Mk2ReadbackError, Mk2TransportError, Mk2ValidationError } from "../lib/errors";
 
 export interface IscaleEntry {
 	scale: number
@@ -881,7 +881,7 @@ export class Mk2Protocol {
 		await this.writeFlags0(next);
 		const readback = await this.readFlags0();
 		if (((readback & mask) !== 0) !== (value == 1)) {
-			throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
+			throw new Mk2ReadbackError(`${name}: readback mismatch after write (wanted ${value})`);
 		}
 	}
 
@@ -913,10 +913,10 @@ export class Mk2Protocol {
 		await this.writeSetting(1, next);
 		const readback = await this.readSetting(1);
 		if (readback === null) {
-			throw new Error(`${name}: no Flags1 readback after write`);
+			throw new Mk2ReadbackError(`${name}: no Flags1 readback after write`);
 		}
 		if (((readback & mask) !== 0) !== (value == 1)) {
-			throw new Error(`${name}: readback mismatch after write (wanted ${value})`);
+			throw new Mk2ReadbackError(`${name}: readback mismatch after write (wanted ${value})`);
 		}
 	}
 
@@ -951,11 +951,10 @@ export class Mk2Protocol {
 		await this.writeSetting(id, raw);
 		const readback = await this.readSetting(id);
 		if (readback === null) {
-			this.log.warn(`${name}: no readback after write`);
-			return;
+			throw new Mk2ReadbackError(`${name}: no readback after write`);
 		}
 		if (readback !== raw) {
-			throw new Error(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+			throw new Mk2ReadbackError(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
 		}
 		const def = READONLY_SETTINGS.find((d) => d.id === id);
 		if (def) {
@@ -1011,7 +1010,7 @@ export class Mk2Protocol {
 		await this.writeSetting(4, raw);
 		const readback = await this.readSetting(4);
 		if (readback !== null && readback !== raw) {
-			throw new Error(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+			throw new Mk2ReadbackError(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
 		}
 		if (readback !== null) {
 			this.mk2Model["setting.IBatBulk"].value = round(settingDisplayValue(info, readback), 2);

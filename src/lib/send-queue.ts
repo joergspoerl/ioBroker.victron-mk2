@@ -1,5 +1,5 @@
 import { Mk2Protocol } from "../mk2/mk2Protocol";
-import { Mk2ValidationError } from "./errors";
+import { Mk2ReadbackError, Mk2ValidationError } from "./errors";
 
 export interface QueueItem {
 	name: string;
@@ -59,8 +59,9 @@ export async function processToSendQueue(
 			await entry.setFunc(mk2, item.value);
 			completed.push(item);
 		} catch (ex) {
-			if (ex instanceof Mk2ValidationError) {
-				// Invalid input can never succeed; retrying only spams the log.
+			if (ex instanceof Mk2ValidationError || ex instanceof Mk2ReadbackError) {
+				// Invalid input or an unconfirmed write can never succeed by repeating;
+				// retrying would only repeat the same EEPROM write.
 				log.error(`Control write ${item.name} rejected: ${ex.message}`);
 				continue;
 			}
