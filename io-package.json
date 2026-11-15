@@ -115,6 +115,11 @@
             "energy"
         ],
         "license": "MIT",
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "tier": 3,
         "platform": "Javascript/Node.js",
         "main": "build/main.js",
         "icon": "victron-mk2.png",
