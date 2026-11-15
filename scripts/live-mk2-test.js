@@ -110,6 +110,17 @@ async function main() {
 			await pollAndPrint(p, "grid");
 		}
 
+		if (args.includes("--safe-writes")) {
+			// Same-value writes: validate the write paths without changing the
+			// MultiPlus configuration (charger/flags/bulk current/switch state).
+			await p.set_flagDisableCharge(1);
+			await p.set_flagWeakACInput(0);
+			await p.set_setting_IBatBulk(120);
+			await p.set_switch_state(3);
+			await sleep(1000);
+			await pollAndPrint(p, "safe same-value writes");
+		}
+
 		// Leave the MultiPlus in a defined safe state.
 		await p.set_assist(10);
 		await sleep(1000);

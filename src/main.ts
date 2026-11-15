@@ -36,8 +36,8 @@ class VictronMk2 extends utils.Adapter {
 		const interval = Number(this.config.interval);
 		this.config.interval = Number.isFinite(interval) && interval >= 1 ? interval : 2;
 		if (!this.config.portPath) {
-			this.log.error("config portPath is empty");
-			throw new Error("config portPath is empty");
+			this.log.error("config portPath is empty; adapter will not poll until it is configured");
+			return;
 		}
 		this.log.info("config interval: " + this.config.interval);
 		this.log.info("config portPath: " + this.config.portPath);
