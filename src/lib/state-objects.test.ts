@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { buildStateObject } from "./state-objects";
+import { buildStateObject, objectDefinitionChanged } from "./state-objects";
 
 describe("state objects", () => {
 	it("uses the model role and unit", () => {
@@ -41,5 +41,33 @@ describe("state objects", () => {
 		expect(obj.common.min).to.equal(0);
 		expect(obj.common.max).to.equal(16);
 		expect(obj.common.def).to.equal(16);
+	});
+
+	it("detects definition changes for object upgrades (issue #19)", () => {
+		const entry = {
+			descr: "Battery voltage",
+			unit: "V",
+			role: "value.voltage",
+			type: "number",
+			value: 0,
+		} as any;
+		const next = buildStateObject("dc_info.ubat", entry);
+		expect(objectDefinitionChanged(next, next)).to.equal(false);
+
+		const changed = buildStateObject("dc_info.ubat", { ...entry, descr: "Neue Beschreibung" });
+		expect(objectDefinitionChanged(next, changed)).to.equal(true);
+
+		const withUnit = buildStateObject("dc_info.ubat", { ...entry, unit: "mV" });
+		expect(objectDefinitionChanged(next, withUnit)).to.equal(true);
+	});
+
+	it("ignores user customisation such as history configuration", () => {
+		const entry = { descr: "x", unit: "", role: "state", type: "number", value: 0 } as any;
+		const next = buildStateObject("dc_info.ubat", entry);
+		const existing = {
+			...next,
+			common: { ...next.common, custom: { "influxdb.0": { enabled: true } } },
+		};
+		expect(objectDefinitionChanged(existing, next)).to.equal(false);
 	});
 });
