@@ -1,6 +1,8 @@
 import { expect } from "chai";
-import { processToSendQueue, QueueItem } from "./send-queue";
+import { processToSendQueue, processControlWrites, QueueItem } from "./send-queue";
 import { Mk2ValidationError } from "./errors";
+import { Mk2Protocol } from "../mk2/mk2Protocol";
+import { asConnection, FakeMk2Connection } from "../test-utils/fake-mk2";
 
 const log = {
 	debug: () => undefined,
@@ -74,9 +76,27 @@ describe("send queue", () => {
 		expect(attempts).to.equal(1);
 	});
 
-	it("reports unknown control states without throwing", async () => {		const { mk2 } = fakeMk2WithFailure(0);
+	it("reports unknown control states without throwing", async () => {
+		const { mk2 } = fakeMk2WithFailure(0);
 		const queue: QueueItem[] = [{ name: "control.unknown", value: 10, attempts: 0 }];
 		await processToSendQueue(mk2 as any, queue, log as any);
+		expect(queue).to.have.length(0);
+	});
+
+	it("refreshes the switch register before pending writes only (issue #15)", async () => {
+		const fake = new FakeMk2Connection();
+		const p = new Mk2Protocol("fake", log as any, asConnection(fake));
+		const isF5 = (r: Buffer) => r[2] == 0x46 && r[3] == 0x05;
+
+		await processControlWrites(p, [], log as any);
+		expect(fake.requests.filter(isF5).length).to.equal(0);
+
+		const queue: QueueItem[] = [{ name: "control.set_assist", value: 10, attempts: 0 }];
+		await processControlWrites(p, queue, log as any);
+		const f5Index = fake.requests.findIndex(isF5);
+		const writeIndex = fake.requests.findIndex((r) => r[2] == 0x53);
+		expect(f5Index).to.be.greaterThan(-1);
+		expect(f5Index).to.be.lessThan(writeIndex);
 		expect(queue).to.have.length(0);
 	});
 });
