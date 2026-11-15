@@ -1,4 +1,5 @@
 import { Mk2Serial } from "./serialWrapper";
+import { Mk2TransportError } from "../lib/errors";
 
 import * as util from "util";
 
@@ -101,7 +102,7 @@ export class Mk2Connection {
 			await sleep(20);
 		}
 		this.synced = false;
-		throw new Error("Sync - receive no version frame - no mk2 connected ?");
+		throw new Mk2TransportError("Sync - receive no version frame - no mk2 connected ?");
 	}
 
 	/** Find a complete, checksum-valid 'V' frame anywhere in the rx buffer. */

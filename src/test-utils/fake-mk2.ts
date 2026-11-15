@@ -1,4 +1,5 @@
 import { Mk2Connection } from "../mk2/mk2Connection";
+import { Mk2TransportError } from "../lib/errors";
 
 /** Build a protocol-correct MK2 frame: length, 0xFF, command, data, checksum. */
 export function mk2Frame(command: number, data: number[] = []): Buffer {
@@ -370,7 +371,7 @@ export class FakeMk2Connection {
 		this.requests.push(request);
 		if (this.failNext && request.toString("hex").includes(this.failNext)) {
 			this.failNext = undefined;
-			throw new Error("simulated communication failure");
+			throw new Mk2TransportError("simulated communication failure");
 		}
 	}
 
