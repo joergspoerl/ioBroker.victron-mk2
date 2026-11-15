@@ -156,19 +156,21 @@ pollen. Erst ein echter Port-Close erzwingt `ensureSynced()` neu.
 
 ## 8. Verbesserungen nach Priorität
 
-| Prio | Thema | Typ |
-|---|---|---|
-| 1 | B1: IBat-Skalierung auf RAM-ID 5 korrigieren | Bug |
-| 2 | `0x35` GetSettingInfo + Support-/Min-/Max-Validierung vor Flag-/Setting-Writes | Sicherheit |
-| 3 | MultiPlus-Firmwareversion lesen (`0x05/0x06`) + `info.*` (MK2-Version, Mode, Adresse) | Diagnose |
-| 4 | Zusätzliche Settings **read-only**: UBatAbsorption/Float, UBatLowLimit/Hysterese, UMains 44–47, AES 50/51, IMainsLimit 6/49, Assist-Boost 48, Flags1 | Runbook-Prüfpunkte ohne VEConfigure schließen |
-| 5 | `state.substate` separat exponieren, `force_state`-Antwort dekodieren, Encoding von `state.state` im Objekt-Description festhalten | Transparenz |
-| 6 | B4: Switch-State aus dem Switch-Register ableiten | Robustheit |
-| 7 | B2: `dc_info.ibat_net` (= icharge − ibat) + umbenannte/klar dokumentierte Felder | Korrekte Messgrößen |
-| 8 | RAM 14/15/16 (Leistung filtered) und optional RAM 13 (SOC) auslesen, sofern die Firmware sie anbietet (`0x36`-Support-Check) | bessere Telemetrie |
-| 9 | `info.connection`, Fehler-/Timeout-Zähler, **B6: Port/Sync bei Timeout/Checksummenfehler invalidieren**, Timeout-Profile (500 ms Standard, F5 ≥ 1000 ms) | Monitoring/Recovery |
-| 10 | B3: Wave-Check-Bits exponieren + Konsistenzwarnung; B5-Cleanup | Hygiene |
-| 11 | Optional: Mehrphasen (F2/F3/F4), Device-Discovery (`A`-Scan), MK2-Reset `R` als Recovery, `F 8`/BOL bewusst **nicht** | Ausbau |
+| Prio | Thema | Typ | Issue |
+|---|---|---|---|
+| 1 | B1: IBat-Skalierung auf RAM-ID 5 korrigieren | Bug | #1 |
+| 2 | `0x35` GetSettingInfo + Support-/Min-/Max-Validierung vor Flag-/Setting-Writes | Sicherheit | #2 |
+| 3 | MultiPlus-Firmwareversion lesen (`0x05/0x06`) + `info.*` (MK2-Version, Mode, Adresse) | Diagnose | #3 |
+| 4 | Zusätzliche Settings **read-only**: UBatAbsorption/Float, UBatLowLimit/Hysterese, UMains 44–47, AES 50/51, IMainsLimit 6/49, Assist-Boost 48, Flags1 | Runbook-Prüfpunkte ohne VEConfigure schließen | #4 |
+| 5 | `state.substate` separat exponieren, `force_state`-Antwort dekodieren, Encoding von `state.state` im Objekt-Description festhalten | Transparenz | #9 |
+| 6 | B4: Switch-State aus dem Switch-Register ableiten | Robustheit | #7 |
+| 7 | B2: `dc_info.ibat_net` (= icharge − ibat) + umbenannte/klar dokumentierte Felder | Korrekte Messgrößen | #5 |
+| 8 | RAM 14/15/16 (Leistung filtered) und optional RAM 13 (SOC) auslesen, sofern die Firmware sie anbietet (`0x36`-Support-Check) | bessere Telemetrie | #6 |
+| 9 | `info.connection`, Fehler-/Timeout-Zähler, **B6: Port/Sync bei Timeout/Checksummenfehler invalidieren**, Timeout-Profile (500 ms Standard, F5 ≥ 1000 ms) | Monitoring/Recovery | #8 |
+| 10 | B3: Wave-Check-Bits exponieren + Konsistenzwarnung; B5-Cleanup | Hygiene | #9 |
+| 11 | Optional: Mehrphasen (F2/F3/F4), Device-Discovery (`A`-Scan), MK2-Reset `R` als Recovery, `F 8`/BOL bewusst **nicht** | Ausbau | – |
+
+Issues: <https://github.com/joergspoerl/ioBroker.victron-mk2/issues>
 
 ## 9. Bewusst außer Scope
 
