@@ -536,6 +536,17 @@ export class Mk2Protocol {
 			// An explicit mode command may switch the unit on, but say so (review M4).
 			this.log.warn("device switch is Off; grid_mode switches it on explicitly")
 		}
+		if (mode == 1) {
+			// Protocol §5 note 3: 0 A means Invert only while PowerAssist is on.
+			// With AssistEnabled off it disables the charger and stays in Bypass.
+			const assist = this.mk2Model["setting.flag.AssistEnabled"].value
+			if (assist === false) {
+				throw new Mk2ValidationError("set_grid_mode: zero grid requires PowerAssist; with AssistEnabled=0 a 0 A limit disables the charger and stays in Bypass (§5 note 3)")
+			}
+			if (assist === null) {
+				this.log.warn("set_grid_mode: AssistEnabled is unknown; zero grid assumes PowerAssist is enabled")
+			}
+		}
 		if (mode == 2) {
 			this.currentSwitchState = 2;
 			await this.set_assist(0);
