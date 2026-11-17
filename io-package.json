@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.3.3",
+        "version": "0.3.4",
         "news": {
+            "0.3.4": {
+                "en": "Support long Winmon replies from firmware 1909209, value-free unsupported settings, and safe legacy setting writes via MK2 short-frame compatibility mode",
+                "de": "Unterstützung langer Winmon-Antworten von Firmware 1909209, wertfreie nicht-unterstützte Settings und sichere Setting-Writes über den MK2-Kurzframe-Kompatibilitätsmodus"
+            },
             "0.3.3": {
                 "en": "Third audit round: lifecycle hardening, safe startup state, no reopen after unload, PowerAssist guard for direct 0 A writes, new diagnostic counters and real lifecycle tests",
                 "de": "Dritte Auditrunde: Lebenszyklus-Härtung, sauberer Startzustand, kein Reopen nach Unload, PowerAssist-Sperre auch bei direktem 0-A-Write, neue Diagnosezähler und echte Lifecycle-Tests"

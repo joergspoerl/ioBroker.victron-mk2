@@ -108,6 +108,18 @@ describe("Mk2Protocol device identification (issue #3)", () => {
 		expect(p.mk2Model["info.mk2_mode"].value).to.equal(0);
 	});
 
+	it("accepts the long 1909209 response without requesting legacy part 1", async () => {
+		const fake = new FakeMk2Connection();
+		fake.deviceSwVersion = 1909209;
+		fake.longSoftwareVersionResponse = true;
+		const p = protocolWith(fake);
+		await p.loadDeviceInfo();
+		expect(p.mk2Model["info.device_sw_version"].value).to.equal(1909209);
+		expect(p.mk2Model["info.device_sw_version_text"].value).to.equal("19 9 209");
+		expect(fake.requests.filter((r) => r[2] == 0x57 && r[3] == 0x05).length).to.equal(1);
+		expect(fake.requests.filter((r) => r[2] == 0x57 && r[3] == 0x06).length).to.equal(0);
+	});
+
 	it("reads the device info only once per connection", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);

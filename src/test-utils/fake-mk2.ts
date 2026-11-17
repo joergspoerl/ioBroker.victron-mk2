@@ -173,6 +173,16 @@ export class FakeMk2Connection {
 	mk2Version: number | null = 1130128;
 	mk2Mode: number | null = 0;
 	deviceSwVersion = 2612431;
+	/** Use the long CommandSendSoftwareVersion response observed on 1909209. */
+	longSoftwareVersionResponse = false;
+	/** Use the single-frame CommandGetSettingInfo response observed on 1909209. */
+	longSettingInfoResponse = false;
+	/** Omit value bytes in unsupported setting responses, as observed on 1909209. */
+	minimalUnsupportedSettingResponses = false;
+	/** Protocol §5 FlagsExt0 bit 0: MK2 converts long Winmon frames to short. */
+	shortWinmonCompatibility = false;
+	/** Simulate 1909209 rejecting legacy setting writes while in long mode. */
+	rejectLegacyWritesInLongMode = false;
 	ramValues = new Map<number, number>([[13, 16000], [14, 250], [16, 65236]]);
 	unsupportedRam = new Set<number>();
 	ramInfoOverrides = new Map<number, { sc: number; offset: number }>();
@@ -226,6 +236,9 @@ export class FakeMk2Connection {
 			case 0x53: // S
 				this.switchState = request[3];
 				this.limit = (request[5] << 8 | request[4]) / 10;
+				if (request.length > 10 && request[9] === 0x01) {
+					this.shortWinmonCompatibility = true;
+				}
 				return [mk2Frame(0x53, [])];
 			case 0x46: { // F
 				const frameType = request[3];
@@ -274,7 +287,19 @@ export class FakeMk2Connection {
 				}
 				if (sub == 0x05 || sub == 0x06) {
 					// CommandSendSoftwareVersion: low/high 16-bit part
-					const part = sub == 0x05 ? this.deviceSwVersion & 0xFFFF : (this.deviceSwVersion >> 16) & 0xFFFF;
+					const part0 = this.deviceSwVersion & 0xFFFF;
+					const part1 = (this.deviceSwVersion >> 16) & 0xFFFF;
+					if (this.longSoftwareVersionResponse && !this.shortWinmonCompatibility) {
+						if (sub == 0x06) {
+							// The real 1909209 device rejects this legacy follow-up.
+							return [mk2Frame(0x57, [0x80, 0x00])];
+						}
+						return [mk2Frame(0x57, [
+							0x82, part0 & 0xFF, (part0 >> 8) & 0xFF,
+							part1 & 0xFF, (part1 >> 8) & 0xFF, 0x05, 0x01,
+						])];
+					}
+					const part = sub == 0x05 ? part0 : part1;
 					return [mk2Frame(0x57, [sub == 0x05 ? 0x82 : 0x83, part & 0xFF, (part >> 8) & 0xFF])];
 				}
 				if (sub == 0x30) {
@@ -288,7 +313,7 @@ export class FakeMk2Connection {
 				if (sub == 0x31) {
 					const settingId = request[4] | (request[5] << 8);
 					if (this.unsupportedSettings.has(settingId) || this.unreadableSettings.has(settingId)) {
-						return [mk2Frame(0x57, [0x91, 0x00, 0x00])];
+						return [mk2Frame(0x57, this.minimalUnsupportedSettingResponses ? [0x91] : [0x91, 0x00, 0x00])];
 					}
 					const value = this.settingValue(settingId);
 					return [mk2Frame(0x57, [0x86, value & 0xFF, (value >> 8) & 0xFF])];
@@ -296,10 +321,22 @@ export class FakeMk2Connection {
 				if (sub == 0x35) {
 					const settingId = request[4] | (request[5] << 8);
 					if (this.unsupportedSettings.has(settingId)) {
+						if (this.minimalUnsupportedSettingResponses) {
+							return [mk2Frame(0x57, [0x89])];
+						}
 						// Sc = 0 means "not supported"; nothing else follows.
 						return winmonFrames([[0x89, 0x00, 0x00]]);
 					}
 					const info = this.settingInfo(settingId);
+					if (this.longSettingInfoResponse && !this.shortWinmonCompatibility) {
+						return [mk2Frame(0x57, [
+							0x89, info.sc & 0xFF, (info.sc >> 8) & 0xFF,
+							info.offset & 0xFF, (info.offset >> 8) & 0xFF,
+							info.def & 0xFF, (info.def >> 8) & 0xFF,
+							info.min & 0xFF, (info.min >> 8) & 0xFF,
+							info.max & 0xFF, (info.max >> 8) & 0xFF,
+						])];
+					}
 					const wFrames = [
 						[0x89, info.sc & 0xFF, (info.sc >> 8) & 0xFF],
 						[0x8A, info.offset & 0xFF, (info.offset >> 8) & 0xFF],
@@ -311,6 +348,9 @@ export class FakeMk2Connection {
 					return winmonFrames(this.settingInfoPartial.has(settingId) ? wFrames.slice(0, 2) : wFrames);
 				}
 				if (sub == 0x33) {
+					if (this.rejectLegacyWritesInLongMode && !this.shortWinmonCompatibility) {
+						return [mk2Frame(0x57, [0x80, 0x00])];
+					}
 					// CommandWriteSetting + CommandWriteData arrive as two frames in
 					// one serial write; apply the value so readbacks are meaningful.
 					const settingId = request[4] | (request[5] << 8);

@@ -1,6 +1,6 @@
 {
   "name": "iobroker.victron-mk2",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Victron MultiPlus/Quattro via MK2/VE.Bus",
   "author": {
     "name": "joerg",

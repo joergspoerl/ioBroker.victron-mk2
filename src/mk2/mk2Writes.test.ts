@@ -99,6 +99,30 @@ describe("additional flag controls (issue #10)", () => {
 	});
 });
 
+describe("long Winmon firmware writes (1909209)", () => {
+	it("uses short-frame compatibility without changing switch or limit", async () => {
+		const fake = new FakeMk2Connection();
+		fake.deviceSwVersion = 1909209;
+		fake.longSoftwareVersionResponse = true;
+		fake.longSettingInfoResponse = true;
+		fake.rejectLegacyWritesInLongMode = true;
+		const p = protocolWith(fake);
+		await p.loadDeviceInfo();
+		await p.writeSetting(0, 0x89f0);
+		expect(fake.shortWinmonCompatibility).to.equal(true);
+		expect(fake.flags0).to.equal(0x89f0);
+		const modeIndex = fake.requests.findIndex((r) => r[2] == 0x53 && r[9] == 0x01);
+		const writeIndex = fake.requests.findIndex((r) => r[2] == 0x57 && r[3] == 0x33);
+		expect(modeIndex).to.be.greaterThanOrEqual(0);
+		expect(writeIndex).to.be.greaterThan(modeIndex);
+		const modeRequest = fake.requests[modeIndex];
+		expect(modeRequest[3]).to.equal(3);
+		expect(modeRequest[4]).to.equal(0xff);
+		expect(modeRequest[5]).to.equal(0xff);
+		expect(modeRequest[10]).to.equal(0x00);
+	});
+});
+
 describe("scaled setting writes (issue #10)", () => {
 	it("converts the absorption voltage to raw and refreshes the read-only state", async () => {
 		const fake = new FakeMk2Connection();

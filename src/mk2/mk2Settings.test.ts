@@ -60,6 +60,23 @@ describe("SettingInfoCollector", () => {
 		expect(collector.info.max).to.equal(120);
 	});
 
+	it("does not mistake four packed short responses for a long frame", async () => {
+		const collector = new SettingInfoCollector(4);
+		const first = mk2Frame(0x57, [
+			0x89, 0x01, 0x00,
+			0x8a, 0x00, 0x00,
+			0x8b, 0x5a, 0x00,
+			0x8c, 0x00, 0x00,
+		]);
+		expect(await collector.addFrame(first)).to.equal(false);
+		expect(collector.info.offset).to.equal(0);
+		expect(collector.info.def).to.equal(90);
+		expect(collector.info.min).to.equal(0);
+		const second = mk2Frame(0x57, [0x8d, 0x78, 0x00]);
+		expect(await collector.addFrame(second)).to.equal(true);
+		expect(collector.info.max).to.equal(120);
+	});
+
 	it("is complete after Sc = 0 (setting not supported)", async () => {
 		const collector = new SettingInfoCollector(9);
 		const done = await collector.addFrame(mk2Frame(0x57, [0x89, 0x00, 0x00]));
@@ -83,6 +100,30 @@ describe("Mk2Protocol setting metadata (issue #2)", () => {
 		const requestsAfterFirst = fake.requests.length;
 		await p.getSettingInfo(4);
 		expect(fake.requests.length).to.equal(requestsAfterFirst);
+	});
+
+	it("reads the single long setting-info frame from 1909209", async () => {
+		const fake = new FakeMk2Connection();
+		fake.longSettingInfoResponse = true;
+		fake.settingInfoOverrides.set(4, { sc: 1, offset: 0, def: 90, min: 0, max: 120 });
+		const p = protocolWith(fake);
+		const info = await p.getSettingInfo(4);
+		expect(info.supported).to.equal(true);
+		expect(info.sc).to.equal(1);
+		expect(info.offset).to.equal(0);
+		expect(info.def).to.equal(90);
+		expect(info.min).to.equal(0);
+		expect(info.max).to.equal(120);
+	});
+
+	it("accepts value-free unsupported replies from 1909209", async () => {
+		const fake = new FakeMk2Connection();
+		fake.minimalUnsupportedSettingResponses = true;
+		fake.unsupportedSettings.add(49); // IMainsLimitAC2 on a single-input unit
+		const p = protocolWith(fake);
+		const info = await p.getSettingInfo(49);
+		expect(info.supported).to.equal(false);
+		expect(await p.readSetting(49)).to.equal(null);
 	});
 
 	it("marks unsupported settings instead of throwing", async () => {
