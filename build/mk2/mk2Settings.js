@@ -51,6 +51,31 @@ class SettingInfoCollector {
         if (frame[1] !== 0xff || frame[2] !== 0x57) {
             throw new Error("getSettingInfo: not a Winmon response frame");
         }
+        // Minimal unsupported response observed on 1909209: only 0x89, without
+        // a Sc value. This is the short-form equivalent of Sc = 0.
+        if (frame[3] === 0x89 && frame[0] === 0x03) {
+            this.info.supported = false;
+            this.seen.add(0x89);
+            return true;
+        }
+        // Long Winmon response observed on 1909209: one 0x89 command followed
+        // directly by Sc, Offset, Default, Minimum and Maximum as five uint16
+        // values. There are no separate 0x8A..0x8D command bytes in this format.
+        if (frame[3] === 0x89 && frame[0] >= 0x0d && frame.length >= 15 && frame[6] !== 0x8a) {
+            const words = [0, 1, 2, 3, 4].map((n) => frame[4 + n * 2] | (frame[5 + n * 2] << 8));
+            const signed = (value) => value >= 0x8000 ? value - 0x10000 : value;
+            this.info.sc = signed(words[0]);
+            this.info.scale = settingScale(this.info.sc);
+            this.info.supported = this.info.sc !== 0;
+            this.info.offset = signed(words[1]);
+            this.info.def = words[2];
+            this.info.min = words[3];
+            this.info.max = words[4];
+            for (const cmd of [0x89, 0x8a, 0x8b, 0x8c, 0x8d]) {
+                this.seen.add(cmd);
+            }
+            return true;
+        }
         for (let i = 3; i + 2 < frame.length; i += 3) {
             const cmd = frame[i];
             const value = frame[i + 1] | (frame[i + 2] << 8);

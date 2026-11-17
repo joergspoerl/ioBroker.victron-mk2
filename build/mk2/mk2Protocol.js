@@ -67,6 +67,8 @@ class Mk2Protocol {
         this.ramInfoCache.clear();
         this.unsupportedRam.clear();
         this.deviceInfoLoaded = false;
+        this.longWinmonFrames = false;
+        this.shortWinmonForWrites = false;
         this.extendedSettingsLoaded = false;
         this.failedExtendedSettings.clear();
         this.unsupportedScalings.clear();
@@ -84,6 +86,8 @@ class Mk2Protocol {
         this.ramInfoCache = new Map();
         this.unsupportedRam = new Set();
         this.deviceInfoLoaded = false;
+        this.longWinmonFrames = false;
+        this.shortWinmonForWrites = false;
         this.connectionGeneration = -1;
         this.portPath = portPath;
         this.conn = conn !== null && conn !== void 0 ? conn : new mk2Connection_1.Mk2Connection(portPath, log);
@@ -562,12 +566,17 @@ class Mk2Protocol {
     async readSetting(id) {
         let value = null;
         await this.conn.communicate(this.create_frame("W", Buffer.from([0x31, id & 0xFF, (id >> 8) & 0xFF])), async (response) => {
-            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57) {
+            if (response[1] != 0xff || response[2] != 0x57) {
                 throw new Error("readSetting: no valid response");
             }
+            // 1909209 may return only 0x91 for an unsupported setting, without
+            // the two value bytes present in older responses.
             if (response[3] == 0x91) {
                 value = null;
                 return;
+            }
+            if (response[0] < 0x05) {
+                throw new Error("readSetting: response too short");
             }
             if (response[3] != 0x86) {
                 throw new Error("readSetting: unexpected response 0x" + response[3].toString(16));
@@ -578,6 +587,7 @@ class Mk2Protocol {
     }
     /** Write a setting with CommandWriteSetting + CommandWriteData (§7.3.6/7.3.7). */
     async writeSetting(id, raw) {
+        await this.prepareSettingWrite();
         const first_cmd = Buffer.from([0x33, id & 0xFF, (id >> 8) & 0xFF]);
         const second_cmd = Buffer.from([0x34, raw & 0xFF, (raw >> 8) & 0xFF]);
         const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
@@ -586,6 +596,27 @@ class Mk2Protocol {
                 throw new Error(`writeSetting(${id}): no valid write response`);
             }
         });
+    }
+    /**
+     * Firmware using long Winmon frames (observed on 1909209) rejects the legacy
+     * WriteSetting/WriteData sequence. Protocol §5 offers FlagsExt0 bit 0 = 1 to
+     * make the MK2 convert long frames to the old short format. The S command
+     * keeps both the current switch state and the input limit unchanged.
+     */
+    async prepareSettingWrite() {
+        if (!this.longWinmonFrames || this.shortWinmonForWrites) {
+            return;
+        }
+        const data = Buffer.from([
+            this.currentSwitchState, 0xFF, 0xFF, 0x01, 0x80,
+            0x00, 0x01, 0x00,
+        ]);
+        await this.conn.communicate(this.create_frame("S", data), async (response) => {
+            if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
+                throw new Error("prepareSettingWrite: no valid S response");
+            }
+        });
+        this.shortWinmonForWrites = true;
     }
     /** Write Flags0 with CommandWriteSetting + CommandWriteData. */
     async writeFlags0(flags) {
@@ -759,14 +790,39 @@ class Mk2Protocol {
         }
         this.mk2Model["info.mk2_version"].value = this.conn.mk2Version;
         this.mk2Model["info.mk2_mode"].value = this.conn.mk2Mode;
-        const part0 = await this.readDeviceVersionPart(0x05, 0x82);
-        const part1 = await this.readDeviceVersionPart(0x06, 0x83);
-        if (part0 !== null && part1 !== null) {
-            const version = ((part1 << 16) | part0) >>> 0;
+        const version = await this.readDeviceVersion();
+        if (version !== null) {
             this.mk2Model["info.device_sw_version"].value = version;
             this.mk2Model["info.device_sw_version_text"].value = (0, mk2Ram_1.formatDeviceVersion)(version);
         }
         this.deviceInfoLoaded = true;
+    }
+    /**
+     * Read the 32-bit device version (protocol §7.3.1). Newer firmware answers
+     * command 0x05 with a long Winmon frame containing both 16-bit parts. In
+     * that case the legacy 0x06 request is not supported and must not be sent.
+     */
+    async readDeviceVersion() {
+        let part0 = null;
+        let part1 = null;
+        await this.conn.communicate(this.create_frame("W", Buffer.from([0x05, 0x00, 0x00])), async (response) => {
+            if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x82) {
+                throw new Error("readDeviceVersion 0x05: no valid response");
+            }
+            part0 = bp.unpack("<H", response, 4)[0];
+            // Long response: 0x82 <LoPart0> <HiPart0> <LoPart1> <HiPart1> XX XX.
+            this.longWinmonFrames = response[0] >= 0x09 && response.length >= 11;
+            if (this.longWinmonFrames) {
+                part1 = bp.unpack("<H", response, 6)[0];
+            }
+        });
+        if (part0 === null) {
+            return null;
+        }
+        if (part1 === null) {
+            part1 = await this.readDeviceVersionPart(0x06, 0x83);
+        }
+        return part1 === null ? null : ((part1 << 16) | part0) >>> 0;
     }
     async readDeviceVersionPart(command, expected) {
         let part = null;

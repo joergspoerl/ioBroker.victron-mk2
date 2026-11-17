@@ -3,6 +3,33 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.4 (2026-11-17)
+
+Compatibility with the long Winmon protocol returned by MultiPlus firmware
+**1909209**, verified against the real device after its update from 1909140.
+
+### Fixed
+
+- **Device identification**: accept the single long `CommandSendSoftwareVersion`
+  response containing both 16-bit parts; do not send the unsupported legacy
+  part-1 request afterwards. Short two-command responses remain supported.
+- **Setting metadata**: parse the single long `CommandGetSettingInfo` response
+  containing Sc/Offset/Default/Min/Max, while still accepting packed short
+  responses. Four packed short responses are not misclassified as a long frame.
+- **Unsupported settings**: accept value-free 0x89/0x91 replies used by 1909209.
+- **Setting writes**: when long Winmon mode is detected, use the documented MK2
+  short-frame compatibility setting before `WriteSetting`/`WriteData`. The
+  compatibility command preserves the current switch state and ignores the input
+  limit rather than changing either one.
+
+### Validation
+
+- 181 TypeScript unit tests + 47 package/integration tests; build and eslint green.
+- Live on pi4 with MultiPlus 1909209: firmware identification, power/AC-state
+  telemetry and settings read correctly; `control.DisableCharge` verified through
+  ioBroker in both directions with device readback and no control, timeout, sync,
+  protocol or checksum errors.
+
 ## 0.3.3 (2026-11-16)
 
 Third audit round (lifecycle + serial robustness, DeepSeek V4.1 Flash): 18
