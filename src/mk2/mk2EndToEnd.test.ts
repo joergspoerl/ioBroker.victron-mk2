@@ -37,6 +37,83 @@ describe("end-to-end through the real Mk2Connection receiver", () => {
 		expect(p.mk2Model["switch.state"].value).to.equal(3);
 	});
 
+	it("reads the switch register at the end of the extended F5 frame", async () => {
+		// Real frame from firmware 1909209 while the MultiPlus was in Inverter only:
+		// extra AC-input bytes sit between the limits and the switch register.
+		const f5 = veBusFrame(0x41, [
+			0x10, 0x10, 0x00, 0x00, 0x04,
+			0x1f, 0x00, 0xa0, 0x00,
+			0x1f, 0x00,
+			0x00, 0x00, 0x67,
+		], 0x0f);
+		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
+			if (request[2] == 0x46 && request[3] == 0x05) return f5;
+			return mk2Frame(0x41, [0x01, 0x00]);
+		});
+		fake.push(versionFrame());
+		const conn = new Mk2Connection("fake", log as any, fake as any);
+		const p = new Mk2Protocol("fake", log as any, conn);
+		await p.master_multi_led_info();
+		expect(p.mk2Model["assist.limit"].value).to.equal(3.1);
+		expect(p.mk2Model["switch.state"].value).to.equal(2);
+		expect(p.mk2Model["switch.SwitchInvert"].value).to.equal(1);
+		expect(p.mk2Model["switch.SwitchCharge"].value).to.equal(0);
+	});
+
+	it("masks the LED-append bit before parsing the extended F5 frame", async () => {
+		const f5 = veBusFrame(0x41, [
+			0x10, 0x10, 0x00, 0x00, 0x04,
+			0x1f, 0x00, 0xa0, 0x00,
+			0x1f, 0x00,
+			0x00, 0x00, 0x67,
+		], 0x8f); // length bit 7: an L block follows
+		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
+			if (request[2] == 0x46 && request[3] == 0x05) return Buffer.concat([f5, Buffer.from([0x4c, 0x10, 0x00])]);
+			return mk2Frame(0x41, [0x01, 0x00]);
+		});
+		fake.push(versionFrame());
+		const conn = new Mk2Connection("fake", log as any, fake as any);
+		const p = new Mk2Protocol("fake", log as any, conn);
+		await p.master_multi_led_info();
+		expect(p.mk2Model["assist.limit"].value).to.equal(3.1);
+		expect(p.mk2Model["switch.state"].value).to.equal(2);
+	});
+
+	it("keeps the previous switch state when both candidates are plausible", async () => {
+		const normal = veBusFrame(0x41, [
+			0x10, 0x10, 0x00, 0x00, 0x04,
+			0x1f, 0x00, 0xa0, 0x00,
+			0x1f, 0x00,
+			0x30, 0x00,
+		], 0x0e);
+		// Same length, but response[13] = 0x10 (Charger only) and the last data
+		// byte = 0x30 (On). Both are plausible for state 80.
+		const ambiguous = veBusFrame(0x41, [
+			0x10, 0x10, 0x00, 0x00, 0x04,
+			0x1f, 0x00, 0xa0, 0x00,
+			0x1f, 0x00,
+			0x10, 0x00, 0x30,
+		], 0x0f);
+		let f5 = normal;
+		const fake = new FakeMk2Serial((request) => {
+			if (request[2] == 0x57 && request[3] == 0x0e) return mk2Frame(0x57, [0x94, 8, 0]);
+			if (request[2] == 0x57 && request[3] == 0x36) return mk2Frame(0x57, [0x8e, 0x9c, 0x7f, 0x8f, 0, 0]);
+			if (request[2] == 0x46 && request[3] == 0x05) return f5;
+			return mk2Frame(0x41, [0x01, 0x00]);
+		});
+		fake.push(versionFrame());
+		const p = new Mk2Protocol("fake", log as any, new Mk2Connection("fake", log as any, fake as any));
+		await p.get_state();
+		await p.master_multi_led_info();
+		expect(p.mk2Model["switch.state"].value).to.equal(3);
+		f5 = ambiguous;
+		await p.master_multi_led_info();
+		expect(p.mk2Model["switch.state"].value).to.equal(3);
+		expect(p.currentSwitchState).to.equal(3);
+	});
+
 	it("tolerates a longer F5 frame (protocol §3.2)", async () => {		const f5 = veBusFrame(0x41, [
 			0x10, 0x00, 0x00, 0x00, 0x04,
 			0x1f, 0x00, 0xa0, 0x00,
@@ -52,6 +129,7 @@ describe("end-to-end through the real Mk2Connection receiver", () => {
 		const p = new Mk2Protocol("fake", log as any, conn);
 		await p.master_multi_led_info();
 		expect(p.mk2Model["assist.limit"].value).to.equal(10);
+		expect(p.mk2Model["switch.state"].value).to.equal(3);
 	});
 });
 

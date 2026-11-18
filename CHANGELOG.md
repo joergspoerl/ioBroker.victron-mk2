@@ -3,6 +3,51 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.5 (2026-11-18)
+
+Fourth audit round against a live MultiPlus on firmware **1909209**. Findings
+and evidence: `docs/audit-round4-2026-11-18.md`.
+
+### Fixed
+
+- **Switch register in extended MasterMultiLED frames**: the register is read
+  from the correct position in the long F5 layout and cross-checked against
+  `state.state`; ambiguous frames publish "unknown" instead of a false `Off`.
+  This restores `set_assist` while the device runs in Inverter only.
+- **LED-append bit**: `receiveFrame` masks bit 7 of the length byte, so decoders
+  and every length guard see the real frame length.
+- **Long Winmon RAM metadata**: parse the mode-2 `0x8E Sc Sc Off Off` form, so
+  scaling offsets (e.g. mains period) are no longer dropped.
+- **Honest readbacks**: `set_assist`, `set_switch_state`, scaled setting writes
+  and `IBatBulk` verify the device value and acknowledge the quantized/applied
+  value instead of the raw request. 0 A writes must leave a visible trace.
+- **Grid mode**: a failed write reloads the device's switch state instead of
+  restoring a stale cache; `control.set_assist` is mirrored after grid-mode
+  writes, and the configured input limit is preserved.
+- **Control queue**: runs after the full poll (so Flags0/settings exist), is
+  skipped when the poll failed, and resets rejected/expired command states to
+  the device value instead of leaving the requested value visible.
+- **Connection state**: `info.connection` has a single writer and a failed full
+  poll can no longer be masked by a direct `true`.
+- **Settings**: `fmains`/`finv` publish 0 instead of `Infinity` for a raw period
+  of 0; phase 5–7 (L4/L3/L2) is accepted; factor 0 publishes unknown currents;
+  setting 63 applies its 0x8000 bias; long/short setting-info discrimination is
+  length-based; 0x86 unsupported replies are recognised.
+- **Flags**: a successful flag write refreshes `setting.flag.*` immediately, so
+  a following 0 A command in the same batch sees the new PowerAssist state.
+- **Lifecycle**: duplicate ready events are ignored; shutdown waits for an
+  in-flight serial exchange; commands written with ack=false while the adapter
+  was down are not replayed and are reset to the device value.
+- **Diagnostics/UI**: warn on non-numeric control writes, preserve discovered
+  min/max/def on restart, and publish device min/max for scaled control states.
+
+### Validation
+
+- 201 TypeScript tests (incl. lifecycle and the root `main.test.ts`) + 47
+  package tests; `check`, `lint` and `build` green.
+- Live read-only and reversible write tests on pi4 (`set_assist`,
+  `grid_mode`, `IMainsLimitAC1`); system returned to Grid/Bypass at 16 A.
+
 ## 0.3.4 (2026-11-17)
 
 Compatibility with the long Winmon protocol returned by MultiPlus firmware

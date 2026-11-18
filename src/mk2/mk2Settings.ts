@@ -27,7 +27,9 @@ export function settingScale(sc: number): number {
 
 /** DisplayValue := Scale * (x + Offset) */
 export function settingDisplayValue(info: SettingInfo, raw: number): number {
-	return info.scale * (raw + info.offset);
+	// Setting 63 (UBatLowPreAlarmOffset) is stored with 0x8000 as "zero".
+	const value = info.id === 63 ? raw - 0x8000 : raw;
+	return info.scale * (value + info.offset);
 }
 
 export function settingRawValue(info: SettingInfo, display: number): number {
@@ -70,10 +72,19 @@ export class SettingInfoCollector {
 			this.seen.add(0x89);
 			return true;
 		}
+		// Mode 2 answers an unsupported setting with 0x86 and no data.
+		if (frame[3] === 0x86 && frame[0] <= 0x04) {
+			this.info.supported = false;
+			this.seen.add(0x89);
+			return true;
+		}
 		// Long Winmon response observed on 1909209: one 0x89 command followed
 		// directly by Sc, Offset, Default, Minimum and Maximum as five uint16
 		// values. There are no separate 0x8A..0x8D command bytes in this format.
-		if (frame[3] === 0x89 && frame[0] >= 0x0d && frame.length >= 15 && frame[6] !== 0x8a) {
+		// The layout is selected by frame length: packed short frames carry at
+		// most three 3-byte groups (<= 0x0A), so a length-based test cannot be
+		// fooled by a metadata byte that happens to equal 0x8A.
+		if (frame[3] === 0x89 && frame[0] === 0x0d && frame.length === 15) {
 			const words = [0, 1, 2, 3, 4].map((n) => frame[4 + n * 2] | (frame[5 + n * 2] << 8));
 			const signed = (value: number): number => value >= 0x8000 ? value - 0x10000 : value;
 			this.info.sc = signed(words[0]);

@@ -1,8 +1,12 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.3.4",
+        "version": "0.3.5",
         "news": {
+            "0.3.5": {
+                "en": "Fourth audit round: correct switch register in extended F5 frames, honest readbacks, safer control writes, long-Winmon RAM offsets, and UI metadata for scaled controls",
+                "de": "Vierte Auditrunde: korrektes Switch-Register in erweiterten F5-Frames, ehrliche Readbacks, sicherere Steuerbefehle, Long-Winmon-RAM-Offsets und UI-Metadaten fuer skalierte Controls"
+            },
             "0.3.4": {
                 "en": "Support long Winmon replies from firmware 1909209, value-free unsupported settings, and safe legacy setting writes via MK2 short-frame compatibility mode",
                 "de": "Unterstützung langer Winmon-Antworten von Firmware 1909209, wertfreie nicht-unterstützte Settings und sichere Setting-Writes über den MK2-Kurzframe-Kompatibilitätsmodus"
