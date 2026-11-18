@@ -2,9 +2,11 @@ import { expect } from "chai";
 import { controlAllowedWhileOff, isStableState } from "./state-gate";
 
 describe("state gate", () => {
-	it("rejects only down and startup (issue #39)", () => {
+	it("rejects every substate of down and startup (issue #39)", () => {
 		expect(isStableState(0)).to.equal(false);
 		expect(isStableState(10)).to.equal(false);
+		for (const sub of [1, 5, 9]) expect(isStableState(sub)).to.equal(false);
+		for (const sub of [11, 15, 19]) expect(isStableState(sub)).to.equal(false);
 	});
 
 	it("treats Off as recoverable, not as a one-way state", () => {

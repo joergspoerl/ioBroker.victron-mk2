@@ -10,7 +10,8 @@ export interface Mk2DataEntry {
 	value: Mk2PropertyType;
 	states?: { [key: string]: string };
 	valueOld?: Mk2PropertyType;
-	setFunc?:  (protocol: Mk2Protocol, value: number) => Promise<void>
+	/** May return the value that the device actually accepted (e.g. after clamping). */
+	setFunc?:  (protocol: Mk2Protocol, value: number) => Promise<void | number>
 }
 
 export type Mk2PropertyType = number | string | boolean | null; // entspricht ioBroker.StateValue
@@ -525,7 +526,7 @@ export class Mk2Model {
 
 
 	"control.set_assist":    Mk2DataEntry = {
-		descr: "Set input current limit (A; 0 = Inverter/Zero grid when PowerAssist enabled)",
+		descr: "Command: set input current limit (A; 0 = Inverter/Zero grid when PowerAssist enabled); actual limit is assist.limit",
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
@@ -534,7 +535,7 @@ export class Mk2Model {
 	};
 
 	"control.switch_state":    Mk2DataEntry = {
-		descr: "VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off). Attention: setting 1-3 switches the device on when it is Off (inverter runs from the battery).",
+		descr: "Command: VE.Bus switch state (1=Charger only, 2=Inverter only, 3=On, 4=Off). The device readback is switch.state. Setting 1-3 switches the device on when it is Off.",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -549,7 +550,7 @@ export class Mk2Model {
 	};
 
 	"control.grid_mode":    Mk2DataEntry = {
-		descr: "Grid mode (0=Grid, 1=Zero grid/Invert via 0 A [needs PowerAssist], 2=Inverter only [switch 2 + 0 A, the 0 A setpoint persists]). Switches the device on when it is Off.",
+		descr: "Command: grid mode (0=Grid, 1=Zero grid/Invert via 0 A [needs PowerAssist], 2=Inverter only [switch 2 + 0 A, the 0 A setpoint persists]). Actual mode is derived from switch.state + assist.limit.",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -563,7 +564,7 @@ export class Mk2Model {
 	};
 
 	"control.force_state":    Mk2DataEntry = {
-		descr: "Force charge state: 1=Equalise (battery maintenance: 1 h at 1/2/4 V above absorption, 1/4 current), 2=Absorption, 3=Float. Not an on/off mode. On OPzV/gel batteries only use Equalise deliberately and with battery knowledge.",
+		descr: "Command: force charge state (1=Equalise, 2=Absorption, 3=Float). Actual charge state is state.substate. On OPzV/gel batteries only use Equalise deliberately.",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -577,7 +578,7 @@ export class Mk2Model {
 	};
 
 	"control.IBatBulk":    Mk2DataEntry = {
-		descr: "IBatBulk",
+		descr: "Command: bulk charge current; read back via setting.IBatBulk",
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
@@ -585,7 +586,7 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_setting_IBatBulk(value)
 	};
 	"control.DisableCharge":    Mk2DataEntry = {
-		descr: "DisableCharge",
+		descr: "Command: disable charger flag; read back via setting.flag.DisableCharge",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -597,7 +598,7 @@ export class Mk2Model {
 		setFunc: (mk2: Mk2Protocol, value: number) => mk2.set_flagDisableCharge(value)
 	};
 	"control.WeakACInput":    Mk2DataEntry = {
-		descr: "WeakACInput",
+		descr: "Command: weak AC input flag; read back via setting.flag.WeakACInput",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -610,7 +611,7 @@ export class Mk2Model {
 	};
 
 	"control.DisableAES":    Mk2DataEntry = {
-		descr: "Disable AES (Automatic Economy Switch); Flags0 bit 8",
+		descr: "Command: disable AES (Flags0 bit 8); read back via setting.flag.DisableAES",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -623,7 +624,7 @@ export class Mk2Model {
 	};
 
 	"control.AssistEnabled":    Mk2DataEntry = {
-		descr: "PowerAssist enabled; Flags0 bit 5",
+		descr: "Command: PowerAssist (Flags0 bit 5); read back via setting.flag.AssistEnabled",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -636,7 +637,7 @@ export class Mk2Model {
 	};
 
 	"control.DynamicCurrentLimiter":    Mk2DataEntry = {
-		descr: "Dynamic current limiter; Flags1 bit 12 (flag 28)",
+		descr: "Command: dynamic current limiter (Flags1 bit 12/28); read back via setting.flag.DynamicCurrentLimiter",
 		unit:  "",
 		role:  "state",
 		type: "number",
@@ -649,7 +650,7 @@ export class Mk2Model {
 	};
 
 	"control.UBatAbsorption":    Mk2DataEntry = {
-		descr: "Absorption voltage (device range from GetSettingInfo)",
+		descr: "Command: absorption voltage; read back via setting.UBatAbsorption",
 		unit:  "V",
 		role:  "value.voltage",
 		type: "number",
@@ -658,7 +659,7 @@ export class Mk2Model {
 	};
 
 	"control.UBatFloat":    Mk2DataEntry = {
-		descr: "Float voltage (device range from GetSettingInfo)",
+		descr: "Command: float voltage; read back via setting.UBatFloat",
 		unit:  "V",
 		role:  "value.voltage",
 		type: "number",
@@ -667,7 +668,7 @@ export class Mk2Model {
 	};
 
 	"control.IMainsLimitAC1":    Mk2DataEntry = {
-		descr: "Configured AC1 input current limit (device range from GetSettingInfo)",
+		descr: "Command: configured AC1 input current limit; read back via setting.IMainsLimitAC1",
 		unit:  "A",
 		role:  "value.current",
 		type: "number",
@@ -718,7 +719,7 @@ export class Mk2Model {
 
 
 	"setting.flag.DisableCharge":    Mk2DataEntry = {
-		descr: "DisableCharge",
+		descr: "Command: disable charger flag; read back via setting.flag.DisableCharge",
 		unit:  "",
 		role:  "state",
 		type: "boolean",
@@ -782,7 +783,7 @@ export class Mk2Model {
 	};
 
 	"setting.IBatBulk":    Mk2DataEntry = {
-		descr: "IBatBulk",
+		descr: "Command: bulk charge current; read back via setting.IBatBulk",
 		unit:  "A",
 		role:  "value.current",
 		type: "number",

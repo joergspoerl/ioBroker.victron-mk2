@@ -121,6 +121,7 @@ describe("Mk2Protocol control writes", () => {
 	it("set_grid_mode zero_grid writes 0 A and keeps On", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
+		p.mk2Model["setting.flag.AssistEnabled"].value = true;
 		await p.set_grid_mode(1);
 		expect(fake.switchState).to.equal(3);
 		expect(fake.limit).to.equal(0);
@@ -129,6 +130,7 @@ describe("Mk2Protocol control writes", () => {
 	it("set_grid_mode inverter_only selects switch state 2", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
+		p.mk2Model["setting.flag.AssistEnabled"].value = true;
 		await p.set_grid_mode(2);
 		expect(fake.switchState).to.equal(2);
 	});
@@ -137,6 +139,18 @@ describe("Mk2Protocol control writes", () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
 		await expect(p.set_grid_mode(3)).to.be.rejectedWith("invalid");
+	});
+
+	it("restores the cached switch state when the grid-mode write fails", async () => {
+		const fake = new FakeMk2Connection();
+		fake.switchRegister = 0b00100000; // Inverter only
+		const p = protocolWith(fake);
+		await p.master_multi_led_info();
+		expect(p.currentSwitchState).to.equal(2);
+
+		fake.failNext = "ff53";
+		await expect(p.set_grid_mode(0)).to.be.rejected;
+		expect(p.currentSwitchState).to.equal(2);
 	});
 
 	it("rejects zero grid when PowerAssist is disabled (issue #45)", async () => {
@@ -161,6 +175,7 @@ describe("Mk2Protocol control writes", () => {
 		await p.poll(); // minlimit = 3.1 A
 		await p.set_assist(0.1);
 		expect(fake.limit).to.be.closeTo(3.1, 0.001);
+		p.mk2Model["setting.flag.AssistEnabled"].value = true;
 		await p.set_assist(0); // 0 A is the inverter mode, not clamped
 		expect(fake.limit).to.equal(0);
 	});

@@ -1,6 +1,6 @@
 {
   "name": "iobroker.victron-mk2",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Victron MultiPlus/Quattro via MK2/VE.Bus",
   "author": {
     "name": "joerg",
@@ -69,7 +69,7 @@
     "build": "npm run build:ts",
     "watch:ts": "tsc -p tsconfig.build.json --watch",
     "watch": "npm run watch:ts",
-    "test:ts": "mocha --config test/mocharc.custom.json src/**/*.test.ts",
+    "test:ts": "mocha --config test/mocharc.custom.json \"src/**/*.test.ts\" \"src/*.test.ts\"",
     "test:package": "mocha test/package --exit",
     "test:unit": "mocha test/unit --exit",
     "test:integration": "mocha test/integration --exit",

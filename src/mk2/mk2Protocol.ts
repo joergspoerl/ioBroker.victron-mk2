@@ -46,6 +46,22 @@ function round(number: number, decimal: number): number {
 }
 
 
+const FLAGS0_KEYS: Record<number, string> = {
+	0: "setting.flag.MultiPhaseSystem",
+	1: "setting.flag.MultiPhaseLeader",
+	2: "setting.flag.Freq60Hz",
+	3: "setting.flag.DisableWaveCheck",
+	4: "setting.flag.DoNotStopAfter10HrBulk",
+	5: "setting.flag.AssistEnabled",
+	6: "setting.flag.DisableCharge",
+	7: "setting.flag.WaveCheckInverted",
+	8: "setting.flag.DisableAES",
+	11: "setting.flag.EnableReducedFloat",
+	13: "setting.flag.DisableGroundRelay",
+	14: "setting.flag.WeakACInput",
+	15: "setting.flag.RemoteOverrulesAC2",
+};
+
 export class Mk2Protocol {
 	portPath: string
 	conn: Mk2Connection
@@ -100,8 +116,8 @@ export class Mk2Protocol {
 			await this.conn.ensureSynced()
 			this.checkConnectionGeneration()
 			await this.address()
+			await this.optionalStep("device identification", () => this.loadDeviceInfo())
 			await this.loadScalingsIfNeeded()
-			await this.loadDeviceInfo()
 			await this.led_status()
 			await this.get_state()
 			await this.master_multi_led_info()
@@ -158,6 +174,8 @@ export class Mk2Protocol {
 		this.checkConnectionGeneration()
 		await this.address()
 		await this.get_state()
+		// Successful exchange: connected. The full poll owns the failure case.
+		this.mk2Model["info.connection"].value = true
 	}
 
 	checksum(buffer: Buffer): boolean {
@@ -338,8 +356,8 @@ export class Mk2Protocol {
 			}
 			if (this.calc.finv_calc) {
 				const period = (finv + this.calc.finv_calc.offset) * scale(this.calc.finv_calc.scale)
-				// A period of 0 means "no inverter output", not a division by zero.
-				this.mk2Model["dc_info.finv"].value = period > 0 ? round(10 / period, 2) : 0
+				// A raw period of 0 means "no inverter output", not a division by zero.
+				this.mk2Model["dc_info.finv"].value = finv > 0 && period > 0 ? round(10 / period, 2) : 0
 			} else {
 				this.mk2Model["dc_info.finv"].value = null
 			}
@@ -351,7 +369,7 @@ export class Mk2Protocol {
 
 		return this.conn.communicate (this.create_frame("F", "\x01"), async (frame: Buffer):Promise<void> => {
 
-			if (frame[0] < 0x0f || frame[1] != 0x20 || frame[6] < 0x08 || frame[6] > 0x0B ) {
+			if (frame[0] < 0x0f || frame[1] != 0x20 || frame[6] < 0x05 || frame[6] > 0x0B ) {
 				throw new Error("no ac_info frame")
 			}
 
@@ -376,16 +394,30 @@ export class Mk2Protocol {
 				&& this.calc.iinv_calc
 				&& this.calc.fmains_calc)
 			{
+				// §6.1 footnote c: some firmware reports an inverter/backfeed
+				// factor of 0. A 0 A current would be wrong, so publish unknown.
 				this.mk2Model["ac_info.state"].value = this.acStateFieldValid() ? state : null
 				this.mk2Model["ac_info.phase_info"].value = phase_info
 				this.mk2Model["ac_info.umains"].value = round (((umains+this.calc.umains_calc.offset) * scale(this.calc.umains_calc.scale)),   0)
-				this.mk2Model["ac_info.imains"].value = round (((imains+this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale) * bf_factor),   2)
+				this.mk2Model["ac_info.imains"].value = bf_factor === 0
+					? null
+					: round (((imains+this.calc.imains_calc.offset) * scale(this.calc.imains_calc.scale) * bf_factor),   2)
 				this.mk2Model["ac_info.uinv"].value = round (((uinv+this.calc.uinv_calc.offset) * scale(this.calc.uinv_calc.scale)),   0)
-				this.mk2Model["ac_info.iinv"].value = round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
-				this.mk2Model["ac_info.fmains"].value = round ((10 / ((fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale))), 2)
+				this.mk2Model["ac_info.iinv"].value = inv_factor === 0
+					? null
+					: round (((iinv+this.calc.iinv_calc.offset) * scale(this.calc.iinv_calc.scale) * inv_factor),   2)
+				// A raw mains period of 0 means "no AC input". Check the raw
+				// value, not the scaled one: a non-zero offset would otherwise
+				// turn "no grid" into a plausible-looking frequency.
+				const mainsPeriod = (fmains + this.calc.fmains_calc.offset) * scale(this.calc.fmains_calc.scale)
+				this.mk2Model["ac_info.fmains"].value = fmains > 0 && mainsPeriod > 0 ? round(10 / mainsPeriod, 2) : 0
 			} else {
 				this.log.debug("ac_info scaling not ready")
-				for (const key of ["ac_info.state", "ac_info.phase_info", "ac_info.umains", "ac_info.imains", "ac_info.uinv", "ac_info.iinv", "ac_info.fmains"]) {
+				// state/phase need no scaling: keep them visible instead of
+				// blanking the whole AC block when a scaling is missing.
+				this.mk2Model["ac_info.state"].value = this.acStateFieldValid() ? state : null
+				this.mk2Model["ac_info.phase_info"].value = phase_info
+				for (const key of ["ac_info.umains", "ac_info.imains", "ac_info.uinv", "ac_info.iinv", "ac_info.fmains"]) {
 					this.mk2Model[key].value = null;
 				}
 			}
@@ -405,6 +437,15 @@ export class Mk2Protocol {
 			return true // unknown firmware: keep the raw value
 		}
 		return version % 1000 >= 207
+	}
+
+	/** Publish "unknown" for all switch fields without touching the cached state. */
+	private clearSwitchModel(): void {
+		for (const key of Object.keys(this.mk2Model)) {
+			if (key.startsWith("switch.")) {
+				this.mk2Model[key].value = null;
+			}
+		}
 	}
 
 	async master_multi_led_info () : Promise<void> {
@@ -428,16 +469,56 @@ export class Mk2Protocol {
 			if (!hasSwitchRegister) {
 				// No register in this frame: never derive a switch state from other
 				// bytes (formerly the checksum), and keep the local state as-is.
-				for (const key of Object.keys(this.mk2Model)) {
-					if (key.startsWith("switch.")) {
-						this.mk2Model[key].value = null;
-					}
-				}
+				this.clearSwitchModel();
 				this.log.debug("master_multi_led_info: frame carries no switch register");
 				return;
 			}
 
-			const switch_register = data[3]
+			// §6.2: the switch register follows the three limits. The documented
+			// 0x0D layout puts it at index 13. Longer answers may append or insert
+			// bytes; the live 1909209 frame (0F 41 10 10 00 00 04 1F 00 A0 00 1F
+			// 00 00 00 67 47) has it at the last data byte. Select between the
+			// candidates using the independently read state.state, never by an
+			// undocumented flag alone, and publish "unknown" instead of guessing
+			// "Off" when the candidates disagree.
+			const len = response[0] & 0x7f
+			const fixedIndex = 0x0d
+			const candidates: number[] = []
+			if (len >= fixedIndex) candidates.push(response[fixedIndex])
+			if (len > fixedIndex) candidates.push(response[len])
+			const stateValue = this.mk2Model["state.state"].value
+			const mainState = typeof stateValue === "number" ? Math.floor(stateValue / 10) : 0
+			const plausible = (register: number): boolean => {
+				const candidateState = switchStateFromRegister(register)
+				if (mainState === 2) return candidateState === 4
+				if (mainState >= 4 && mainState <= 7) return candidateState === 2 || candidateState === 3
+				if (mainState >= 8 && mainState <= 9) return candidateState === 1 || candidateState === 3
+				return true
+			}
+			let switch_register: number | undefined
+			if (len === fixedIndex) {
+				switch_register = response[fixedIndex]
+			} else if (mainState === 0 || mainState === 1) {
+				// No usable main state yet: preserve the historical AC-block hint
+				// but do not narrow to Off/Charger only below.
+				switch_register = (response[3] & 0x10) !== 0 ? response[len] : response[fixedIndex]
+			} else {
+				const uniqueCandidates = [...new Set(candidates)]
+				const preferred = uniqueCandidates.filter(plausible)
+				if (preferred.length === 1) {
+					switch_register = preferred[0]
+				} else if (new Set(uniqueCandidates.map((v) => switchStateFromRegister(v))).size === 1) {
+					switch_register = uniqueCandidates[0]
+				}
+			}
+			const derived = switch_register === undefined ? undefined : switchStateFromRegister(switch_register)
+			const contradictsOff = derived === 4 && mainState !== 2 && mainState !== 0 && mainState !== 1
+			const contradictsChargerOnly = derived === 1 && mainState >= 4 && mainState <= 7
+			if (switch_register === undefined || contradictsOff || contradictsChargerOnly) {
+				this.log.warn(`master_multi_led_info: switch register ambiguous or inconsistent with state ${String(stateValue)}; keeping it unknown`);
+				this.clearSwitchModel()
+				return
+			}
 			this.mk2Model["switch.DirectRemoteSwitchCharge"].value  = (switch_register & 0b00000001) > 0 ? 1 :0
 			this.mk2Model["switch.DirectRemoteSwitchInvert"].value  = (switch_register & 0b00000010) > 0 ? 1 :0
 			this.mk2Model["switch.FrontSwitchUp"].value             = (switch_register & 0b00000100) > 0 ? 1 :0
@@ -450,11 +531,11 @@ export class Mk2Protocol {
 			// The device is authoritative for the panel switch state (issue #7):
 			// a front switch or remote panel change must not be overwritten by a
 			// stale local cache on the next limit write.
-			const derived = switchStateFromRegister(switch_register)
-			this.mk2Model["switch.state"].value = derived
-			if (derived !== this.currentSwitchState) {
-				this.log.info(`switch state changed on the device: ${this.currentSwitchState} -> ${derived}; adopting it`)
-				this.currentSwitchState = derived
+			const applied = switchStateFromRegister(switch_register)
+			this.mk2Model["switch.state"].value = applied
+			if (applied !== this.currentSwitchState) {
+				this.log.info(`switch state changed on the device: ${this.currentSwitchState} -> ${applied}; adopting it`)
+				this.currentSwitchState = applied
 			}
 		}, { readTimeoutMs: 2000 }); // protocol §3.3: the F5 response may take >750 ms
 	}
@@ -487,7 +568,7 @@ export class Mk2Protocol {
 
 
 	// Set the ampere level for PowerAssist.
-	async set_assist (ampere:number) : Promise<void> {
+	async set_assist (ampere:number) : Promise<number> {
 		if (!Number.isFinite(ampere) || ampere < 0) {
 			throw new Mk2ValidationError(`set_assist: invalid value ${ampere}`)
 		}
@@ -499,7 +580,10 @@ export class Mk2Protocol {
 				throw new Mk2ValidationError("set_assist: 0 A with PowerAssist disabled means charger off + Bypass, not zero grid (§5 note 3)")
 			}
 			if (assist === null) {
-				this.log.warn("set_assist: AssistEnabled is unknown; 0 A assumes PowerAssist is enabled")
+				// 0 A is only zero-grid when PowerAssist is known to be enabled.
+				// With an unknown flag it could mean "charger off + Bypass"; refuse
+				// until a complete poll has loaded Flags0.
+				throw new Mk2ValidationError("set_assist: 0 A requires a known PowerAssist state; wait for the first complete poll")
 			}
 		}
 		const max = this.mk2Model["assist.maxlimit"].value
@@ -527,34 +611,95 @@ export class Mk2Protocol {
 			// on that the operator switched off (issue #7).
 			throw new Mk2ValidationError("set_assist: device switch is Off; use control.switch_state or control.grid_mode to switch it on explicitly")
 		}
+		// The S frame carries the panel state, so a limit write can change the
+		// operating mode. Say so instead of silently enabling the charger.
+		if (ampere > 0 && this.currentSwitchState === 2) {
+			this.log.warn("set_assist: a nonzero limit switches the device from Inverter only to On (charger/AC input enabled)")
+		}
+		if (ampere === 0 && this.currentSwitchState === 1) {
+			this.log.warn("set_assist: 0 A while Charger only disables the charger and stays in Bypass (§5 note 3)")
+		}
 		const data = Buffer.from([this.currentSwitchState,lo, hi, 0x01, 0x80])
 
 		this.log.debug("******   set_assist");
 
-		return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
+		await this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
 			if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
 				throw new Error("set_assist: no valid S response")
 			}
 			this.log.debug("set_assist ->" + JSON.stringify(response))
 		})
+
+		// The S frame is only an acknowledgement; verify the effective limit.
+		// 0 A is intentionally special: the device reports its minimum while
+		// Invert mode is active, so it cannot be compared numerically.
+		await this.master_multi_led_info()
+		if (ampere > 0) {
+			const actual = this.mk2Model["assist.limit"].value
+			if (typeof actual !== "number" || Math.abs(actual - ampere) > 0.11) {
+				throw new Mk2ReadbackError(`set_assist: readback mismatch (wanted ${ampere} A, device reports ${actual} A)`)
+			}
+		} else {
+			// 0 A must leave a visible trace: the device reports at least its
+			// minimum limit, and Inverter only should also show switch state 2.
+			const actual = this.mk2Model["assist.limit"].value
+			const min = this.mk2Model["assist.minlimit"].value
+			const plausible = (typeof actual === "number" && typeof min === "number" && actual <= min + 0.11)
+				|| this.mk2Model["switch.state"].value === 2
+			if (!plausible) {
+				throw new Mk2ReadbackError(`set_assist: 0 A was not applied (device reports ${String(actual)} A, min ${String(min)} A)`)
+			}
+		}
+		// Keep the command state in sync when this was invoked indirectly by
+		// grid_mode; a direct control.set_assist write is acknowledged by main.
+		// Return the value the device actually holds, not the raw request: it
+		// quantizes to 0.1 A steps.
+		const appliedLimit = ampere === 0 ? 0 : this.mk2Model["assist.limit"].value
+		const appliedValue = typeof appliedLimit === "number" ? appliedLimit : ampere
+		this.mk2Model["control.set_assist"].value = appliedValue
+		return appliedValue
 	}
 
 	/** Set the VE.Bus switch state without changing the input current limit. */
-	async set_switch_state (state:number) : Promise<void> {
+	async set_switch_state (state:number) : Promise<number> {
 		if (![1,2,3,4].includes(state)) {
 			throw new Mk2ValidationError(`set_switch_state: invalid state ${state}`)
 		}
 		// Limit >= 0x8000 means "ignore current limit" (protocol §5, variant 2).
-		const data = Buffer.from([state, 0xFF, 0xFF, 0x01, 0x80])
-		return this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
+		// A persisted 0 A setpoint from Inverter-only would make a recovered
+		// "On" unit never charge, so for charge-capable states write the known
+		// configured (or current) limit instead of "ignore".
+		let limit = 0xFFFF
+		if (state === 1 || state === 3) {
+			const configured = this.mk2Model["setting.IMainsLimitAC1"].value
+			const current = this.mk2Model["assist.limit"].value
+			const value = typeof configured === "number" && configured > 0
+				? configured
+				: typeof current === "number" && current > 0 ? current : undefined
+			if (value !== undefined) {
+				limit = Math.round(value * 10)
+			}
+		}
+		const data = Buffer.from([state, limit & 0xFF, (limit >> 8) & 0xFF, 0x01, 0x80])
+		await this.conn.communicate (this.create_frame("S", data), async (response: Buffer) => {
 			if (response[0] < 0x02 || response[1] != 0xff || response[2] != 0x53) {
 				throw new Error("set_switch_state: no valid S response")
 			}
-			// Only after the device confirmed: otherwise a failed write would leave
-			// the cache wrong and the next set_assist would use it (review N1).
+		})
+		// The S frame is only an acknowledgement. Read the effective state back
+		// instead of publishing the requested one optimistically.
+		await this.master_multi_led_info()
+		const actual = this.mk2Model["switch.state"].value
+		if (typeof actual === "number" && actual !== state) {
+			throw new Mk2ReadbackError(`set_switch_state: device reports ${String(actual)} instead of ${state}`)
+		}
+		if (actual === null) {
+			// Firmware answered without a switch register; the S ack is all we
+			// have. Keep the requested value instead of publishing null.
 			this.currentSwitchState = state
 			this.mk2Model["switch.state"].value = state
-		})
+		}
+		return state
 	}
 
 	/**
@@ -566,7 +711,7 @@ export class Mk2Protocol {
 	 * 0 A limit is required - it is not a substitute for "ignore limit". Note that
 	 * this 0 A setpoint persists until another limit is written.
 	 */
-	async set_grid_mode (mode:number) : Promise<void> {
+	async set_grid_mode (mode:number) : Promise<number> {
 		if (![0,1,2].includes(mode)) {
 			throw new Mk2ValidationError(`set_grid_mode: invalid mode ${mode}`)
 		}
@@ -582,13 +727,26 @@ export class Mk2Protocol {
 				throw new Mk2ValidationError("set_grid_mode: zero grid requires PowerAssist; with AssistEnabled=0 a 0 A limit disables the charger and stays in Bypass (§5 note 3)")
 			}
 			if (assist === null) {
-				this.log.warn("set_grid_mode: AssistEnabled is unknown; zero grid assumes PowerAssist is enabled")
+				throw new Mk2ValidationError("set_grid_mode: zero grid requires a known PowerAssist state; wait for the first complete poll")
 			}
 		}
+		// set_assist carries the switch state in the S frame. Mutate the local
+		// cache only for the duration of the write and restore it if the write
+		// does not reach/confirm the device; otherwise a failed grid_mode would
+		// leave currentSwitchState and every later set_assist on a false state.
+		const previousSwitchState = this.currentSwitchState
 		if (mode == 2) {
 			this.currentSwitchState = 2;
-			await this.set_assist(0);
-			return
+			try {
+				await this.set_assist(0);
+			} catch (error) {
+				// The S frame may have reached the device even though the write
+				// ultimately failed. Reload the authoritative switch state instead
+				// of restoring the pre-write guess.
+				await this.reloadSwitchState(previousSwitchState);
+				throw error;
+			}
+			return mode
 		}
 		this.currentSwitchState = 3
 		const configured = this.mk2Model["setting.IMainsLimitAC1"].value
@@ -604,21 +762,38 @@ export class Mk2Protocol {
 					? current
 					: typeof max == "number" && max > 0 ? max : 16)
 			: 0
-		await this.set_assist(limit)
+		try {
+			await this.set_assist(limit)
+		} catch (error) {
+			await this.reloadSwitchState(previousSwitchState);
+			throw error;
+		}
+		return mode
 	}
 
-	async force_state (state:number) : Promise<void> {
+	/** Re-read F5 after a failed write; fall back to the pre-write value only
+	 * when the device cannot be asked (transport failure). */
+	private async reloadSwitchState(fallback: number): Promise<void> {
+		try {
+			await this.master_multi_led_info()
+		} catch {
+			this.currentSwitchState = fallback
+		}
+	}
+
+	async force_state (state:number) : Promise<number> {
 		this.log.debug("force_state ->" + state)
 
 		if (![1, 2, 3].includes(state)) {
 			throw new Mk2ValidationError(`force_state: invalid state ${state} (1=equalise, 2=absorption, 3=float)`)
 		}
 		const data = Buffer.from([0x0E, state, 0x00])
-		return this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
+		await this.conn.communicate (this.create_frame("W", data), async (response: Buffer) => {
 			// Decode the answer like a state read, so the forced charge state is
 			// visible in the model instead of only acknowledged.
 			this.decodeStateResponse(response, "force_state")
 		})
+		return state
 	}
 
 	/** Read Flags0 (setting 0) as a signed 16-bit value. */
@@ -664,7 +839,10 @@ export class Mk2Protocol {
 		const second_cmd = Buffer.from([0x34, raw & 0xFF, (raw >> 8) & 0xFF]);
 		const frames = Buffer.concat([this.create_frame("W", first_cmd), this.create_frame("W", second_cmd)]);
 		return this.conn.communicate(frames, async (response: Buffer) => {
-			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != 0x88) {
+			// 0x88 is the documented write acknowledgement; 0x87 occurs on some
+			// firmware for the first of the two concatenated frames.
+			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57
+				|| (response[3] != 0x88 && response[3] != 0x87)) {
 				throw new Error(`writeSetting(${id}): no valid write response`);
 			}
 		});
@@ -680,8 +858,10 @@ export class Mk2Protocol {
 		if (!this.longWinmonFrames || this.shortWinmonForWrites) {
 			return;
 		}
+		const limit = this.mk2Model["assist.limit"].value
+		const rawLimit = typeof limit === "number" && limit > 0 ? Math.round(limit * 10) : 0xFFFF
 		const data = Buffer.from([
-			this.currentSwitchState, 0xFF, 0xFF, 0x01, 0x80,
+			this.currentSwitchState, rawLimit & 0xFF, (rawLimit >> 8) & 0xFF, 0x01, 0x80,
 			0x00, 0x01, 0x00,
 		]);
 		await this.conn.communicate(this.create_frame("S", data), async (response: Buffer) => {
@@ -796,6 +976,7 @@ export class Mk2Protocol {
 			// offset (§7.3.9), so the frame is shorter than the usual 0x08.
 			// Parse by W frame content instead of by a fixed length.
 			let seenScale = false;
+			let seenOffset = false;
 			for (let i = 3; i + 2 < response.length; i += 3) {
 				const cmd = response[i];
 				const value = response[i + 1] | (response[i + 2] << 8);
@@ -805,7 +986,19 @@ export class Mk2Protocol {
 					seenScale = true;
 				} else if (cmd == 0x8f) {
 					offset = signed;
+					seenOffset = true;
 				}
+			}
+			// Long Winmon form (§7.3.9, mode 2): 0x8E <LoSc> <HiSc> <LoOff>
+			// <HiOff> without the 0x8F command byte. Parsing it as triplets would
+			// drop the offset (its low byte is usually 0x00) and then mis-scale
+			// every derived value. Detect by shape, so it also works before the
+			// firmware mode is known.
+			if (seenScale && !seenOffset && response[3] === 0x8e && response[0] >= 0x07 && response.length >= 9) {
+				const longSc = response[4] | (response[5] << 8);
+				const longOffset = response[6] | (response[7] << 8);
+				sc = longSc >= 0x8000 ? longSc - 0x10000 : longSc;
+				offset = longOffset >= 0x8000 ? longOffset - 0x10000 : longOffset;
 			}
 			if (!seenScale) {
 				throw new Error("getRamInfo: response carries no scale");
@@ -831,7 +1024,7 @@ export class Mk2Protocol {
 		}
 		let raw: number | null = null;
 		let unsupported = false;
-		await this.conn.communicate(this.create_frame("W", Buffer.from([0x30, id & 0xFF])), async (response: Buffer) => {
+		await this.conn.communicate(this.create_frame("W", Buffer.from([0x30, id & 0xFF, (id >> 8) & 0xFF])), async (response: Buffer) => {
 			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57) {
 				throw new Error("readRamVar: no valid response");
 			}
@@ -914,6 +1107,11 @@ export class Mk2Protocol {
 	private async readDeviceVersionPart(command: number, expected: number): Promise<number | null> {
 		let part: number | null = null;
 		await this.conn.communicate(this.create_frame("W", Buffer.from([command, 0x00, 0x00])), async (response: Buffer) => {
+			if (response[3] === 0x80) {
+				// Mode-2 firmware answers unknown commands with 0x80 <reason>.
+				// Identification is diagnostic; do not fail the whole poll.
+				return;
+			}
 			if (response[0] < 0x05 || response[1] != 0xff || response[2] != 0x57 || response[3] != expected) {
 				throw new Error(`readDeviceVersionPart 0x${command.toString(16)}: no valid response`);
 			}
@@ -926,24 +1124,8 @@ export class Mk2Protocol {
 		this.log.debug("******   get_flags");
 		const flags = await this.readFlags0();
 
-		const flagMap: { [key: number]: string } = {
-			0: "setting.flag.MultiPhaseSystem",
-			1: "setting.flag.MultiPhaseLeader",
-			2: "setting.flag.Freq60Hz",
-			3: "setting.flag.DisableWaveCheck",
-			4: "setting.flag.DoNotStopAfter10HrBulk",
-			5: "setting.flag.AssistEnabled",
-			6: "setting.flag.DisableCharge",
-			7: "setting.flag.WaveCheckInverted",
-			8: "setting.flag.DisableAES",
-			11: "setting.flag.EnableReducedFloat",
-			13: "setting.flag.DisableGroundRelay",
-			14: "setting.flag.WeakACInput",
-			15: "setting.flag.RemoteOverrulesAC2",
-		};
 		// Bits 9, 10 and 12 are "not promoted options" and stay untouched.
-
-		for (const [bit, key] of Object.entries(flagMap)) {
+		for (const [bit, key] of Object.entries(FLAGS0_KEYS)) {
 			this.mk2Model[key].value = (flags & (1 << parseInt(bit))) !== 0;
 		}
 
@@ -955,19 +1137,19 @@ export class Mk2Protocol {
 		}
 	}
 
-	async set_flagDisableCharge(value: number): Promise<void> {
+	async set_flagDisableCharge(value: number): Promise<number> {
 		return this.setFlags0Bit(6, value, "DisableCharge");
 	}
 
-	async set_flagWeakACInput(value: number): Promise<void> {
+	async set_flagWeakACInput(value: number): Promise<number> {
 		return this.setFlags0Bit(14, value, "WeakACInput");
 	}
 
-	async set_flagDisableAES(value: number): Promise<void> {
+	async set_flagDisableAES(value: number): Promise<number> {
 		return this.setFlags0Bit(8, value, "DisableAES");
 	}
 
-	async set_flagAssistEnabled(value: number): Promise<void> {
+	async set_flagAssistEnabled(value: number): Promise<number> {
 		return this.setFlags0Bit(5, value, "AssistEnabled");
 	}
 
@@ -975,7 +1157,7 @@ export class Mk2Protocol {
 	 * Read-modify-write for one Flags0 bit: validate against the device support
 	 * mask, write, then read the register back and warn on a mismatch.
 	 */
-	private async setFlags0Bit(bit: number, value: number, name: string): Promise<void> {
+	private async setFlags0Bit(bit: number, value: number, name: string): Promise<number> {
 		if (value !== 0 && value !== 1) {
 			throw new Mk2ValidationError(`${name}: value must be 0 or 1 (got ${value})`);
 		}
@@ -986,17 +1168,20 @@ export class Mk2Protocol {
 		if (next === flags) {
 			// Nothing to change: do not spend an EEPROM write on it (review F1).
 			this.log.debug(`${name}: already ${value}, no write needed`);
-			return;
+			return value;
 		}
 		await this.writeFlags0(next);
 		const readback = await this.readFlags0();
 		if (((readback & mask) !== 0) !== (value == 1)) {
 			throw new Mk2ReadbackError(`${name}: readback mismatch after write (wanted ${value})`);
 		}
+		const flagKey = FLAGS0_KEYS[bit];
+		if (flagKey) this.mk2Model[flagKey].value = (readback & mask) !== 0;
+		return value;
 	}
 
 	/** Same pattern for Flags1 (global flag numbers 16-31, setting id 1). */
-	private async setFlags1Bit(flag: number, value: number, name: string): Promise<void> {
+	private async setFlags1Bit(flag: number, value: number, name: string): Promise<number> {
 		if (value !== 0 && value !== 1) {
 			throw new Mk2ValidationError(`${name}: value must be 0 or 1 (got ${value})`);
 		}
@@ -1018,7 +1203,7 @@ export class Mk2Protocol {
 		const next = value == 1 ? flags | mask : flags & ~mask;
 		if (next === flags) {
 			this.log.debug(`${name}: already ${value}, no write needed`);
-			return;
+			return value;
 		}
 		await this.writeSetting(1, next);
 		const readback = await this.readSetting(1);
@@ -1028,9 +1213,12 @@ export class Mk2Protocol {
 		if (((readback & mask) !== 0) !== (value == 1)) {
 			throw new Mk2ReadbackError(`${name}: readback mismatch after write (wanted ${value})`);
 		}
+		const def = FLAGS1.find((d) => d.flag === flag);
+		if (def) this.mk2Model[def.key].value = (readback & mask) !== 0;
+		return value;
 	}
 
-	async set_flagDynamicCurrentLimiter(value: number): Promise<void> {
+	async set_flagDynamicCurrentLimiter(value: number): Promise<number> {
 		return this.setFlags1Bit(28, value, "DynamicCurrentLimiter");
 	}
 
@@ -1039,7 +1227,7 @@ export class Mk2Protocol {
 	 * metadata: display -> raw conversion, device min/max validation, write and
 	 * readback. Also refreshes the read-only setting state.
 	 */
-	async setSettingScaled(id: number, value: number, name: string): Promise<void> {
+	async setSettingScaled(id: number, value: number, name: string): Promise<number> {
 		if (!Number.isFinite(value)) {
 			throw new Mk2ValidationError(`${name}: invalid value ${value}`);
 		}
@@ -1054,33 +1242,51 @@ export class Mk2Protocol {
 			throw new Mk2ValidationError(`${name}: ${value} is out of the device range (raw ${min}-${max})`);
 		}
 		const current = await this.readSetting(id);
+		const def = READONLY_SETTINGS.find((d) => d.id === id);
 		if (current === raw) {
 			this.log.debug(`${name}: already ${value}, no EEPROM write needed`);
-			return;
+			// The previous write may have landed while its readback failed;
+			// refresh the published value from the value we just read.
+			const applied = round(settingDisplayValue(info, current), 3);
+			if (def) this.mk2Model[def.key].value = applied;
+			return applied;
 		}
 		await this.writeSetting(id, raw);
-		const readback = await this.readSetting(id);
-		if (readback === null) {
-			throw new Mk2ReadbackError(`${name}: no readback after write`);
-		}
+		let readback = await this.readSetting(id);
 		if (readback !== raw) {
-			throw new Mk2ReadbackError(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+			// The write may have been applied even though the first readback
+			// failed. Re-read once so the published value is not stale.
+			try {
+				const retry = await this.readSetting(id);
+				if (retry !== null) readback = retry;
+			} catch {
+				// transport failure: the caller retries, the read-before-write
+				// guard prevents a second EEPROM write
+			}
+			if (readback === null) {
+				throw new Mk2ReadbackError(`${name}: no readback after write`);
+			}
+			if (readback !== raw) {
+				throw new Mk2ReadbackError(`${name}: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
+			}
 		}
-		const def = READONLY_SETTINGS.find((d) => d.id === id);
+		const applied = round(settingDisplayValue(info, readback), 3);
 		if (def) {
-			this.mk2Model[def.key].value = round(settingDisplayValue(info, readback), 3);
+			this.mk2Model[def.key].value = applied;
 		}
+		// Acknowledge the quantized value the device holds, not the raw request.
+		return applied;
 	}
 
-	async set_UBatAbsorption(value: number): Promise<void> {
+	async set_UBatAbsorption(value: number): Promise<number> {
 		return this.setSettingScaled(2, value, "UBatAbsorption");
 	}
 
-	async set_UBatFloat(value: number): Promise<void> {
+	async set_UBatFloat(value: number): Promise<number> {
 		return this.setSettingScaled(3, value, "UBatFloat");
 	}
 
-	async set_IMainsLimitAC1(value: number): Promise<void> {
+	async set_IMainsLimitAC1(value: number): Promise<number> {
 		return this.setSettingScaled(6, value, "IMainsLimitAC1");
 	}
 
@@ -1094,7 +1300,7 @@ export class Mk2Protocol {
 	}
 
 
-	async set_setting_IBatBulk (value: number) : Promise<void> {
+	async set_setting_IBatBulk (value: number) : Promise<number> {
 		this.log.debug("******   set_setting_IBatBulk value: " + value);
 
 		if (!Number.isInteger(value)) {
@@ -1115,16 +1321,18 @@ export class Mk2Protocol {
 		const current = await this.readSetting(4);
 		if (current === raw) {
 			this.log.debug(`IBatBulk: already ${value}, no EEPROM write needed`);
-			return;
+			return value;
 		}
 		await this.writeSetting(4, raw);
 		const readback = await this.readSetting(4);
-		if (readback !== null && readback !== raw) {
+		if (readback === null) {
+			throw new Mk2ReadbackError("IBatBulk: no readback after write");
+		}
+		if (readback !== raw) {
 			throw new Mk2ReadbackError(`IBatBulk: readback mismatch (wrote raw ${raw}, device reports ${readback})`);
 		}
-		if (readback !== null) {
-			this.mk2Model["setting.IBatBulk"].value = round(settingDisplayValue(info, readback), 2);
-		}
+		this.mk2Model["setting.IBatBulk"].value = round(settingDisplayValue(info, readback), 2);
+		return this.mk2Model["setting.IBatBulk"].value as number;
 	}
 
 }

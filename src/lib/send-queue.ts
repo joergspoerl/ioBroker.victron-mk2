@@ -9,6 +9,14 @@ export interface QueueItem {
 	ts?: number;
 }
 
+/** Outcome of one queue pass. */
+export interface QueueResult {
+	/** Writes the device confirmed (value may be the clamped/applied value). */
+	completed: QueueItem[];
+	/** Writes that were dropped permanently; their control states need reconciling. */
+	dropped: QueueItem[];
+}
+
 /** Record a dropped/failed control write in the model, so "pending" and
  * "discarded" are distinguishable from the outside (review N7). */
 function reportControlError(mk2: Mk2Protocol, item: QueueItem, reason: string): void {
@@ -29,10 +37,21 @@ export async function processControlWrites(
 	log: ioBroker.Logger,
 	maxAttempts = 3,
 ): Promise<QueueItem[]> {
+	const result = await processControlWritesDetailed(mk2, queue, log, maxAttempts);
+	return result.completed;
+}
+
+/** Like processControlWrites, but also reports permanently dropped writes. */
+export async function processControlWritesDetailed(
+	mk2: Mk2Protocol,
+	queue: QueueItem[],
+	log: ioBroker.Logger,
+	maxAttempts = 3,
+): Promise<QueueResult> {
 	if (queue.length > 0) {
 		await mk2.master_multi_led_info();
 	}
-	return processToSendQueue(mk2, queue, log, maxAttempts);
+	return processQueue(mk2, queue, log, maxAttempts);
 }
 
 /**
@@ -47,7 +66,19 @@ export async function processToSendQueue(
 	maxAttempts = 3,
 	maxAgeMs = 60000,
 ): Promise<QueueItem[]> {
+	const result = await processQueue(mk2, queue, log, maxAttempts, maxAgeMs);
+	return result.completed;
+}
+
+async function processQueue(
+	mk2: Mk2Protocol,
+	queue: QueueItem[],
+	log: ioBroker.Logger,
+	maxAttempts = 3,
+	maxAgeMs = 60000,
+): Promise<QueueResult> {
 	const completed: QueueItem[] = [];
+	const dropped: QueueItem[] = [];
 	while (queue.length > 0) {
 		const item = queue.shift()!;
 
@@ -55,6 +86,7 @@ export async function processToSendQueue(
 		if (item.ts && Date.now() - item.ts > maxAgeMs) {
 			log.warn(`Dropping expired control write ${item.name} (older than ${Math.round(maxAgeMs / 1000)} s)`);
 			reportControlError(mk2, item, "expired (TTL)");
+			dropped.push(item);
 			continue;
 		}
 		const entry = mk2.mk2Model[item.name];
@@ -62,12 +94,16 @@ export async function processToSendQueue(
 		if (!entry || typeof entry.setFunc !== "function") {
 			log.warn(`Dropping unknown control state ${item.name}`);
 			reportControlError(mk2, item, "unknown control state");
+			dropped.push(item);
 			continue;
 		}
 
 		entry.value = item.value;
 		try {
-			await entry.setFunc(mk2, item.value);
+			const applied = await entry.setFunc(mk2, item.value);
+			// A setFunc may clamp to the device range (e.g. set_assist). Acknowledge
+			// the value the device actually accepted, not the raw request.
+			if (typeof applied === "number") item.value = applied;
 			completed.push(item);
 			const errorEntry = mk2.mk2Model["diag.last_control_error"];
 			if (errorEntry && typeof errorEntry.value === "string" && errorEntry.value.startsWith(item.name + ":")) {
@@ -79,6 +115,7 @@ export async function processToSendQueue(
 				// retrying would only repeat the same EEPROM write.
 				log.error(`Control write ${item.name} rejected: ${ex.message}`);
 				reportControlError(mk2, item, ex.message);
+				dropped.push(item);
 				continue;
 			}
 			item.attempts++;
@@ -90,7 +127,8 @@ export async function processToSendQueue(
 			}
 			log.error(`Control write ${item.name} failed permanently after ${maxAttempts} attempts: ${ex}`);
 			reportControlError(mk2, item, `failed after ${maxAttempts} attempts`);
+			dropped.push(item);
 		}
 	}
-	return completed;
+	return { completed, dropped };
 }
