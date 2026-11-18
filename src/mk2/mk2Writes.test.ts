@@ -30,12 +30,25 @@ describe("set_assist range safety (issue #11)", () => {
 		expect(fake.requests.filter((r) => r[2] == 0x53).length).to.equal(0);
 	});
 
-	it("accepts the protocol maximum and rejects one step above", async () => {
+	it("clamps a protocol-range value down to the device maximum", async () => {
 		const fake = new FakeMk2Connection();
 		const p = protocolWith(fake);
+		await p.master_multi_led_info();
 		await p.set_assist(3276.7);
-		expect(fake.limit).to.be.closeTo(3276.7, 0.01);
-		await expect(p.set_assist(3276.8)).to.be.rejectedWith(Mk2ValidationError);
+		// The device maximum from the F5 frame is 16 A; the readback must match
+		// the clamped value, not the raw request.
+		expect(fake.limit).to.be.closeTo(16, 0.01);
+	});
+});
+
+describe("set_assist readback", () => {
+	it("rejects a nonzero limit write that the device did not apply", async () => {
+		const fake = new FakeMk2Connection();
+		fake.limit = 16;
+		fake.ignoreAssistWrites = true;
+		const p = protocolWith(fake);
+
+		await expect(p.set_assist(10)).to.be.rejectedWith("readback mismatch");
 	});
 });
 
@@ -55,6 +68,15 @@ describe("additional flag controls (issue #10)", () => {
 		const p = protocolWith(fake);
 		await p.set_flagAssistEnabled(0);
 		expect(fake.flags0 & (1 << 5)).to.equal(0);
+	});
+
+	it("refreshes the flag readback used by the following 0 A guard", async () => {
+		const fake = new FakeMk2Connection();
+		const p = protocolWith(fake);
+		await p.set_flagAssistEnabled(0);
+		expect(p.mk2Model["setting.flag.AssistEnabled"].value).to.equal(false);
+		await expect(p.set_assist(0)).to.be.rejectedWith("PowerAssist disabled");
+		expect(fake.requests.filter((r) => r[2] == 0x53).length).to.equal(0); // rejected before any S frame
 	});
 
 	it("writes DynamicCurrentLimiter through Flags1 bit 12", async () => {

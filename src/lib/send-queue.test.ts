@@ -83,6 +83,18 @@ describe("send queue", () => {
 		expect(completed[0].name).to.equal("control.test");
 	});
 
+	it("acknowledges the value the device actually applied", async () => {
+		const mk2 = {
+			mk2Model: {
+				"control.test": { value: 0, setFunc: async () => 3.1 },
+			},
+		};
+		const queue: QueueItem[] = [{ name: "control.test", value: 1, attempts: 0 }];
+		const completed = await processToSendQueue(mk2 as any, queue, log as any);
+		expect(completed).to.have.length(1);
+		expect(completed[0].value).to.equal(3.1);
+	});
+
 	it("drops expired control writes instead of firing them late (issue #39)", async () => {
 		let calls = 0;
 		const mk2 = {

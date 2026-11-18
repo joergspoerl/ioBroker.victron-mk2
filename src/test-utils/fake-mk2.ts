@@ -154,7 +154,11 @@ export class FakeMk2Connection {
 	ledDataLength = 6;
 	dcInverterCurrent = 0;
 	dcChargeCurrent = 0;
+	/** Emit the mode-2 long RAM info form (no 0x8F command byte). */
+	longRamInfo = false;
 	inverterPeriod = 20; // 20 * 0.01 = 0.2 s -> 50 Hz
+	acPeriod = 0xC3; // (195 + 205) * 0.0005 = 0.2 s -> 50 Hz
+	acPhase = 0x08;
 	switchRegister = 0b00110000; // SwitchCharge + SwitchInvert -> On
 	masterMultiLedHasRegister = true;
 	flags0 = (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 11);
@@ -191,6 +195,8 @@ export class FakeMk2Connection {
 	writes: { id: number; value: number }[] = [];
 	/** Simulate a device that acknowledges but does not apply writes. */
 	ignoreWrites = false;
+	/** Simulate an S acknowledgement that does not change the input limit. */
+	ignoreAssistWrites = false;
 	timeouts = 0;
 	checksumErrors = 0;
 	lastError = "";
@@ -235,7 +241,14 @@ export class FakeMk2Connection {
 			}
 			case 0x53: // S
 				this.switchState = request[3];
-				this.limit = (request[5] << 8 | request[4]) / 10;
+				// Keep the F5 register consistent with the S panel state; live
+				// hardware reflects the write in the next MasterMultiLED frame.
+				this.switchRegister = request[3] === 1 ? 0b00010000
+					: request[3] === 2 ? 0b00100000
+						: request[3] === 3 ? 0b00110000 : 0;
+				if (!this.ignoreAssistWrites) {
+					this.limit = (request[5] << 8 | request[4]) / 10;
+				}
 				if (request.length > 10 && request[9] === 0x01) {
 					this.shortWinmonCompatibility = true;
 				}
@@ -254,8 +267,8 @@ export class FakeMk2Connection {
 				if (frameType == 0x01) {
 					// AC info: 237.27 V, 50 Hz, state raw 0x46, phase 0x08
 					return [veBusFrame(0x20, [
-						this.bfFactor, 0x01, 0x22, 0x46, 0x08, 0xAF, 0x5C,
-						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC3,
+						this.bfFactor, 0x01, 0x22, 0x46, this.acPhase, 0xAF, 0x5C,
+						0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.acPeriod,
 					], 0x0F)];
 				}
 				if (frameType == 0x05) {
@@ -395,6 +408,13 @@ export class FakeMk2Connection {
 						// Real devices answer unsupported variables with only the
 						// Sc frame and no offset (protocol §7.3.9).
 						return [mk2Frame(0x57, [0x8e, 0x00, 0x00])];
+					}
+					if (this.longRamInfo) {
+						// <0x8E> <LoSc> <HiSc> <LoOff> <HiOff>
+						return [mk2Frame(0x57, [
+							0x8E, sc & 0xFF, (sc >> 8) & 0xFF,
+							offset & 0xFF, (offset >> 8) & 0xFF,
+						])];
 					}
 					return [mk2Frame(0x57, [
 						0x8E, sc & 0xFF, sc >> 8,

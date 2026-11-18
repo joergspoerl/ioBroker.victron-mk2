@@ -11,7 +11,10 @@ export function isStableState(state: unknown): boolean {
 	if (typeof state !== "number" || !Number.isFinite(state)) {
 		return false;
 	}
-	return state !== 0 && state !== 10;
+	// state.state is encoded as mainState * 10 + subState (protocol §7.3.2).
+	// Checking only 0/10 missed every substate of Down/Startup (1..9, 11..19).
+	const mainState = Math.floor(state / 10);
+	return mainState !== 0 && mainState !== 1;
 }
 
 /** Controls that are allowed while the device is Off (20): explicit power-on. */

@@ -332,6 +332,10 @@ class Mk2Connection {
                 await this.discardAppendedLedStatus(deadline);
             }
             this.frame_debug("RECV <-", frame);
+            // Bit 7 is LED-append framing metadata, not part of the protocol
+            // length. Mask it before handing the frame to the decoders; the
+            // checksum was already verified over the raw byte.
+            frame[0] &= 0x7f;
             return frame;
         }
         await this.fail("timeout", "Timeout waiting for MK2 frame");
@@ -339,9 +343,11 @@ class Mk2Connection {
     }
     /** Drop an appended 'L' <on> <blink> block after a frame with the LED bit. */
     async discardAppendedLedStatus(deadline) {
-        // The appended block is usually still in the driver's buffer, not in ours.
-        while (this.rxBuffer.length < 3 && Date.now() < deadline) {
-            const chunk = this.port.read(3 - this.rxBuffer.length);
+        // Use a small independent grace window: the frame may have arrived late,
+        // so the caller's deadline can already be exhausted.
+        const graceEnd = Math.min(deadline, Date.now() + 100);
+        while (this.rxBuffer.length < 4 && Date.now() < graceEnd) {
+            const chunk = this.port.read(4 - this.rxBuffer.length);
             if (chunk) {
                 this.rxBuffer = Buffer.concat([this.rxBuffer, chunk]);
             }
@@ -350,8 +356,11 @@ class Mk2Connection {
             }
         }
         if (this.rxBuffer.length >= 3 && this.rxBuffer[0] == 0x4c) {
+            // Older firmware appends a trailing 0x00 that would otherwise be
+            // read as the next frame length (0 -> protocol error).
+            const consume = this.rxBuffer.length >= 4 && this.rxBuffer[3] == 0x00 ? 4 : 3;
             this.log.debug("discarding appended LED status frame");
-            this.rxBuffer = this.rxBuffer.slice(3);
+            this.rxBuffer = this.rxBuffer.slice(consume);
         }
     }
     /**
@@ -378,6 +387,10 @@ class Mk2Connection {
             // best effort; the reopen path handles a closed or broken port
         }
         throw new errors_1.Mk2TransportError(message);
+    }
+    /** Set of exchange queue: serialises requests; see communicateMulti. */
+    async waitForIdle(timeoutMs = 3000) {
+        await Promise.race([this.queueTail, sleep(timeoutMs)]);
     }
     checksum(frame) {
         let sum = 0;

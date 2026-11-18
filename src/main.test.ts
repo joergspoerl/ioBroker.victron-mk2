@@ -1,5 +1,6 @@
 import { expect } from "chai";
-import * as proxyquire from "proxyquire";
+import proxyquire from "proxyquire";
+import { Mk2ValidationError } from "./lib/errors";
 
 /**
  * Adapter lifecycle tests with a stubbed ioBroker runtime. No hardware and no
@@ -36,6 +37,10 @@ class FakeAdapter {
 		this.states[id] = state;
 	}
 
+	async getStateAsync(id: string): Promise<any> {
+		return this.states[id];
+	}
+
 	async getObjectAsync(id: string): Promise<any> {
 		if (this.failGetObject) {
 			throw new Error("state database unavailable");
@@ -59,7 +64,7 @@ class FakeAdapter {
 function createAdapter(config: any, failGetObject = false): any {
 	const { default: _unused, ...rest } = {} as any; // keep linters quiet about unused vars
 	void rest;
-	const factory = proxyquire("./main", {
+	const factory = proxyquire.noCallThru()("./main", {
 		"@iobroker/adapter-core": { Adapter: FakeAdapter },
 	}) as any;
 	const adapter = factory({});
@@ -93,6 +98,71 @@ describe("adapter lifecycle", () => {
 		expect(adapter.pollLoop).to.not.equal(undefined);
 		expect(adapter.subscriptions).to.deep.equal(["control.*"]);
 		await adapter.handlers.unload(() => undefined);
+	});
+
+	it("mirrors the grid-mode input limit into control.set_assist", async () => {
+		const adapter = createAdapter({ portPath: "/dev/null", interval: 3600 });
+		adapter.mk2 = {
+			master_multi_led_info: async () => undefined,
+			mk2Model: {
+				"control.grid_mode": { value: 2, setFunc: async () => 0 },
+				"control.set_assist": { value: 16 },
+				"diag.last_control_error": { value: "" },
+			},
+		};
+		adapter.toSendQueue = [{ name: "control.grid_mode", value: 0, attempts: 0 }];
+
+		await adapter.processToSendQueue();
+
+		expect(adapter.states["control.grid_mode"]).to.include({ val: 0, ack: true });
+		expect(adapter.states["control.set_assist"]).to.include({ val: 16, ack: true });
+	});
+
+	it("resets a rejected control state to the device value", async () => {
+		const adapter = createAdapter({ portPath: "/dev/null", interval: 3600 });
+		adapter.mk2 = {
+			master_multi_led_info: async () => undefined,
+			mk2Model: {
+				"control.IMainsLimitAC1": {
+					value: 15,
+					setFunc: async () => {
+						throw new Mk2ValidationError("out of range");
+					},
+				},
+				"setting.IMainsLimitAC1": { value: 16 },
+				"diag.last_control_error": { value: "" },
+			},
+		};
+		adapter.states["control.IMainsLimitAC1"] = { val: 15, ack: false };
+		adapter.toSendQueue = [{ name: "control.IMainsLimitAC1", value: 15, attempts: 0 }];
+
+		await adapter.processToSendQueue();
+
+		// The rejected request must not stay visible as the current value.
+		expect(adapter.states["control.IMainsLimitAC1"]).to.include({ val: 16, ack: true });
+	});
+
+	it("does not reset a control state that was overwritten by a newer request", async () => {
+		const adapter = createAdapter({ portPath: "/dev/null", interval: 3600 });
+		adapter.mk2 = {
+			master_multi_led_info: async () => undefined,
+			mk2Model: {
+				"control.IMainsLimitAC1": {
+					value: 15,
+					setFunc: async () => {
+						throw new Mk2ValidationError("out of range");
+					},
+				},
+				"setting.IMainsLimitAC1": { value: 16 },
+				"diag.last_control_error": { value: "" },
+			},
+		};
+		adapter.states["control.IMainsLimitAC1"] = { val: 14, ack: false };
+		adapter.toSendQueue = [{ name: "control.IMainsLimitAC1", value: 15, attempts: 0 }];
+
+		await adapter.processToSendQueue();
+
+		expect(adapter.states["control.IMainsLimitAC1"]).to.include({ val: 14, ack: false });
 	});
 
 	it("does not start a second loop when mainLoop runs twice (issue #64)", async () => {
