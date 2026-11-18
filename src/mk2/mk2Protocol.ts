@@ -508,10 +508,16 @@ export class Mk2Protocol {
 				if (preferred.length === 1) {
 					switch_register = preferred[0]
 				} else if (preferred.length > 1) {
-					// Both positions decode to a plausible state (typical while the
-					// operating mode is changing). Prefer the position indicated by
-					// the AC-input block instead of declaring the frame unusable.
-					switch_register = (response[3] & 0x10) !== 0 ? response[len] : response[fixedIndex]
+					// Both positions decode to a plausible state (typical during a
+					// mode change or with a trailing byte). Keep the state that was
+					// already published; never flip the panel state on one frame.
+					const previous = this.mk2Model["switch.state"].value;
+					const matching = typeof previous === "number"
+						? preferred.find((value) => switchStateFromRegister(value) === previous)
+						: undefined;
+					if (matching !== undefined) {
+						switch_register = matching;
+					}
 				} else if (new Set(uniqueCandidates.map((v) => switchStateFromRegister(v))).size === 1) {
 					switch_register = uniqueCandidates[0]
 				}
