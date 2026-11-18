@@ -507,6 +507,11 @@ export class Mk2Protocol {
 				const preferred = uniqueCandidates.filter(plausible)
 				if (preferred.length === 1) {
 					switch_register = preferred[0]
+				} else if (preferred.length > 1) {
+					// Both positions decode to a plausible state (typical while the
+					// operating mode is changing). Prefer the position indicated by
+					// the AC-input block instead of declaring the frame unusable.
+					switch_register = (response[3] & 0x10) !== 0 ? response[len] : response[fixedIndex]
 				} else if (new Set(uniqueCandidates.map((v) => switchStateFromRegister(v))).size === 1) {
 					switch_register = uniqueCandidates[0]
 				}
@@ -515,8 +520,16 @@ export class Mk2Protocol {
 			const contradictsOff = derived === 4 && mainState !== 2 && mainState !== 0 && mainState !== 1
 			const contradictsChargerOnly = derived === 1 && mainState >= 4 && mainState <= 7
 			if (switch_register === undefined || contradictsOff || contradictsChargerOnly) {
-				this.log.warn(`master_multi_led_info: switch register ambiguous or inconsistent with state ${String(stateValue)}; keeping it unknown`);
-				this.clearSwitchModel()
+				// During a mode change state.state and the F5 register are sampled
+				// at different times. Keep the last known switch state instead of
+				// flickering to null; the next poll corrects it.
+				const hasPrevious = this.mk2Model["switch.state"].value !== null;
+				if (hasPrevious) {
+					this.log.debug(`master_multi_led_info: switch register inconsistent with state ${String(stateValue)}; keeping the previous value`);
+				} else {
+					this.log.warn(`master_multi_led_info: switch register ambiguous or inconsistent with state ${String(stateValue)}; keeping it unknown`);
+					this.clearSwitchModel()
+				}
 				return
 			}
 			this.mk2Model["switch.DirectRemoteSwitchCharge"].value  = (switch_register & 0b00000001) > 0 ? 1 :0
