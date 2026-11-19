@@ -26,6 +26,9 @@ Publication preparation and a modern runtime baseline.
 
 ### Added
 
+- Channel/folder objects (`info`, `diag`, `dc_info`, `ac_info`, `power`,
+  `battery`, `switch`, `state`, `led`, `setting`, `setting.flag`, `control`)
+  group the states, so states are always the last level of the object tree.
 - Dependabot configuration and GitHub issue templates.
 - `prepack` build so a package created from a clean checkout always contains
   `build/`.

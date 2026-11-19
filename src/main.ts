@@ -106,8 +106,47 @@ class VictronMk2 extends utils.Adapter {
 		callback();
 	}
 
+	/**
+	 * Create the channel/folder structure below the instance so that states are
+	 * always the last level. Existing objects are left untouched.
+	 */
+	private async initChannels(): Promise<void> {
+		if (!this.mk2) return;
+		const names: Record<string, string> = {
+			info: "Information",
+			diag: "Diagnostics",
+			power: "Power",
+			battery: "Battery",
+			dc_info: "DC information",
+			ac_info: "AC information",
+			switch: "Switch states",
+			state: "Device state",
+			led: "LEDs",
+			setting: "Settings",
+			"setting.flag": "Flags",
+			control: "Controls",
+			assist: "Assist limits",
+		};
+		const prefixes = new Set<string>();
+		for (const key of Object.keys(this.mk2.mk2Model)) {
+			const parts = key.split(".");
+			for (let i = 1; i < parts.length; i++) {
+				prefixes.add(parts.slice(0, i).join("."));
+			}
+		}
+		for (const id of prefixes) {
+			const type: ioBroker.ObjectType = id.includes(".") ? "folder" : "channel";
+			await this.setObjectNotExistsAsync(id, {
+				type,
+				common: { name: names[id] ?? id },
+				native: {},
+			});
+		}
+	}
+
 	private async initObjects(): Promise<void> {
 		if (!this.mk2) return;
+		await this.initChannels();
 		for (const [key, value] of Object.entries(this.mk2.mk2Model)) {
 			const object = buildStateObject(key, value as Mk2DataEntry);
 			const existing = await this.getObjectAsync(key);
