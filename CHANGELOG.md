@@ -33,6 +33,12 @@ Publication preparation and a modern runtime baseline.
 - `prepack` build so a package created from a clean checkout always contains
   `build/`.
 
+### Fixed
+
+- `PollLoop.stop()` now cancels the pending poll timer, so an unload does not
+  wait up to the configured interval (up to one hour) before the adapter
+  terminates.
+
 ## 0.3.5 (2026-11-18)
 
 Fourth audit round against a live MultiPlus on firmware **1909209**. Findings
