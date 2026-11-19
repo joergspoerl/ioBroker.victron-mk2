@@ -10,10 +10,13 @@
 
 ## Victron MultiPlus/Quattro via MK2-USB or MK3-USB
 
-This adapter connects ioBroker directly to a Victron MultiPlus or Quattro
+This adapter connects ioBroker directly to a Victron
+[MultiPlus](https://www.victronenergy.com/inverters-chargers/multiplus-ii) or
+[Quattro](https://www.victronenergy.com/inverters-chargers/quattro)
 inverter/charger over VE.Bus using the MK2 protocol. It talks to the device
-locally through a Victron MK2-USB or MK3-USB interface; no GX device, VRM
-account or cloud connection is required.
+locally through a Victron [MK2-USB or
+MK3-USB](https://www.victronenergy.com/accessories/interface-mk3-usb)
+interface; no GX device, VRM account or cloud connection is required.
 
 The adapter reads telemetry and device settings, and can send validated control
 commands such as the AC input current limit, the VE.Bus switch state and charge
