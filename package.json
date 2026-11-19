@@ -89,5 +89,12 @@
   "bugs": {
     "url": "https://github.com/joergoss/ioBroker.victron-mk2/issues"
   },
+  "overrides": {
+    "eslint": {
+      "minimatch": {
+        "brace-expansion": "1.1.21"
+      }
+    }
+  },
   "readmeFilename": "README.md"
 }
