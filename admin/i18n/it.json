@@ -1,0 +1,8 @@
+{
+    "serialPort": "Porta seriale (MK2-USB / MK3-USB)",
+    "serialPortHelp": "Percorso del dispositivo dell'interfaccia Victron MK2-USB o MK3-USB, ad esempio /dev/ttyUSB0, /dev/serial/by-id/... o COM3. L'adattatore apre la porta a 2400 baud. Su Linux l'utente ioBroker deve avere accesso alla porta (di solito il gruppo dialout).",
+    "pollInterval": "Intervallo di polling",
+    "pollIntervalHelp": "Secondi tra due polling completi. Un polling completo può richiedere più dell'intervallo; in tal caso il polling successivo inizia subito.",
+    "responseTimeout": "Timeout di risposta",
+    "responseTimeoutHelp": "Tempo massimo di attesa in millisecondi per un frame MK2. Il protocollo consiglia 500 ms; un host occupato o un adattatore USB lento potrebbe richiederne di più."
+}

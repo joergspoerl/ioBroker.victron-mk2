@@ -33,7 +33,16 @@
         },
         "desc": {
             "en": "Victron MultiPlus/Quattro inverter/chargers via MK2-USB or MK3-USB (VE.Bus): telemetry, limits, modes, settings and diagnostics",
-            "de": "Victron MultiPlus/Quattro Wechselrichter/Ladegeräte über MK2-USB oder MK3-USB (VE.Bus): Telemetrie, Limits, Modi, Einstellungen und Diagnose"
+            "de": "Victron MultiPlus/Quattro Wechselrichter/Ladegeräte über MK2-USB oder MK3-USB (VE.Bus): Telemetrie, Limits, Modi, Einstellungen und Diagnose",
+            "ru": "Инверторы/зарядные устройства Victron MultiPlus/Quattro через MK2-USB или MK3-USB (VE.Bus): телеметрия, ограничения, режимы, настройки и диагностика",
+            "pt": "Inversores/carregadores Victron MultiPlus/Quattro via MK2-USB ou MK3-USB (VE.Bus): telemetria, limites, modos, definições e diagnóstico",
+            "nl": "Victron MultiPlus/Quattro omvormer/laders via MK2-USB of MK3-USB (VE.Bus): telemetrie, limieten, modi, instellingen en diagnostiek",
+            "fr": "Onduleurs/chargeurs Victron MultiPlus/Quattro via MK2-USB ou MK3-USB (VE.Bus) : télémétrie, limites, modes, réglages et diagnostic",
+            "it": "Inverter/caricabatterie Victron MultiPlus/Quattro tramite MK2-USB o MK3-USB (VE.Bus): telemetria, limiti, modalità, impostazioni e diagnostica",
+            "es": "Inversores/cargadores Victron MultiPlus/Quattro mediante MK2-USB o MK3-USB (VE.Bus): telemetría, límites, modos, ajustes y diagnóstico",
+            "pl": "Inwertery/ładowarki Victron MultiPlus/Quattro przez MK2-USB lub MK3-USB (VE.Bus): telemetria, limity, tryby, ustawienia i diagnostyka",
+            "uk": "Інвертори/зарядні пристрої Victron MultiPlus/Quattro через MK2-USB або MK3-USB (VE.Bus): телеметрія, обмеження, режими, налаштування та діагностика",
+            "zh-cn": "通过 MK2-USB 或 MK3-USB（VE.Bus）连接 Victron MultiPlus/Quattro 逆变器/充电器：遥测、限制、模式、设置和诊断"
         },
         "authors": [
             "joerg <joerg.spoerl@gmx.de> (https://github.com/joergspoerl)"

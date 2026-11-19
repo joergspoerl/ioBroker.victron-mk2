@@ -1,0 +1,8 @@
+{
+    "serialPort": "串口（MK2-USB / MK3-USB）",
+    "serialPortHelp": "Victron MK2-USB 或 MK3-USB 接口的设备路径，例如 /dev/ttyUSB0、/dev/serial/by-id/... 或 COM3。适配器以 2400 波特打开端口。在 Linux 上，ioBroker 用户需要具有端口访问权限（通常是 dialout 组）。",
+    "pollInterval": "轮询间隔",
+    "pollIntervalHelp": "两次完整轮询之间的秒数。完整轮询可能比间隔更长；此时下一次轮询会立即开始。",
+    "responseTimeout": "响应超时",
+    "responseTimeoutHelp": "等待一个 MK2 帧的最长时间（毫秒）。协议建议 500 毫秒；繁忙的主机或较慢的 USB 适配器可能需要更长时间。"
+}
