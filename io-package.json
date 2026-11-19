@@ -17,7 +17,6 @@
                 "zh-cn": "Admin 5+ JSON 配置、更新串口与运行时依赖、基于 Node.js 22/24/26 的 CI，以及发布准备"
             }
         },
-        "title": "Victron MK2",
         "titleLang": {
             "en": "Victron MK2",
             "de": "Victron MK2",
@@ -48,7 +47,6 @@
             "joerg <joerg.spoerl@gmx.de> (https://github.com/joergspoerl)"
         ],
         "keywords": [
-            "ioBroker",
             "victron",
             "ve.bus",
             "mk2",
@@ -65,7 +63,6 @@
         },
         "tier": 3,
         "platform": "Javascript/Node.js",
-        "main": "build/main.js",
         "icon": "victron-mk2.png",
         "enabled": true,
         "extIcon": "https://raw.githubusercontent.com/joergspoerl/ioBroker.victron-mk2/master/admin/victron-mk2.png",

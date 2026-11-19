@@ -20,9 +20,10 @@ Publication preparation and a modern runtime baseline.
 - README restructured for users: installation, configuration, states,
   controls, safety notes and troubleshooting. Developer template sections
   removed; verification reports remain in `docs/`.
-- Package contents limited to the files needed at runtime; `build/` is no
-  longer tracked in git and is produced by `npm run build` (also on `npm pack`
-  and on release).
+- Package contents limited to the files needed at runtime. `build/` is produced
+  by `npm run build` (also on `npm pack` and on release) and kept in the
+  repository so the adapter checker and GitHub installations can resolve
+  `build/main.js`.
 
 ### Added
 
