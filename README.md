@@ -5,256 +5,144 @@
 [![Downloads](https://img.shields.io/npm/dm/iobroker.victron-mk2.svg)](https://www.npmjs.com/package/iobroker.victron-mk2)
 ![Number of Installations](https://iobroker.live/badges/victron-mk2-installed.svg)
 ![Current version in stable repository](https://iobroker.live/badges/victron-mk2-stable.svg)
-[![Dependency Status](https://img.shields.io/david/joergspoerl/iobroker.victron-mk2.svg)](https://david-dm.org/joergspoerl/iobroker.victron-mk2)
+[![License](https://img.shields.io/github/license/joergspoerl/ioBroker.victron-mk2)](https://github.com/joergspoerl/ioBroker.victron-mk2/blob/master/LICENSE)
+[![Test and Release](https://github.com/joergspoerl/ioBroker.victron-mk2/actions/workflows/test-and-release.yml/badge.svg)](https://github.com/joergspoerl/ioBroker.victron-mk2/actions/workflows/test-and-release.yml)
 
-[![NPM](https://nodei.co/npm/iobroker.victron-mk2.png?downloads=true)](https://nodei.co/npm/iobroker.victron-mk2/)
+## Victron MultiPlus/Quattro via MK2-USB or MK3-USB
 
-**Tests:** ![Test and Release](https://github.com/joergspoerl/ioBroker.victron-mk2/workflows/Test%20and%20Release/badge.svg)
+This adapter connects ioBroker directly to a Victron MultiPlus or Quattro
+inverter/charger over VE.Bus using the MK2 protocol. It talks to the device
+locally through a Victron MK2-USB or MK3-USB interface; no GX device, VRM
+account or cloud connection is required.
 
-## victron-mk2 adapter for ioBroker
+The adapter reads telemetry and device settings, and can send validated control
+commands such as the AC input current limit, the VE.Bus switch state and charge
+voltages. Every write is checked against the device capabilities and read back.
 
-Victron Multiplus
+**Tested hardware:** MultiPlus with MK2-USB. The MK3-USB uses the same VE.Bus
+MK2 protocol and is supported by the protocol implementation, but has not been
+tested with every device/firmware combination. Please report your device and
+firmware version if something does not work.
 
-### Controls and operating modes
+## Requirements
 
-- `victron-mk2.0.control.set_assist`: AC input current limit in A. `0 A` is a
-  valid zero-grid/solar mode: with PowerAssist enabled the MultiPlus switches
-  to Invert; with PowerAssist disabled it stays in Bypass with the charger off.
-  The value is clamped to the device maximum (`assist.maxlimit`).
-  **Readback note:** after writing 0 A, `assist.limit` reports the device minimum
-  (e.g. 3.1 A) instead of 0 – that is the hardware clamping, the inverter mode is
-  still entered.
-- `victron-mk2.0.control.switch_state`: VE.Bus switch state
-  (1 = Charger only, 2 = Inverter only, 3 = On, 4 = Off). Changing it does not
-  change the current limit (the limit is ignored).
-- `victron-mk2.0.control.grid_mode`: `0 = Grid` (max limit, On),
-  `1 = Zero grid / Invert` (0 A, On), `2 = Inverter only` (switch state 2 + 0 A;
-  on this model the 0-A write is what forces Invert with AC present).
-  Use this instead of writing `set_assist = 0` from automation if you want an
-  explicit, documented mode.
-- `victron-mk2.0.control.force_state`: charge-state force
-  (1 = Equalise, 2 = Absorption, 3 = Float) — not an on/off mode.
-  **Equalise is a battery maintenance action**: it charges for one hour at
-  1/2/4 V above the absorption voltage (12/24/48 V systems) with a quarter of the
-  normal current. Only use it deliberately and with knowledge of your battery
-  (for OPzV see the battery documentation in the devops-home repo).
-- `victron-mk2.0.control.DisableCharge`, `control.WeakACInput`,
-  `control.IBatBulk`: charger/weak-AC/bulk-current settings with validated writes.
-- `victron-mk2.0.control.DisableAES`, `control.AssistEnabled` (Flags0) and
-  `control.DynamicCurrentLimiter` (Flags1): feature switches with device
-  support-mask validation.
-- `victron-mk2.0.control.UBatAbsorption`, `control.UBatFloat`,
-  `control.IMainsLimitAC1`: charge voltages and the configured AC1 input current
-  limit. Values are converted with the device scale and rejected when they fall
-  outside the range the device reports via `GetSettingInfo`.
-  **Battery safety:** charge voltages must match the battery. For the BAE OPzV
-  800 bank in this installation the targets are **14,20 V absorption** and
-  **13,40 V float** (see `docs/batterie-bae-opzv-800.md` in devops-home). Only
-  change them with knowledge of the battery; every write is read back, and
-  unchanged values are not written at all (EEPROM wear).
+- ioBroker with js-controller **>= 6.0.11** and admin **>= 7.7.22**
+- Node.js **>= 22.19.0**
+- Victron MultiPlus or Quattro with a Victron **MK2-USB** or **MK3-USB**
+  interface
+- Local access to the serial port (on Linux usually the `dialout` group)
 
-Every setting/flag write is read back from the device; a mismatch logs a warning
-and the corresponding read-only `setting.*` state is refreshed.
+## Installation
 
-### Telemetry and diagnostics
+1. Install the adapter from the ioBroker adapter list (or from npm:
+   `iobroker install victron-mk2`).
+2. Open the adapter configuration.
+3. Select the serial port of the MK2/MK3 interface, for example
+   `/dev/ttyUSB0`, `/dev/serial/by-id/usb-FTDI_...` or `COM3`.
+4. Save and start the instance.
 
-- `dc_info.ubat`, `dc_info.ibat` (DC current used by the inverter),
-  `dc_info.icharge` (DC current from the chargers), **`dc_info.ibat_net`**
-  (net battery current = icharge − ibat, positive = charging), `dc_info.finv`
-  (inverter frequency).
-- **`power.inverter`, `power.output`**: filtered power in W from the RAM
-  variables (signed). **Note:** these RAM variables require newer firmware
-  (filtered watts exist from 207); on older units such as firmware 1909140 they
-  stay `null`. The adapter deliberately does **not** compute `U × I` as a power
-  substitute, because that would be VA, not W. Use an external meter or see the
-  firmware-update section of the devops-home runbook.
-  **`battery.soc`**: SOC of the MultiPlus internal battery
-  monitor – **not** the BMV; it reads 0 % when that internal monitor is not
-  configured. Variables the firmware does not offer stay `null` and are not
-  polled again.
-- `state.state` encodes `mainState*10 + subState`; **`state.substate`** exposes
-  the charge phase separately (bulk/absorption/float/storage/equalise/…).
-- **`info.device_sw_version`/`_text`**, `info.mk2_version`, `info.mk2_mode`,
-  `info.address`: device identification, read once per connection.
-- **`info.connection`**, `diag.timeouts`, `diag.checksum_errors`,
-  `diag.last_error`: connection health. A timeout or checksum error closes the
-  port and forces a resynchronisation on the next poll.
-- **`switch.state`**: panel switch state derived from the device switch
-  register. The device is authoritative; `set_assist` never switches a device on
-  that the operator switched off.
-- **`setting.*`**: Flags0/Flags1 and, once per connection, the read-only settings
-  (charge voltages, DC low limits, mains voltage window, AES limits, AC input
-  current limits, PowerAssist boost factor). Scale/offset/min/max come from
-  `CommandGetSettingInfo`; unsupported settings stay `null`, and flag writes are
-  rejected when the device support mask does not advertise the bit.
+On Linux the ioBroker user must be allowed to open the port:
 
-The adapter performs a read-only state poll before enabling control writes and
-never sends control commands while the MultiPlus is booting (state 10/20).
-If the MultiPlus does not finish booting with the MK2 attached, start it first
-without the MK2 and attach/start the adapter afterwards.
-
-All reads/writes use length-prefixed frames with checksum validation and
-timeouts; failed control writes are retried on a later poll cycle.
-
-### Configuration
-
-- `portPath`: serial device of the MK2 (for example `/dev/ttyUSB-Serial-1`).
-- `interval`: poll interval in seconds (default 2). The loop is sequential, so a
-  shorter value than one full poll simply means continuous polling.
-- `responseTimeout`: response budget per MK2 frame in ms (default 1500). The
-  protocol recommends 500 ms, but a busy host may need more; the MasterMultiLED
-  request always gets a longer budget.
-
-## Developer manual
-This section is intended for the developer. It can be deleted later
-
-### Getting started
-
-You are almost done, only a few steps left:
-1. Create a new repository on GitHub with the name `ioBroker.victron-mk2`
-1. Initialize the current folder as a new git repository:  
-	```bash
-	git init -b main
-	git add .
-	git commit -m "Initial commit"
-	```
-1. Link your local repository with the one on GitHub:  
-	```bash
-	git remote add origin https://github.com/joergspoerl/ioBroker.victron-mk2
-	```
-
-1. Push all files to the GitHub repo:  
-	```bash
-	git push origin main
-	```
-
-1. Head over to [src/main.ts](src/main.ts) and start programming!
-
-### Best Practices
-We've collected some [best practices](https://github.com/ioBroker/ioBroker.repositories#development-and-coding-best-practices) regarding ioBroker development and coding in general. If you're new to ioBroker or Node.js, you should
-check them out. If you're already experienced, you should also take a look at them - you might learn something new :)
-
-### Scripts in `package.json`
-Several npm scripts are predefined for your convenience. You can run them using `npm run <scriptname>`
-| Script name | Description |
-|-------------|-------------|
-| `build:ts` | Compile the TypeScript sources. |
-| `watch:ts` | Compile the TypeScript sources and watch for changes. |
-| `watch` | Shortcut for `npm run watch:ts` |
-| `test:ts` | Executes the tests you defined in `*.test.ts` files. |
-| `test:package` | Ensures your `package.json` and `io-package.json` are valid. |
-| `test:unit` | Tests the adapter startup with unit tests (fast, but might require module mocks to work). |
-| `test:integration` | Tests the adapter startup with an actual instance of ioBroker. |
-| `test` | Performs a minimal test run on package files and your tests. |
-| `check` | Performs a type-check on your code (without compiling anything). |
-| `lint` | Runs `ESLint` to check your code for formatting errors and potential bugs. |
-| `release` | Creates a new release, see [`@alcalzone/release-script`](https://github.com/AlCalzone/release-script#usage) for more details. |
-
-### Writing tests
-When done right, testing code is invaluable, because it gives you the 
-confidence to change your code while knowing exactly if and when 
-something breaks. A good read on the topic of test-driven development 
-is https://hackernoon.com/introduction-to-test-driven-development-tdd-61a13bc92d92. 
-Although writing tests before the code might seem strange at first, but it has very 
-clear upsides.
-
-The template provides you with basic tests for the adapter startup and package files.
-It is recommended that you add your own tests into the mix.
-
-### Publishing the adapter
-Using GitHub Actions, you can enable automatic releases on npm whenever you push a new git tag that matches the form 
-`v<major>.<minor>.<patch>`. We **strongly recommend** that you do. The necessary steps are described in `.github/workflows/test-and-release.yml`.
-
-Since you installed the release script, you can create a new
-release simply by calling:
 ```bash
-npm run release
-```
-Additional command line options for the release script are explained in the
-[release-script documentation](https://github.com/AlCalzone/release-script#command-line).
-
-To get your adapter released in ioBroker, please refer to the documentation 
-of [ioBroker.repositories](https://github.com/ioBroker/ioBroker.repositories#requirements-for-adapter-to-get-added-to-the-latest-repository).
-
-### Test the adapter manually with dev-server
-Since you set up `dev-server`, you can use it to run, test and debug your adapter.
-
-You may start `dev-server` by calling from your dev directory:
-```bash
-dev-server watch
+sudo usermod -a -G dialout iobroker
 ```
 
-The ioBroker.admin interface will then be available at http://localhost:9081/
+Log out and back in (or restart the host) afterwards. A stable path under
+`/dev/serial/by-id/` is preferable to `/dev/ttyUSB0`, because the number can
+change after a reboot.
 
-Please refer to the [`dev-server` documentation](https://github.com/ioBroker/dev-server#command-line) for more details.
+## Configuration
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `portPath` | – | Serial port of the MK2-USB/MK3-USB interface. |
+| `interval` | `2` | Seconds between two complete polls. A poll that takes longer than the interval is followed immediately by the next one. |
+| `responseTimeout` | `1500` | Maximum wait time in milliseconds for one MK2 frame. The protocol recommends 500 ms; busy hosts may need more. |
+
+The adapter opens the port with **2400 baud** and sets DTR as required by the
+MK2 protocol.
+
+## States
+
+All states are created below `victron-mk2.<instance>`.
+
+### Connection and diagnostics
+
+| State | Description |
+| --- | --- |
+| `info.connection` | `true` after a successful poll. A timeout or checksum error closes the port and forces a resynchronisation on the next poll. |
+| `info.address`, `info.mk2_version`, `info.mk2_mode` | Device address and MK2 interface information. |
+| `info.device_sw_version`, `info.device_sw_version_text` | Firmware version of the MultiPlus/Quattro. |
+| `diag.timeouts`, `diag.checksum_errors`, `diag.protocol_errors`, `diag.sync_errors` | Error counters since adapter start. |
+| `diag.last_error`, `diag.last_control_error` | Last serial/protocol and control error. |
+
+### Telemetry
+
+| State | Description |
+| --- | --- |
+| `state.state`, `state.substate` | Device state and charge phase (bulk, absorption, float, storage, equalise, …). |
+| `dc_info.ubat`, `dc_info.ibat`, `dc_info.icharge`, `dc_info.ibat_net` | Battery voltage, inverter DC current, charger DC current and net battery current. |
+| `ac_info.umains`, `ac_info.imains`, `ac_info.fmains`, `ac_info.uinv`, `ac_info.iinv` | AC input/output voltage, current and frequency. |
+| `power.inverter`, `power.output` | Filtered power in W from the device RAM variables. These require newer firmware; otherwise they stay `null`. |
+| `battery.soc` | SOC of the MultiPlus internal battery monitor (not a BMV). |
+| `switch.state`, `switch.*` | Panel and remote switch states as reported by the device. |
+| `setting.*` | Read-only device settings and Flags0/Flags1, with scale, range and support information from the device. |
+
+The adapter never computes power as `U × I`: that would be VA, not W. Values the
+firmware does not provide stay `null` and are not polled again.
+
+### Controls
+
+Commands are written with `ack = false`, for example from scripts or Blockly.
+The adapter acknowledges a command with `ack = true` only after the device has
+accepted it and a readback matched.
+
+| State | Values | Description |
+| --- | --- | --- |
+| `control.set_assist` | `0 … assist.maxlimit` A | AC input current limit. `0 A` is a valid zero-grid mode when PowerAssist is enabled. The value is clamped to the device maximum. |
+| `control.switch_state` | `1` charger only, `2` inverter only, `3` on, `4` off | VE.Bus switch state. Changing it does not change the current limit. |
+| `control.grid_mode` | `0` grid, `1` zero grid / invert, `2` inverter only | Convenience mode that combines switch state and current limit. |
+| `control.force_state` | `1` equalise, `2` absorption, `3` float | Forces a charge phase. Equalise is a battery maintenance action; use it deliberately. |
+| `control.DisableCharge`, `control.WeakACInput`, `control.IBatBulk` | see object | Charger, weak-AC and bulk-current settings with validated writes. |
+| `control.DisableAES`, `control.AssistEnabled`, `control.DynamicCurrentLimiter` | `0`/`1` | Feature switches validated against the device support mask. |
+| `control.UBatAbsorption`, `control.UBatFloat`, `control.IMainsLimitAC1` | device range | Charge voltages and AC1 input current limit. Values are rejected outside the range reported by the device. |
+
+### Safety notes
+
+- **Battery voltages:** absorption and float voltages must match the battery
+  datasheet. Wrong values can damage the battery. The adapter reads every write
+  back and does not write unchanged values (EEPROM wear).
+- **Equalise:** only use `control.force_state = 1` deliberately and with
+  knowledge of the battery type.
+- **One process per port:** do not open the same serial port from another
+  program (for example VictronConnect or a second adapter instance) at the same
+  time.
+- **Booting:** while the MultiPlus is booting (`state 10/20`) the adapter does
+  not send control commands. If the device does not finish booting with the MK2
+  attached, start it without the MK2 and attach/start the adapter afterwards.
+
+## Troubleshooting
+
+| Symptom | Cause / solution |
+| --- | --- |
+| `EACCES` or `permission denied` | The ioBroker user may not open the port. Add it to `dialout` and restart. |
+| `info.connection` stays `false` | Wrong port, cable/adapter not connected, or another process holds the port. Check `diag.last_error`. |
+| Port changes after reboot | Use the stable `/dev/serial/by-id/...` path. |
+| Values stay `null` | The firmware does not provide the value (for example filtered power or SOC without an internal battery monitor). |
+| Device does not respond | Verify 2400 baud and DTR support of the USB adapter; try a higher `responseTimeout`. |
+
+## Documentation and verification
+
+Development notes, protocol coverage and hardware test reports are in
+[`docs/`](docs/).
 
 ## Changelog
-Detailed release notes: [CHANGELOG.md](CHANGELOG.md).
-<!--
-	Placeholder for the next version (at the beginning of the line):
-	### **WORK IN PROGRESS**
--->
-### 0.3.1 (2026-11-15)
-- Robust MK2 sync on non-aligned byte streams (no startup timeouts)
 
-### 0.3.0 (2026-11-15)
-- More validated controls: DisableAES, AssistEnabled, DynamicCurrentLimiter (Flags1),
-  absorption/float voltage, AC1 input current limit
-- Readback after every setting/flag write; no EEPROM writes for unchanged values
-
-### 0.2.0 (2026-11-15)
-- Setting metadata (GetSettingInfo) with support/range validation for writes
-- Read-only settings + Flags1, RAM power/SOC telemetry, firmware identification
-- Net battery current, inverter frequency, charge sub-state
-- Device-authoritative switch state; no implicit power-on via limit writes
-- Connection health states and reconnect hardening
-
-### 0.1.0 (2026-11-15)
-- Robust serial I/O (timeouts, complete frames, checksum validation)
-- Startup gate: no control writes while the MultiPlus is booting
-- Explicit switch/grid modes (`control.switch_state`, `control.grid_mode`)
-- `set_assist` preserves the switch state and clamps to the device maximum
-- Validated/retried writes, generic protocol validation, model roles, DC scaling fixes
-- Unit tests for frames, controls, startup gate and model mapping
-
-### 0.0.6 (2022-11-22)
-- state changes -> mk2 queueing
-
-### 0.0.5 (2022-11-22)
-- timing bugfix
-
-### 0.0.4 (2022-11-22)
-- control of IBatBulk
-- control of DisableCharge
-- control of WeakACInput
-- bug fixing portPath
-- extended debug depends on ioBroker log level
-
-### 0.0.3 (2022-11-20)
-* connection stability
-
-### 0.0.2 (2022-11-20)
-* (joerg) initial release
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
-MIT License
 
-Copyright (c) 2022 joerg <joerg.spoerl@gmx.de>
+MIT License. See [LICENSE](LICENSE).
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This adapter is not affiliated with Victron Energy. Victron, MultiPlus, Quattro,
+VE.Bus and MK2/MK3 are trademarks of Victron Energy B.V.

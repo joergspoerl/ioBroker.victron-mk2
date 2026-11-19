@@ -3,6 +3,33 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.0 (2026-11-19)
+
+Publication preparation and a modern runtime baseline.
+
+### Changed
+
+- Configuration migrated to **Admin 5+ JSON config** (`admin/jsonConfig.json`);
+  the legacy Materialize dialog and `words.js` were removed. The native keys
+  (`portPath`, `interval`, `responseTimeout`) are unchanged, so existing
+  installations keep their settings.
+- Requires **js-controller >= 6.0.11** and **admin >= 7.7.22**.
+- Requires **Node.js >= 22.19.0**; CI runs on Node.js 22, 24 and 26.
+- Updated `@iobroker/adapter-core` to 3.x and `serialport` to 13.x. The serial
+  port is now always opened with the current `{ path, baudRate }` constructor.
+- README restructured for users: installation, configuration, states,
+  controls, safety notes and troubleshooting. Developer template sections
+  removed; verification reports remain in `docs/`.
+- Package contents limited to the files needed at runtime; `build/` is no
+  longer tracked in git and is produced by `npm run build` (also on `npm pack`
+  and on release).
+
+### Added
+
+- Dependabot configuration and GitHub issue templates.
+- `prepack` build so a package created from a clean checkout always contains
+  `build/`.
+
 ## 0.3.5 (2026-11-18)
 
 Fourth audit round against a live MultiPlus on firmware **1909209**. Findings

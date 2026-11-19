@@ -1,131 +1,51 @@
 {
     "common": {
         "name": "victron-mk2",
-        "version": "0.3.5",
+        "version": "0.4.0",
         "news": {
-            "0.3.5": {
-                "en": "Fourth audit round: correct switch register in extended F5 frames, honest readbacks, safer control writes, long-Winmon RAM offsets, and UI metadata for scaled controls",
-                "de": "Vierte Auditrunde: korrektes Switch-Register in erweiterten F5-Frames, ehrliche Readbacks, sicherere Steuerbefehle, Long-Winmon-RAM-Offsets und UI-Metadaten fuer skalierte Controls"
-            },
-            "0.3.4": {
-                "en": "Support long Winmon replies from firmware 1909209, value-free unsupported settings, and safe legacy setting writes via MK2 short-frame compatibility mode",
-                "de": "Unterstützung langer Winmon-Antworten von Firmware 1909209, wertfreie nicht-unterstützte Settings und sichere Setting-Writes über den MK2-Kurzframe-Kompatibilitätsmodus"
-            },
-            "0.3.3": {
-                "en": "Third audit round: lifecycle hardening, safe startup state, no reopen after unload, PowerAssist guard for direct 0 A writes, new diagnostic counters and real lifecycle tests",
-                "de": "Dritte Auditrunde: Lebenszyklus-Härtung, sauberer Startzustand, kein Reopen nach Unload, PowerAssist-Sperre auch bei direktem 0-A-Write, neue Diagnosezähler und echte Lifecycle-Tests"
-            },
-            "0.3.2": {
-                "en": "Second audit round: switch register no longer read from the checksum, Off is recoverable, no false 0 V/0 A values, longer frames tolerated, readback failures never retried, numerous correctness and convention fixes",
-                "de": "Zweite Auditrunde: Switch-Register nicht mehr aus der Pruefsumme, Off bleibt revidierbar, keine falschen 0-V/0-A-Werte, laengere Frames toleriert, Readback-Fehler ohne Retry, viele Korrekturen"
-            },
-            "0.3.1": {
-                "en": "Fix: robust MK2 synchronisation on a byte stream that does not start at a frame boundary (no more startup timeouts)",
-                "de": "Fix: robuste MK2-Synchronisation auch bei Bytestrom ohne Frame-Grenze (keine Start-Timeouts mehr)"
-            },
-            "0.3.0": {
-                "en": "More validated controls: DisableAES, AssistEnabled, DynamicCurrentLimiter (Flags1), absorption/float voltage and AC1 input current limit with device range checks and readback",
-                "de": "Weitere validierte Controls: DisableAES, AssistEnabled, DynamicCurrentLimiter (Flags1), Absorption-/Float-Spannung und AC1-Eingangslimit mit Geräte-Bereichsprüfung und Readback"
-            },
-            "0.2.0": {
-                "en": "Protocol coverage release: setting metadata (GetSettingInfo) with support/range validation, read-only settings and Flags1, RAM power/SOC telemetry, device firmware identification, net battery current, charge sub-state, device-authoritative switch state, connection health states and reconnect hardening",
-                "de": "Protokoll-Vollabdeckung: Setting-Metadaten (GetSettingInfo) mit Support-/Bereichsvalidierung, read-only Settings und Flags1, RAM-Leistung/SOC, Firmware-Identifikation, Netto-Batteriestrom, Lade-Sub-State, geräteseitiger Switch-State, Verbindungszustand und Reconnect-Härtung"
-            },
-            "0.1.0": {
-                "en": "Robust MK2 serial I/O (timeouts, complete frames, checksum validation), startup gate, explicit switch/grid modes (zero grid / inverter only), validated and retried writes, generic protocol validation, model roles and DC scaling fixes, unit tests",
-                "de": "Robuste MK2-Serial-I/O (Timeouts, vollständige Frames, Checksummenprüfung), Startup-Gate, explizite Switch-/Grid-Modi (Zero Grid / Inverter only), validierte und wiederholte Writes, generische Protokollvalidierung, Modellrollen und DC-Skalierung korrigiert, Unit-Tests"
-            },
-            "0.0.6": {
-                "en": "state changes -> mk2 queueing",
-                "de": "zustandsänderungen -> mk2 warteschlangen",
-                "ru": "изменения состояния -> mk2 очередь",
-                "pt": "mudanças de estado -> fila de mk2",
-                "nl": "de staat verandert mk2",
-                "fr": "changements d'état - cancer mk2 filesing",
-                "it": "cambiamenti di stato -> code mk2",
-                "es": "cambios de estado - mk2 colas",
-                "pl": "zmiany stanowe –> kolejka mk2",
-                "uk": "зміни стану -> mk2 чергування",
-                "zh-cn": "a. 国家变化 - > mk2 询问"
-            },
-            "0.0.5": {
-                "en": "timing bugfix",
-                "de": "fehlerbehebung",
-                "ru": "сроки bugfix",
-                "pt": "correcção de tempo",
-                "nl": "time bugfix",
-                "fr": "timing bugfix",
-                "it": "tempistica bugfix",
-                "es": "tiempo bugfix",
-                "pl": "miotacz",
-                "uk": "засупу 10 ток",
-                "zh-cn": "时间"
-            },
-            "0.0.4": {
-                "en": "control of IBatBulk\ncontrol of DisableCharge\ncontrol of WeakACInput\nbug fixing portPath\nextended debug depends on ioBroker log level",
-                "de": "steuerung von IBatBulk\nsteuerung der Deaktivierung Gebühren\nsteuerung von WeakACInput\nfehlerbehebung Port Pfad\nerweiterte Debug hängt von ioBroker log level",
-                "ru": "контроль IBatBulk\nконтроль отключения Обязанность\nконтроль WeakACInput\nпорт исправления ошибок Путь\nрасширенная отладка зависит от уровня лога ioBroker",
-                "pt": "controle de IBatBulk\ncontrole de Deficiência Carga\ncontrole de WeakACInput\nporta de fixação de bugs Caminho\ndepuração estendida depende do nível de log do ioBroker",
-                "nl": "iBatBulk\ncontrole van defensie Aanvallen\ncontrole van WeakACInput\ninsecten maken haven Path\nverlengde debug hangt af van ioBroker log niveau",
-                "fr": "contrôle de IBatBulk\nle contrôle des handicapés Charge\ncontrôle de WeakACInput\nbug fixing port Sentier\ndebug étendu dépend du niveau de log ioBroker",
-                "it": "controllo di IBatBulk\ncontrollo della disabilitazione Carico\ncontrollo di WeakACInput\nbug fissaggio porta Sentiero\nil debug esteso dipende dal livello del registro ioBroker",
-                "es": "control de IBatBulk\ncontrol de la discapacidad Carga\ncontrol de WeakACInput\nbug fijación puerto Camino\ndepuración prolongada depende del nivel de registro de ioBroker",
-                "pl": "kontrola IBatBulk\nkontrola dyskretna Charge\nkontrola WeakACInput\nnaprawić port Path Path\nrozszerzenie debugu zależy od ioBrokera",
-                "uk": "контроль IBatBulk\nконтроль несправності Вартість\nконтроль за WeakACInput\nвиправлення помилок порту Патент\nрозширена дебug залежить від рівня логіки ioBroker",
-                "zh-cn": "iBatBulk的控制\na. 控制可支配性 临时代办\na. 控制WakACInput\nb 固定港口 Path\n扩大的排他度取决于io Broker逻辑水平"
-            },
-            "0.0.3": {
-                "en": "connection stability",
-                "de": "verbindungsstabilität",
-                "ru": "стабильность соединения",
-                "pt": "estabilidade de conexão",
-                "nl": "verbindingsvermogen",
-                "fr": "stabilité",
-                "it": "stabilità del collegamento",
-                "es": "estabilidad de conexión",
-                "pl": "stabilność",
-                "uk": "стійкість до з'єднання",
-                "zh-cn": "稳定"
-            },
-            "0.0.1": {
-                "en": "initial release",
-                "de": "Erstveröffentlichung",
-                "ru": "Начальная версия",
-                "pt": "lançamento inicial",
-                "nl": "Eerste uitgave",
-                "fr": "Première version",
-                "it": "Versione iniziale",
-                "es": "Versión inicial",
-                "pl": "Pierwsze wydanie",
-                "zh-cn": "首次出版"
+            "0.4.0": {
+                "en": "Admin 5+ JSON configuration, updated serial and runtime dependencies, CI on Node.js 22/24/26 and publication preparation",
+                "de": "Admin-5+-JSON-Konfiguration, aktualisierte Serial- und Laufzeit-Abhängigkeiten, CI auf Node.js 22/24/26 und Vorbereitung der Veröffentlichung",
+                "ru": "JSON-конфигурация Admin 5+, обновлённые зависимости serial и среды выполнения, CI на Node.js 22/24/26 и подготовка к публикации",
+                "pt": "Configuração JSON do Admin 5+, dependências de serial e runtime atualizadas, CI em Node.js 22/24/26 e preparação para publicação",
+                "nl": "Admin 5+-JSON-configuratie, bijgewerkte serial- en runtime-afhankelijkheden, CI op Node.js 22/24/26 en voorbereiding van de publicatie",
+                "fr": "Configuration JSON Admin 5+, dépendances serial et runtime mises à jour, CI sur Node.js 22/24/26 et préparation de la publication",
+                "it": "Configurazione JSON di Admin 5+, dipendenze serial e runtime aggiornate, CI su Node.js 22/24/26 e preparazione alla pubblicazione",
+                "es": "Configuración JSON de Admin 5+, dependencias de serial y runtime actualizadas, CI en Node.js 22/24/26 y preparación de la publicación",
+                "pl": "Konfiguracja JSON Admin 5+, zaktualizowane zależności serial i środowiska uruchomieniowego, CI na Node.js 22/24/26 i przygotowanie do publikacji",
+                "uk": "JSON-конфігурація Admin 5+, оновлені залежності serial і середовища виконання, CI на Node.js 22/24/26 та підготовка до публікації",
+                "zh-cn": "Admin 5+ JSON 配置、更新串口与运行时依赖、基于 Node.js 22/24/26 的 CI，以及发布准备"
             }
         },
-        "title": "victron-mk2",
+        "title": "Victron MK2",
         "titleLang": {
-            "en": "victron-mk2",
-            "de": "Victron-mk2",
-            "ru": "victron-mk2",
-            "pt": "vitron-mk2",
-            "nl": "victron-mk2",
-            "fr": "victron-mk2",
-            "it": "victron-mk2",
-            "es": "victron-mk2",
-            "pl": "victron-mk2",
-            "zh-cn": "victron-mk2"
+            "en": "Victron MK2",
+            "de": "Victron MK2",
+            "ru": "Victron MK2",
+            "pt": "Victron MK2",
+            "nl": "Victron MK2",
+            "fr": "Victron MK2",
+            "it": "Victron MK2",
+            "es": "Victron MK2",
+            "pl": "Victron MK2",
+            "uk": "Victron MK2",
+            "zh-cn": "Victron MK2"
         },
         "desc": {
-            "en": "Victron MultiPlus/Quattro inverter chargers via MK2/VE.Bus: telemetry, limits, modes, settings and diagnostics",
-            "de": "Victron MultiPlus/Quattro Wechselrichter/Ladegeräte über MK2/VE.Bus: Telemetrie, Limits, Modi, Einstellungen und Diagnose"
+            "en": "Victron MultiPlus/Quattro inverter/chargers via MK2-USB or MK3-USB (VE.Bus): telemetry, limits, modes, settings and diagnostics",
+            "de": "Victron MultiPlus/Quattro Wechselrichter/Ladegeräte über MK2-USB oder MK3-USB (VE.Bus): Telemetrie, Limits, Modi, Einstellungen und Diagnose"
         },
         "authors": [
-            "joerg <joerg.spoerl@gmx.de>"
+            "joerg <joerg.spoerl@gmx.de> (https://github.com/joergspoerl)"
         ],
         "keywords": [
             "ioBroker",
             "victron",
             "ve.bus",
             "mk2",
+            "mk3",
             "multiplus",
+            "quattro",
             "inverter",
             "charger",
             "energy"
@@ -147,16 +67,25 @@
         "compact": true,
         "connectionType": "local",
         "dataSource": "poll",
-        "materialize": true,
+        "supportCustoms": true,
+        "adminUI": {
+            "config": "json"
+        },
         "dependencies": [
             {
-                "js-controller": ">=2.0.0"
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.7.22"
             }
         ]
     },
     "native": {
         "interval": 2,
-        "portPath": "/dev/ttyUSB-Serial-1"
+        "portPath": "",
+        "responseTimeout": 1500
     },
     "objects": [],
     "instanceObjects": []
