@@ -1,4 +1,4 @@
-import type SerialPort from "serialport";
+import type { SerialPort } from "serialport";
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -57,13 +57,8 @@ export class Mk2Serial {
 				resolve();
 			};
 
-			try {
-				// serialport 9.x: new SerialPort(path, options, callback)
-				this.port = new SerialPortImpl(this.portPath, { baudRate: 2400 }, onOpen);
-			} catch {
-				// serialport 10+/12: new SerialPort({ path, baudRate }, callback)
-				this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
-			}
+			// serialport 10+: new SerialPort({ path, baudRate }, callback)
+			this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
 		});
 	}
 

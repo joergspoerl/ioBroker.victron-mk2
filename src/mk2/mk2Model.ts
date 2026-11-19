@@ -16,7 +16,7 @@ export interface Mk2DataEntry {
 
 export type Mk2PropertyType = number | string | boolean | null; // entspricht ioBroker.StateValue
 
-export type ioBrokerRole = "state" | "value.current" | "value.voltage" | "value" | "value.temperature" | "indicator.connected"
+export type ioBrokerRole = "state" | "value.current" | "value.voltage" | "value" | "value.temperature" | "value.power" | "value.battery" | "value.frequency" | "text" | "indicator" | "indicator.connected"
 
 export enum led {
 	"OFF" = 0,
@@ -52,7 +52,7 @@ export class Mk2Model {
 			this[def.key] = {
 				descr: def.descr + " (Flags1)",
 				unit: "",
-				role: "state",
+				role: "indicator",
 				type: "boolean",
 				value: null,
 			};
@@ -86,7 +86,7 @@ export class Mk2Model {
 	"diag.last_error":    Mk2DataEntry = {
 		descr: "Last serial/protocol error",
 		unit:  "",
-		role:  "state",
+		role:  "text",
 		type: "string",
 		value: "",
 	};
@@ -110,7 +110,7 @@ export class Mk2Model {
 	"diag.last_control_error":    Mk2DataEntry = {
 		descr: "Last dropped/failed control write as 'state: reason' (empty after a successful write)",
 		unit:  "",
-		role:  "state",
+		role:  "text",
 		type: "string",
 		value: "",
 	};
@@ -149,7 +149,7 @@ export class Mk2Model {
 	"info.device_sw_version_text":    Mk2DataEntry = {
 		descr: "MultiPlus firmware version as AA BB CCC (product, model, revision)",
 		unit:  "",
-		role:  "state",
+		role:  "text",
 		type: "string",
 		value: null,
 	};
@@ -157,7 +157,7 @@ export class Mk2Model {
 	"power.inverter":    Mk2DataEntry = {
 		descr: "Inverter power, filtered (positive = AC to DC/charging, negative = inverting)",
 		unit:  "W",
-		role:  "value",
+		role:  "value.power",
 		type: "number",
 		value: null,
 	};
@@ -165,7 +165,7 @@ export class Mk2Model {
 	"power.output":    Mk2DataEntry = {
 		descr: "AC output power, filtered (positive = towards the loads)",
 		unit:  "W",
-		role:  "value",
+		role:  "value.power",
 		type: "number",
 		value: null,
 	};
@@ -173,7 +173,7 @@ export class Mk2Model {
 	"battery.soc":    Mk2DataEntry = {
 		descr: "SOC of the MultiPlus internal battery monitor - NOT the BMV; reads 0 % when the internal monitor is not configured",
 		unit:  "%",
-		role:  "value",
+		role:  "value.battery",
 		type: "number",
 		value: null,
 	};
@@ -213,7 +213,7 @@ export class Mk2Model {
 	"dc_info.finv":    Mk2DataEntry = {
 		descr: "Inverter output frequency (0 = inverter off)",
 		unit:  "Hz",
-		role:  "value",
+		role:  "value.frequency",
 		type: "number",
 		value: null,
 	};
@@ -235,9 +235,9 @@ export class Mk2Model {
 	};
 
 	"ac_info.fmains":    Mk2DataEntry = {
-		descr: "Main freqency",
+		descr: "Main frequency",
 		unit:  "Hz",
-		role:  "value",
+		role:  "value.frequency",
 		type: "number",
 		value: null,
 	};
@@ -679,7 +679,7 @@ export class Mk2Model {
 	"setting.flag.MultiPhaseSystem":    Mk2DataEntry = {
 		descr: "MultiPhaseSystem",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -687,7 +687,7 @@ export class Mk2Model {
 	"setting.flag.MultiPhaseLeader":    Mk2DataEntry = {
 		descr: "MultiPhaseLeader",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -695,7 +695,7 @@ export class Mk2Model {
 	"setting.flag.Freq60Hz":    Mk2DataEntry = {
 		descr: "60Hz",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -703,7 +703,7 @@ export class Mk2Model {
 	"setting.flag.DoNotStopAfter10HrBulk":    Mk2DataEntry = {
 		descr: "DoNotStopAfter10HrBulk",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -712,16 +712,16 @@ export class Mk2Model {
 	"setting.flag.AssistEnabled":    Mk2DataEntry = {
 		descr: "AssistEnabled",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
 
 
 	"setting.flag.DisableCharge":    Mk2DataEntry = {
-		descr: "Command: disable charger flag; read back via setting.flag.DisableCharge",
+		descr: "Disable charger flag",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -729,7 +729,7 @@ export class Mk2Model {
 	"setting.flag.DisableAES":    Mk2DataEntry = {
 		descr: "DisableAES",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -737,7 +737,7 @@ export class Mk2Model {
 	"setting.flag.EnableReducedFloat":    Mk2DataEntry = {
 		descr: "EnableReducedFloat",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -745,7 +745,7 @@ export class Mk2Model {
 	"setting.flag.DisableGroundRelay":    Mk2DataEntry = {
 		descr: "Disable ground relay",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -753,7 +753,7 @@ export class Mk2Model {
 	"setting.flag.WeakACInput":    Mk2DataEntry = {
 		descr: "Weak AC input",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -761,7 +761,7 @@ export class Mk2Model {
 	"setting.flag.RemoteOverrulesAC2":    Mk2DataEntry = {
 		descr: "Remote overrules AC2",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -769,7 +769,7 @@ export class Mk2Model {
 	"setting.flag.DisableWaveCheck":    Mk2DataEntry = {
 		descr: "Disable wave check / fast input voltage detection (Flags0 bit 3)",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};
@@ -777,7 +777,7 @@ export class Mk2Model {
 	"setting.flag.WaveCheckInverted":    Mk2DataEntry = {
 		descr: "Flags0 bit 7; must be the inverse of DisableWaveCheck (protocol §7.3.13.3)",
 		unit:  "",
-		role:  "state",
+		role:  "indicator",
 		type: "boolean",
 		value: null,
 	};

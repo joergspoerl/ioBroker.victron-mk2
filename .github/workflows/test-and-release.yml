@@ -13,6 +13,14 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+-**"
   pull_request: {}
 
+# Cancel previous PR/branch runs when a new commit is pushed
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   # Performs quick checks before the expensive test runs
   check-and-lint:
@@ -24,12 +32,10 @@ jobs:
       - uses: ioBroker/testing-action-check@v1
         with:
           node-version: '22.x'
-          # Uncomment the following line if your adapter cannot be installed using 'npm ci'
-          # install-command: 'npm install'
           type-checking: true
           lint: true
-          # The native serialport 9 binding does not build on modern Node and is
-          # not needed for unit/manifest tests (no real port is opened).
+          # The native serialport binding is not needed for lint, unit or
+          # manifest tests (no real port is opened during CI).
           install-command: 'npm ci --ignore-scripts'
 
   # Runs adapter tests on all supported node versions and OSes
@@ -39,27 +45,23 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [22.x, 24.x]
-        # The adapter runs on Linux (pi4). The ioBroker integration harness
-        # fails to add the instance on Windows ("Adding the adapter instance
-        # failed!"), so Windows is intentionally not part of this matrix.
+        node-version: [22.x, 24.x, 26.x]
+        # The adapter runs on Linux (Raspberry Pi). The ioBroker integration
+        # harness currently fails to add the instance on Windows, so Windows
+        # is intentionally not part of this matrix.
         os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: ioBroker/testing-action-adapter@v1
         with:
           node-version: ${{ matrix.node-version }}
-          install-command: 'npm ci --ignore-scripts'
           os: ${{ matrix.os }}
-          # Uncomment the following line if your adapter cannot be installed using 'npm ci'
-          # install-command: 'npm install'
+          install-command: 'npm ci --ignore-scripts'
           build: true
 
-# TODO: To enable automatic npm releases, create a token on npmjs.org 
-# Enter this token as a GitHub secret (with name NPM_TOKEN) in the repository options
-# Then uncomment the following block:
-
-#  # Deploys the final package to NPM
+# To publish automatically, configure trusted publishing for this repository
+# on npmjs.com and uncomment the following block:
+#
 #  deploy:
 #    needs: [check-and-lint, adapter-tests]
 #
@@ -71,24 +73,16 @@ jobs:
 #
 #    runs-on: ubuntu-latest
 #
+#    # Write permissions are required to create GitHub releases and to use
+#    # npm trusted publishing (OIDC).
+#    permissions:
+#      id-token: write
+#      contents: write
+#
 #    steps:
 #      - uses: ioBroker/testing-action-deploy@v1
 #        with:
 #          node-version: '22.x'
-#          # Uncomment the following line if your adapter cannot be installed using 'npm ci'
-#          # install-command: 'npm install'
+#          install-command: 'npm ci --ignore-scripts'
 #          build: true
-#          npm-token: ${{ secrets.NPM_TOKEN }}
 #          github-token: ${{ secrets.GITHUB_TOKEN }}
-#
-#          # When using Sentry for error reporting, Sentry can be informed about new releases
-#          # To enable create a API-Token in Sentry (User settings, API keys)
-#          # Enter this token as a GitHub secret (with name SENTRY_AUTH_TOKEN) in the repository options
-#          # Then uncomment and customize the following block:
-#          sentry: true
-#          sentry-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-#          sentry-project: "iobroker-victron-mk2"
-#          sentry-version-prefix: "iobroker.victron-mk2"
-#          sentry-sourcemap-paths: "build/"
-#          # If your sentry project is linked to a GitHub repository, you can enable the following option
-#          # sentry-github-integration: true
