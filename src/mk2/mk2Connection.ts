@@ -57,6 +57,7 @@ export class Mk2Connection {
 		this.log = log;
 		this.debug = this.log?.level == "debug";
 		this.port = port ?? new Mk2Serial(portPath, log);
+		this.port.onError = (err) => this.handleSerialError(err);
 	}
 
 	async waitForFreeLine(): Promise<void> {
@@ -379,6 +380,19 @@ export class Mk2Connection {
 			// best effort; the reopen path handles a closed or broken port
 		}
 		throw new Mk2TransportError(message);
+	}
+
+	/**
+	 * Asynchronous serial errors (USB unplugged, driver reset) must not only be
+	 * logged: invalidate the sync and close the port so the next poll reopens and
+	 * resynchronises (issue #8).
+	 */
+	private handleSerialError(err: Error): void {
+		this.protocolErrors++;
+		this.lastError = "serial error: " + err.message;
+		this.synced = false;
+		this.rxBuffer = Buffer.alloc(0);
+		void this.port.close().catch(() => undefined);
 	}
 
 	/** Set of exchange queue: serialises requests; see communicateMulti. */

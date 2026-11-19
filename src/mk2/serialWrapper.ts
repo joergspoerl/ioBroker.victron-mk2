@@ -8,6 +8,8 @@ export class Mk2Serial {
 	port: SerialPort | undefined;
 	portPath: string;
 	log?: { debug: (...args: any[]) => void; info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
+	/** Called for asynchronous serial errors (e.g. USB unplugged). */
+	onError?: (err: Error) => void;
 
 	constructor(portPath: string, log?: any) {
 		this.portPath = portPath;
@@ -49,6 +51,7 @@ export class Mk2Serial {
 
 				this.port.on("error", (err) => {
 					this.log?.warn?.("serial port error: " + err);
+					this.onError?.(err instanceof Error ? err : new Error(String(err)));
 				});
 				this.port.on("close", () => {
 					this.log?.info?.("serial port closed");

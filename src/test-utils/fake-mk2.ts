@@ -42,6 +42,8 @@ export function winmonFrames(wFrames: number[][]): Buffer[] {
  */
 export class FakeMk2Serial {
 	portPath: string;
+	/** Set by Mk2Connection; tests can trigger an asynchronous serial error. */
+	onError?: (err: Error) => void;
 	private incoming: Buffer[] = [];
 	private buffer = Buffer.alloc(0);
 	private opened = false;
@@ -59,6 +61,11 @@ export class FakeMk2Serial {
 
 	push(data: Buffer): void {
 		this.incoming.push(data);
+	}
+
+	/** Simulate an asynchronous serialport "error" event. */
+	emitError(err: Error): void {
+		this.onError?.(err);
 	}
 
 	async open(): Promise<void> {

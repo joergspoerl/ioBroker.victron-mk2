@@ -38,6 +38,9 @@ Publication preparation and a modern runtime baseline.
 - `PollLoop.stop()` now cancels the pending poll timer, so an unload does not
   wait up to the configured interval (up to one hour) before the adapter
   terminates.
+- Asynchronous serial errors (for example a disconnected USB adapter) now
+  invalidate the sync, close the port and bump `diag.protocol_errors` instead
+  of only writing a log line. The next poll reopens and resynchronises.
 
 ## 0.3.5 (2026-11-18)
 
