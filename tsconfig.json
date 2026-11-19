@@ -7,8 +7,8 @@
 		"noEmit": true,
 
 		// check JS files, but do not compile them => tsconfig.build.json
-		"allowJs": true,
-		"checkJs": true,
+		"allowJs": false,
+		"checkJs": false,
 
 		"skipLibCheck": true, // Don't report errors in 3rd party definitions
 		"noEmitOnError": true,
@@ -39,9 +39,7 @@
 		"inlineSourceMap": false
 	},
 	"include": [
-		"src/**/*.ts",
-		"admin/**/*.ts",
-		"admin/**/*.tsx"
+		"src/**/*.ts"
 	],
 	"exclude": [
 		"build/**",

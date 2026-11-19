@@ -88,6 +88,7 @@ class Mk2Connection {
         this.log = log;
         this.debug = ((_a = this.log) === null || _a === void 0 ? void 0 : _a.level) == "debug";
         this.port = port !== null && port !== void 0 ? port : new serialWrapper_1.Mk2Serial(portPath, log);
+        this.port.onError = (err) => this.handleSerialError(err);
     }
     async waitForFreeLine() {
         while (this.busy) {
@@ -387,6 +388,18 @@ class Mk2Connection {
             // best effort; the reopen path handles a closed or broken port
         }
         throw new errors_1.Mk2TransportError(message);
+    }
+    /**
+     * Asynchronous serial errors (USB unplugged, driver reset) must not only be
+     * logged: invalidate the sync and close the port so the next poll reopens and
+     * resynchronises (issue #8).
+     */
+    handleSerialError(err) {
+        this.protocolErrors++;
+        this.lastError = "serial error: " + err.message;
+        this.synced = false;
+        this.rxBuffer = Buffer.alloc(0);
+        void this.port.close().catch(() => undefined);
     }
     /** Set of exchange queue: serialises requests; see communicateMulti. */
     async waitForIdle(timeoutMs = 3000) {

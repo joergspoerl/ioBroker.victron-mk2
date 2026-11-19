@@ -1,0 +1,76 @@
+{
+    "i18n": true,
+    "type": "panel",
+    "items": {
+        "portPath": {
+            "type": "autocomplete",
+            "label": "serialPort",
+            "help": "serialPortHelp",
+            "freeSolo": true,
+            "placeholder": "/dev/ttyUSB0",
+            "options": [
+                {
+                    "value": "/dev/ttyUSB0",
+                    "label": "/dev/ttyUSB0",
+                    "noTranslation": true
+                },
+                {
+                    "value": "/dev/ttyUSB1",
+                    "label": "/dev/ttyUSB1",
+                    "noTranslation": true
+                },
+                {
+                    "value": "/dev/ttyACM0",
+                    "label": "/dev/ttyACM0",
+                    "noTranslation": true
+                },
+                {
+                    "value": "COM3",
+                    "label": "COM3",
+                    "noTranslation": true
+                },
+                {
+                    "value": "COM4",
+                    "label": "COM4",
+                    "noTranslation": true
+                }
+            ],
+            "newLine": true,
+            "xs": 12,
+            "sm": 12,
+            "md": 8,
+            "lg": 6,
+            "xl": 4
+        },
+        "interval": {
+            "type": "number",
+            "label": "pollInterval",
+            "help": "pollIntervalHelp",
+            "min": 1,
+            "max": 3600,
+            "step": 1,
+            "unit": "s",
+            "newLine": true,
+            "xs": 12,
+            "sm": 6,
+            "md": 4,
+            "lg": 3,
+            "xl": 2
+        },
+        "responseTimeout": {
+            "type": "number",
+            "label": "responseTimeout",
+            "help": "responseTimeoutHelp",
+            "min": 250,
+            "max": 10000,
+            "step": 50,
+            "unit": "ms",
+            "newLine": true,
+            "xs": 12,
+            "sm": 6,
+            "md": 4,
+            "lg": 3,
+            "xl": 2
+        }
+    }
+}

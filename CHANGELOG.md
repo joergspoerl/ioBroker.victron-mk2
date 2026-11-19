@@ -3,6 +3,46 @@
 All notable changes to this adapter are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.0 (2026-11-19)
+
+Publication preparation and a modern runtime baseline.
+
+### Changed
+
+- Configuration migrated to **Admin 5+ JSON config** (`admin/jsonConfig.json`);
+  the legacy Materialize dialog and `words.js` were removed. The native keys
+  (`portPath`, `interval`, `responseTimeout`) are unchanged, so existing
+  installations keep their settings.
+- Requires **js-controller >= 6.0.11** and **admin >= 7.7.22**.
+- Requires **Node.js >= 22.19.0**; CI runs on Node.js 22, 24 and 26.
+- Updated `@iobroker/adapter-core` to 3.x and `serialport` to 13.x. The serial
+  port is now always opened with the current `{ path, baudRate }` constructor.
+- README restructured for users: installation, configuration, states,
+  controls, safety notes and troubleshooting. Developer template sections
+  removed; verification reports remain in `docs/`.
+- Package contents limited to the files needed at runtime. `build/` is produced
+  by `npm run build` (also on `npm pack` and on release) and kept in the
+  repository so the adapter checker and GitHub installations can resolve
+  `build/main.js`.
+
+### Added
+
+- Channel/folder objects (`info`, `diag`, `dc_info`, `ac_info`, `power`,
+  `battery`, `switch`, `state`, `led`, `setting`, `setting.flag`, `control`)
+  group the states, so states are always the last level of the object tree.
+- Dependabot configuration and GitHub issue templates.
+- `prepack` build so a package created from a clean checkout always contains
+  `build/`.
+
+### Fixed
+
+- `PollLoop.stop()` now cancels the pending poll timer, so an unload does not
+  wait up to the configured interval (up to one hour) before the adapter
+  terminates.
+- Asynchronous serial errors (for example a disconnected USB adapter) now
+  invalidate the sync, close the port and bump `diag.protocol_errors` instead
+  of only writing a log line. The next poll reopens and resynchronises.
+
 ## 0.3.5 (2026-11-18)
 
 Fourth audit round against a live MultiPlus on firmware **1909209**. Findings

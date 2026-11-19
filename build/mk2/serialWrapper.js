@@ -75,8 +75,9 @@ class Mk2Serial {
                 });
                 (_b = (_a = this.log) === null || _a === void 0 ? void 0 : _a.debug) === null || _b === void 0 ? void 0 : _b.call(_a, "mk2-dtr: on");
                 this.port.on("error", (err) => {
-                    var _a, _b;
+                    var _a, _b, _c;
                     (_b = (_a = this.log) === null || _a === void 0 ? void 0 : _a.warn) === null || _b === void 0 ? void 0 : _b.call(_a, "serial port error: " + err);
+                    (_c = this.onError) === null || _c === void 0 ? void 0 : _c.call(this, err instanceof Error ? err : new Error(String(err)));
                 });
                 this.port.on("close", () => {
                     var _a, _b;
@@ -84,14 +85,8 @@ class Mk2Serial {
                 });
                 resolve();
             };
-            try {
-                // serialport 9.x: new SerialPort(path, options, callback)
-                this.port = new SerialPortImpl(this.portPath, { baudRate: 2400 }, onOpen);
-            }
-            catch (_a) {
-                // serialport 10+/12: new SerialPort({ path, baudRate }, callback)
-                this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
-            }
+            // serialport 10+: new SerialPort({ path, baudRate }, callback)
+            this.port = new SerialPortImpl({ path: this.portPath, baudRate: 2400 }, onOpen);
         });
     }
     close() {

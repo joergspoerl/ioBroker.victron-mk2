@@ -107,6 +107,22 @@ describe("Mk2Connection", () => {
 			expect(conn.lastError).to.contain("Timeout");
 			expect(fake.isOpen()).to.equal(false);
 		});
+
+		it("invalidates the connection on an asynchronous serial error", async () => {
+			const fake = new FakeMk2Serial();
+			fake.push(versionFrame());
+			await fake.open();
+			const conn = connWith(fake);
+			await conn.sync();
+			expect(conn.synced).to.equal(true);
+
+			fake.emitError(new Error("EIO: USB device disconnected"));
+			expect(conn.synced).to.equal(false);
+			expect(conn.protocolErrors).to.equal(1);
+			expect(conn.lastError).to.contain("serial error: EIO");
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(fake.isOpen()).to.equal(false);
+		});
 	});
 
 	describe("sync robustness", () => {

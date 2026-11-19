@@ -44,7 +44,7 @@ class Mk2Model {
         this["diag.last_error"] = {
             descr: "Last serial/protocol error",
             unit: "",
-            role: "state",
+            role: "text",
             type: "string",
             value: "",
         };
@@ -65,7 +65,7 @@ class Mk2Model {
         this["diag.last_control_error"] = {
             descr: "Last dropped/failed control write as 'state: reason' (empty after a successful write)",
             unit: "",
-            role: "state",
+            role: "text",
             type: "string",
             value: "",
         };
@@ -99,28 +99,28 @@ class Mk2Model {
         this["info.device_sw_version_text"] = {
             descr: "MultiPlus firmware version as AA BB CCC (product, model, revision)",
             unit: "",
-            role: "state",
+            role: "text",
             type: "string",
             value: null,
         };
         this["power.inverter"] = {
             descr: "Inverter power, filtered (positive = AC to DC/charging, negative = inverting)",
             unit: "W",
-            role: "value",
+            role: "value.power",
             type: "number",
             value: null,
         };
         this["power.output"] = {
             descr: "AC output power, filtered (positive = towards the loads)",
             unit: "W",
-            role: "value",
+            role: "value.power",
             type: "number",
             value: null,
         };
         this["battery.soc"] = {
             descr: "SOC of the MultiPlus internal battery monitor - NOT the BMV; reads 0 % when the internal monitor is not configured",
             unit: "%",
-            role: "value",
+            role: "value.battery",
             type: "number",
             value: null,
         };
@@ -155,7 +155,7 @@ class Mk2Model {
         this["dc_info.finv"] = {
             descr: "Inverter output frequency (0 = inverter off)",
             unit: "Hz",
-            role: "value",
+            role: "value.frequency",
             type: "number",
             value: null,
         };
@@ -174,9 +174,9 @@ class Mk2Model {
             value: null,
         };
         this["ac_info.fmains"] = {
-            descr: "Main freqency",
+            descr: "Main frequency",
             unit: "Hz",
-            role: "value",
+            role: "value.frequency",
             type: "number",
             value: null,
         };
@@ -587,91 +587,91 @@ class Mk2Model {
         this["setting.flag.MultiPhaseSystem"] = {
             descr: "MultiPhaseSystem",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.MultiPhaseLeader"] = {
             descr: "MultiPhaseLeader",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.Freq60Hz"] = {
             descr: "60Hz",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.DoNotStopAfter10HrBulk"] = {
             descr: "DoNotStopAfter10HrBulk",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.AssistEnabled"] = {
             descr: "AssistEnabled",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.DisableCharge"] = {
-            descr: "Command: disable charger flag; read back via setting.flag.DisableCharge",
+            descr: "Disable charger flag",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.DisableAES"] = {
             descr: "DisableAES",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.EnableReducedFloat"] = {
             descr: "EnableReducedFloat",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.DisableGroundRelay"] = {
             descr: "Disable ground relay",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.WeakACInput"] = {
             descr: "Weak AC input",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.RemoteOverrulesAC2"] = {
             descr: "Remote overrules AC2",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.DisableWaveCheck"] = {
             descr: "Disable wave check / fast input voltage detection (Flags0 bit 3)",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
         this["setting.flag.WaveCheckInverted"] = {
             descr: "Flags0 bit 7; must be the inverse of DisableWaveCheck (protocol §7.3.13.3)",
             unit: "",
-            role: "state",
+            role: "indicator",
             type: "boolean",
             value: null,
         };
@@ -698,7 +698,7 @@ class Mk2Model {
             this[def.key] = {
                 descr: def.descr + " (Flags1)",
                 unit: "",
-                role: "state",
+                role: "indicator",
                 type: "boolean",
                 value: null,
             };

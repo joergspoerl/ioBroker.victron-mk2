@@ -1,0 +1,109 @@
+name: Bug report
+description: Something is not working as it should
+title: "[Bug]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Thank you for reporting a bug in this adapter!**
+
+
+        Please check that you use the current adapter version and that the
+        problem is caused by this adapter, not by ioBroker core or another
+        adapter. Support questions belong in the
+        [ioBroker forum](https://forum.iobroker.net/).
+
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you see and what you expected to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: To Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Configure '...'
+        2. Write value '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Environment
+
+  - type: input
+    id: adapter-version
+    attributes:
+      label: Adapter version
+      description: Can be found in the adapters tab of ioBroker admin
+      placeholder: e.g. 0.4.0
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Victron device and firmware
+      description: Model and firmware version of the MultiPlus/Quattro, and whether an MK2-USB or MK3-USB is used
+      placeholder: e.g. MultiPlus 12/3000, firmware 1909209, MK2-USB
+    validations:
+      required: true
+
+  - type: input
+    id: js-controller-version
+    attributes:
+      label: JS-Controller version
+      description: Can be found in the host section of ioBroker admin (or use `iobroker -v` on the console)
+      placeholder: e.g. 7.2.5
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node version
+      description: Determine this with `node -v` on the console
+      placeholder: e.g. v22.19.0
+    validations:
+      required: true
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      description: Which OS is ioBroker running on?
+      placeholder: e.g. Raspberry Pi OS, Debian, Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-logs
+    attributes:
+      label: Logs and screenshots
+      description: |
+        Enable debug logging for the adapter and paste the relevant part here.
+        You can attach images or log files by dragging them into this field.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here.

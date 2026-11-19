@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest an idea or a new state for this adapter
+title: "[Feature]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Please describe which device value or behaviour you are missing and why
+        it cannot be solved with the existing states. Requests for new hardware
+        should include the device model and firmware version.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you would like
+      description: Which state, command or configuration option should be added?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Workarounds, other adapters or scripts.
+
+  - type: input
+    id: device
+    attributes:
+      label: Victron device and firmware
+      description: Model, firmware version and MK2-USB/MK3-USB
+      placeholder: e.g. MultiPlus 12/3000, firmware 1909209, MK2-USB
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Logs, protocol notes or screenshots.
